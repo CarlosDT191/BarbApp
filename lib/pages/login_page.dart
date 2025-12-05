@@ -159,7 +159,7 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: loginWithGoogle,
                     color: Colors.deepOrangeAccent,
                     textColor: Colors.white, // llama a la función
-                    child: Text("Iniciar sesión con Google"),
+                    child: Text("Iniciar sesión con Google."),
                   ),
                 )
                 ],
