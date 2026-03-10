@@ -13,7 +13,7 @@ app.use(cors());
 
 // ================================
 // 🔹 Conexión a MongoDB Atlas
-// ================================
+// ================================ 
 const mongoURI = process.env.MONGOURI;
 
 mongoose.connect(mongoURI)
@@ -22,7 +22,7 @@ mongoose.connect(mongoURI)
 
 // ================================
 // 🔹 Modelo de Usuario
-// ================================
+// ================================ 
 const User = mongoose.model("User", new mongoose.Schema({
   email: { type: String, unique: true, required: true },
   username: { type: String, required: true },

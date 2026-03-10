@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'pages/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'features/auth/login_page.dart';
 
 
 // MAIN DE LA APLICACIÓN
@@ -65,15 +65,15 @@ class _MyAppState extends State<MyApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      primaryColor: Colors.orange,
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-      inputDecorationTheme: InputDecorationTheme(
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.orange, width: 2),
+      theme: ThemeData(
+        primaryColor: Colors.orange,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        inputDecorationTheme: InputDecorationTheme(
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.orange, width: 2),
+          ),
         ),
       ),
-    ),
       // home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), ESTO HAY QUE DESACTIVARLO EN LA LÓGICA PRINCIPAL
       home: LoginPage(onLogin: _loginSuccess)
     );

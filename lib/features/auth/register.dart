@@ -3,7 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:convert';
-import 'package:flutter_application_1/pages/home_page.dart';
+import 'package:flutter_application_1/features/home/home_page.dart';
 import 'package:http/http.dart' as http;
 
 
@@ -39,13 +39,12 @@ class _RegisterPageState extends State<RegisterPage> {
     }),
   );
 
-    print("Enviando cositas a la BD");
-
     if (response.statusCode == 200) {
       setState(() {
         errorMessage = null;
       });
-      Navigator.push(
+      Navigator.pop(context);
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),
       );
