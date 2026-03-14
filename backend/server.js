@@ -64,9 +64,21 @@ app.post("/auth/register", async (req, res) => {
       role,
     });
 
+    const jwt = require("jsonwebtoken");
+
+    const token = jwt.sign(
+      { userId: newUser._id, role: newUser.role },
+      process.env.JWT_SECRET
+    );
+
     return res.status(200).json({
       message: "Usuario registrado exitosamente",
-      user: { email: newUser.email, username: newUser.username, role: newUser.role },
+      token: token,
+      user: {
+        email: newUser.email,
+        username: newUser.username,
+        role: newUser.role
+      }
     });
 
   } catch (err) {
@@ -74,6 +86,43 @@ app.post("/auth/register", async (req, res) => {
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+// ==================================================
+// 🔹 ENDPOINT para devolver datos de usuario
+// ==================================================
+
+const jwt = require("jsonwebtoken");
+
+function authMiddleware(req, res, next) {
+
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ error: "Token requerido" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = decoded;
+
+    next();
+
+  } catch (err) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+}
+
+app.get("/users/me", authMiddleware, async (req, res) => {
+
+  const user = await User.findById(req.user.userId).select("-password");
+
+  res.json(user);
+
+});
+
 
 // ================================
 // 🔹 Inicializar servidor

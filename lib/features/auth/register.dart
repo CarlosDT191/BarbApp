@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:convert';
 import 'package:flutter_application_1/features/home/home_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 
@@ -12,6 +12,11 @@ class RegisterPage extends StatefulWidget {
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
+}
+
+Future<void> saveUserSession(String token) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString("token", token);
 }
 
 class _RegisterPageState extends State<RegisterPage> {
@@ -32,14 +37,20 @@ class _RegisterPageState extends State<RegisterPage> {
     url,
     headers: {"Content-Type": "application/json"},
     body: jsonEncode({
-      "email": email,
-      "username": username,
-      "password": password,
-      "role": selectedRole
-    }),
-  );
+        "email": email,
+        "username": username,
+        "password": password,
+        "role": selectedRole
+      }),
+    );
 
     if (response.statusCode == 200) {
+
+      final Map<String, dynamic> data = jsonDecode(response.body);
+
+      String userToken = data["token"];
+      saveUserSession(userToken);
+
       setState(() {
         errorMessage = null;
       });

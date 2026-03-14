@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'features/auth/login_page.dart';
+import 'features/home/home_page.dart';
 
 
 // MAIN DE LA APLICACIÓN
@@ -75,7 +76,11 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       // home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), ESTO HAY QUE DESACTIVARLO EN LA LÓGICA PRINCIPAL
-      home: LoginPage(onLogin: _loginSuccess)
+      home: LoginPage(onLogin: _loginSuccess),
+      routes: {
+        '/login': (context) => LoginPage(onLogin: _loginSuccess),
+        '/home': (context) => HomePage(),
+      },
     );
   }
 }
