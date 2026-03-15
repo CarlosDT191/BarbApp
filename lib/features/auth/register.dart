@@ -31,40 +31,40 @@ class _RegisterPageState extends State<RegisterPage> {
   String username= "";
 
   Future<void> registerUser() async {
-  final url = Uri.parse("http://10.0.2.2:3000/auth/register");
+    final url = Uri.parse("http://10.0.2.2:3000/auth/register");
 
-  final response = await http.post(
-    url,
-    headers: {"Content-Type": "application/json"},
-    body: jsonEncode({
-        "email": email,
-        "username": username,
-        "password": password,
-        "role": selectedRole
-      }),
-    );
-
-    if (response.statusCode == 200) {
-
-      final Map<String, dynamic> data = jsonDecode(response.body);
-
-      String userToken = data["token"];
-      saveUserSession(userToken);
-
-      setState(() {
-        errorMessage = null;
-      });
-      Navigator.pop(context);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+          "email": email,
+          "username": username,
+          "password": password,
+          "role": selectedRole
+        }),
       );
-    } else {
-      final Map<String, dynamic> data = jsonDecode(response.body);
-      setState(() {
-        errorMessage = data["error"];
-      });
-    }
+
+      if (response.statusCode == 200) {
+
+        final Map<String, dynamic> data = jsonDecode(response.body);
+
+        String userToken = data["token"];
+        saveUserSession(userToken);
+
+        setState(() {
+          errorMessage = null;
+        });
+        Navigator.pop(context);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        setState(() {
+          errorMessage = data["error"];
+        });
+      }
   }
 
   String? errorMessage; 

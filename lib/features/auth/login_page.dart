@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/auth/register.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_application_1/features/home/home_page.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLogin;
@@ -16,35 +19,74 @@ class _LoginPageState extends State<LoginPage> {
 
   // Aquí declaras GoogleSignIn
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  String username= "";
+  String password= "";
+
+  String? errorMessage;
+
+  Future<void> loginUser() async {
+    final url = Uri.parse("http://10.0.2.2:3000/auth/login");
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+          "username": username,
+          "password": password
+        }),
+      );
+
+      if (response.statusCode == 200) {
+
+        final Map<String, dynamic> data = jsonDecode(response.body);
+
+        String userToken = data["token"];
+        saveUserSession(userToken);
+
+        setState(() {
+          errorMessage = null;
+        });
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        setState(() {
+          errorMessage = data["error"];
+        });
+      }
+  }
 
   // Función para iniciar sesión con Google
   Future<void> loginWithGoogle() async {
-  try {
-    // Inicia sesión con Google
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      // El usuario canceló la operación
-      return;
+    try {
+      // Inicia sesión con Google
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        // El usuario canceló la operación
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Crea credenciales de Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Inicia sesión en Firebase
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // Usuario logueado
+        print('Usuario logueado: ${userCredential.user?.displayName}');
+    } catch (e) {
+      print('Error en login con Google: $e');
     }
-
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-    // Crea credenciales de Firebase
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    // Inicia sesión en Firebase
-    UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-    // Usuario logueado
-    print('Usuario logueado: ${userCredential.user?.displayName}');
-  } catch (e) {
-    print('Error en login con Google: $e');
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +102,18 @@ class _LoginPageState extends State<LoginPage> {
             child: Form(
               child: Column(
                 children: [
+
+                  // Mensaje de error del BackEnd
+                  if (errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Text(
+                        errorMessage!,
+                        style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+    
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 35),
                     child: TextFormField(keyboardType: TextInputType.name, 
@@ -68,7 +122,9 @@ class _LoginPageState extends State<LoginPage> {
                                                               prefixIcon: Icon(Icons.person), 
                                                               border: OutlineInputBorder(),), 
                                   onChanged: (String value) {
-                                
+                                    setState(() {
+                                      username = value;
+                                    });
                                   },
                                   validator: (value){
                                     return value!.isEmpty ? "Please entry email" : null;
@@ -85,7 +141,9 @@ class _LoginPageState extends State<LoginPage> {
                                                               prefixIcon: Icon(Icons.password), 
                                                               border: OutlineInputBorder()), 
                                   onChanged: (String value) {
-                                
+                                    setState(() {
+                                      password = value;
+                                    });
                                   },
                                   validator: (value){
                                     return value!.isEmpty ? "Please entry password" : null;
@@ -98,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 50),
                   child: MaterialButton(
                     minWidth: double.infinity,
-                    onPressed: () {}, color: Colors.deepOrangeAccent, textColor: Colors.white, // FUNCIONAMIENTO
+                    onPressed: () {loginUser();}, color: Colors.deepOrangeAccent, textColor: Colors.white, // FUNCIONAMIENTO
                     child: Text("Iniciar sesión"))
                 ),
 

@@ -58,8 +58,16 @@ class HomePage extends StatelessWidget {
           future: getUserData(),
           builder: (context, snapshot) {
 
-            if (!snapshot.hasData) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return CircularProgressIndicator();
+            }
+
+            if (snapshot.hasError) {
+              return Text("Error: ${snapshot.error}");
+            }
+
+            if (!snapshot.hasData) {
+              return Text("No hay datos");
             }
 
             final user = snapshot.data as Map<String, dynamic>;
