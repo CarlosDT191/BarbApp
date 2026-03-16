@@ -67,12 +67,16 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: Colors.orange,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        scaffoldBackgroundColor: Color.fromARGB(255, 23, 23, 23),
+        primaryColor: Color.fromARGB(255, 23, 23, 23),
+        colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 23, 23, 23)),
         inputDecorationTheme: InputDecorationTheme(
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.orange, width: 2),
+            borderSide: BorderSide(color: const Color.fromARGB(255, 23, 23, 23), width: 2),
           ),
+        ),
+        textTheme: TextTheme(
+          bodyLarge: TextStyle(color: Colors.white), 
         ),
       ),
       // home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), ESTO HAY QUE DESACTIVARLO EN LA LÓGICA PRINCIPAL
