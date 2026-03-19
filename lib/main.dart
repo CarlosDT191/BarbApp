@@ -4,11 +4,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // MAIN DE LA APLICACIÓN
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await dotenv.load(fileName: "assets/.env");
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

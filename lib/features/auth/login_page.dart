@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/features/auth/register.dart';
+import 'package:flutter_application_1/features/auth/register_second.dart';
+import 'package:flutter_application_1/features/auth/register_first.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/features/home/home_page.dart';
 import 'package:flutter_application_1/models/input_decorations.dart';
+import 'package:flutter_application_1/config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -29,7 +31,8 @@ class _LoginPageState extends State<LoginPage> {
   bool get isFormValid => username.isNotEmpty && password.isNotEmpty;
 
   Future<void> loginUser() async {
-    final url = Uri.parse("http://10.0.2.2:3000/auth/login");
+    final apiBaseUrl = getApiBaseUrl();
+    final url = Uri.parse("$apiBaseUrl/auth/login");
 
     final response = await http.post(
       url,
@@ -111,29 +114,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Mensaje de error del BackEnd
                   if (errorMessage != null)
-                    Padding(
-                      padding:const EdgeInsets.symmetric(horizontal: 25),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 207, 116, 125), // rojo claro
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.red,
-                            width: 3,
-                          ),
-                        ),
-                        child: Text(
-                          errorMessage!,
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
+                    InputDecorations.errorMessageBox(errorMessage!),
 
                   SizedBox(height: 50),
     
@@ -247,10 +228,10 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const RegisterPage()),
+                        MaterialPageRoute(builder: (context) => const RegisterRole()),
                       );},
                     style: InputDecorations.borderButton(),
-                    child: Text("Unirse a BarbApp"),
+                    child: Text("Registarse en BarbApp"),
                   )
                 ),
 

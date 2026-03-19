@@ -4,11 +4,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 import 'package:flutter_application_1/features/home/home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/models/input_decorations.dart';
+import 'package:flutter_application_1/config/api_config.dart';
 import 'package:http/http.dart' as http;
 
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final int? selectedRole;
+  
+  const RegisterPage({super.key, required this.selectedRole});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -20,18 +24,17 @@ Future<void> saveUserSession(String token) async {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  int? selectedRole;
-  final List<Map<String, dynamic>> roles = [
-  {"label": "Propietario", "value": 1},
-  {"label": "Cliente", "value": 2},];
-
+  String username= "";
   String password = "";
   String confirmPassword = "";
   String email= "";
-  String username= "";
+
+  bool get isFormValid => username.isNotEmpty && password.isNotEmpty &&
+    confirmPassword.isNotEmpty && email.isNotEmpty && (password == confirmPassword);
 
   Future<void> registerUser() async {
-    final url = Uri.parse("http://10.0.2.2:3000/auth/register");
+    final apiBaseUrl = getApiBaseUrl();
+    final url = Uri.parse("$apiBaseUrl/auth/register");
 
     final response = await http.post(
       url,
@@ -40,7 +43,7 @@ class _RegisterPageState extends State<RegisterPage> {
           "email": email,
           "username": username,
           "password": password,
-          "role": selectedRole
+          "role": widget.selectedRole
         }),
       );
 
@@ -54,7 +57,10 @@ class _RegisterPageState extends State<RegisterPage> {
         setState(() {
           errorMessage = null;
         });
+        // Quitamos de la pila el register_first y el register_second
         Navigator.pop(context);
+        Navigator.pop(context);
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
@@ -67,86 +73,74 @@ class _RegisterPageState extends State<RegisterPage> {
       }
   }
 
-  String? errorMessage; 
+  String? errorMessage;
+  final usernameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController(); 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Registro"), foregroundColor: Colors.white, backgroundColor: Colors.deepOrange),
+      appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text('Registro', style: TextStyle( fontSize: 35, color: Colors.deepOrangeAccent, fontWeight: FontWeight.bold)),
+          Text('Datos de la cuenta', style: TextStyle( fontSize: 35, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 30),
             child: Form(
               child: Column(
                 children: [
+
+                  // TEXTO DE BIENVENIDA
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Text('Especifica todos tus datos correctamente para comenzar en BarbApp', style: TextStyle( fontSize: 18, color: Color.fromARGB(255, 200, 156, 125))),
+                  ),
                   
                   // Mensaje de error del BackEnd
-                  if (errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: Text(
-                        errorMessage!,
-                        style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
-                  // DropdownButton para opciones prefijadas
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: DropdownButtonFormField<int>(
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Elige el tipo de cuenta',
-                      ),
-                      value: selectedRole,
-                      items: roles.map((role) {
-                        return DropdownMenuItem<int>(
-                          value: role["value"],
-                          child: Text(role["label"]),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedRole = value;
-                        });
-                      },
-                    ),
-                  ),
+                  if (errorMessage != null) ... [
+                    SizedBox(height: 20),
+                    InputDecorations.errorMessageBox(errorMessage!),
+                  ],
 
                   SizedBox(height: 40),
 
+                  // USERNAME
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: TextFormField(keyboardType: TextInputType.name, 
-                                  decoration: InputDecoration(labelText: "Nombre de usuario", 
-                                                              hintText: "Nombre de usuario", 
-                                                              prefixIcon: Icon(Icons.person), 
-                                                              border: OutlineInputBorder(),), 
+                    child: TextFormField(
+                                    controller: usernameController,
+                                    decoration: InputDecorations.defaultInputDecoration(
+                                    labelText: "Nombre de usuario",
+                                    hintText: "Nombre de usuario",
+                                    icon: Icons.person
+                                  ), 
                                   onChanged: (String value) {
                                     setState(() {
                                       username = value;
                                     });
                                   },
                                   validator: (value){
-                                    return value!.isEmpty ? "Please entry email" : null;
+                                    return value!.isEmpty ? "Please entry username" : null;
                                   },),
                   ),
             
                   SizedBox(height: 50,),
 
+                  // EMAIL
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: TextFormField(keyboardType: TextInputType.name, 
-                                  decoration: InputDecoration(labelText: "Correo electrónico", 
-                                                              hintText: "Correo electrónico", 
-                                                              prefixIcon: Icon(Icons.mail), 
-                                                              border: OutlineInputBorder(),), 
+                    child: TextFormField(
+                                    controller: emailController,
+                                    decoration: InputDecorations.defaultInputDecoration(
+                                    labelText: "Correo electrónico",
+                                    hintText: "Correo electrónico",
+                                    icon: Icons.mail
+                                  ), 
                                   onChanged: (String value) {
                                     setState(() {
                                       email= value;
@@ -159,14 +153,16 @@ class _RegisterPageState extends State<RegisterPage> {
             
                   SizedBox(height: 50,),
 
+                  // PASSWORD
                   Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 35),
                       child: TextFormField(
+                        controller: passwordController,
                         obscureText: true,
-                        decoration: InputDecoration(
+                        decoration:  InputDecorations.defaultInputDecoration(
                           labelText: "Contraseña",
-                          prefixIcon: Icon(Icons.password),
-                          border: OutlineInputBorder(),
+                          hintText: "Contraseña",
+                          icon: Icons.password_rounded
                         ),
                         onChanged: (value) {
                           setState(() {
@@ -178,39 +174,45 @@ class _RegisterPageState extends State<RegisterPage> {
 
                   SizedBox(height: 50),
 
+                  // REPETIR PASSWORD
                   Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 35),
                       child: TextFormField(
+                        controller: confirmPasswordController,
                         obscureText: true,
-                        decoration: InputDecoration(
+                        decoration: InputDecorations.defaultInputDecoration(
                           labelText: "Repita la contraseña",
-                          prefixIcon: Icon(Icons.password),
-                          border: OutlineInputBorder(),
+                          hintText: "Repita la contraseña",
+                          icon: Icons.password_rounded,
                           suffixIcon: (confirmPassword.isEmpty)
                               ? null
                               : (password == confirmPassword)
-                                  ? Icon(Icons.check_circle,
-                                      color: Colors.green)
-                                  : Icon(Icons.cancel,
-                                      color: Colors.red),
+                                  ? Icon(Icons.check_circle, color: Colors.green)
+                                  : Icon(Icons.cancel, color: Color.fromARGB(255, 224, 122, 95)),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            confirmPassword = value;
-                          });
-                        },
-                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          confirmPassword = value;
+                        });
+                      },
                     ),
+                  ),
 
                 SizedBox(height: 50),
 
+                // BOTÓN DE CONTINUAR
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50),
-                  child: MaterialButton(
-                    minWidth: double.infinity,
-                    onPressed: () {registerUser();}, 
-                    color: Colors.deepOrangeAccent, textColor: Colors.white, // FUNCIONAMIENTO
-                    child: Text("Registro"))
+                  child: AbsorbPointer(
+                    absorbing: !isFormValid,
+                    child: ElevatedButton(
+                      onPressed: () { registerUser();},
+                      style: isFormValid
+                        ? InputDecorations.defaultButton()
+                        : InputDecorations.deactivatedButton(),
+                      child: Text("Continuar"),
+                    )
+                  )
                 ),
 
                 SizedBox(height: 40)]

@@ -23,6 +23,12 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: "Este correo ya está registrado" });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Formato de correo electrónico inválido" });
+    }
+
     const existing_username = await User.findOne({ username });
 
     if (existing_username) {
@@ -78,13 +84,13 @@ exports.login = async (req, res) => {
       user = await User.findOne({ email: username });
 
       if(!user){
-        return res.status(400).json({ error: "Correo/nombre de usuario o contraseñas incorrectos" });
+        return res.status(401).json({ error: "Correo/nombre de usuario o contraseñas incorrectos" });
       }
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ error: "Correo/nombre de usuario o contraseñas incorrectos" });
+      return res.status(401).json({ error: "Correo/nombre de usuario o contraseñas incorrectos" });
     }
 
     const token = jwt.sign(

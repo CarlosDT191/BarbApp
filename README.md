@@ -1,4 +1,4 @@
-# my_new_app
+# BarbApp
 
 A new Flutter project.
 

@@ -43,10 +43,12 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Color.fromARGB(255, 200, 156, 125),
+        foregroundColor: Colors.white,
         title: Text("Página Principal"),
         actions: [
           IconButton(
-            icon: Icon(Icons.logout),
+            icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () {
               logout(context);
             },
@@ -74,7 +76,9 @@ class HomePage extends StatelessWidget {
 
             return Text(
               "Bienvenido ${user["username"]}",
-              style: TextStyle(fontSize: 24),
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.white),
             );
           },
         ),

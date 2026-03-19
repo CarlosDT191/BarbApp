@@ -6,13 +6,24 @@ class InputDecorations {
   static InputDecoration defaultInputDecoration({
     required String labelText,
     required String hintText,
-    required IconData icon
+    required IconData icon,
+    Widget? suffixIcon,
   }) {
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
       // AQUÍ CAMBIAMOS EL COLOR DEL ICONO
-      prefixIcon: Icon(icon, color: Color.fromARGB(255, 200, 156, 125)),
+      prefixIcon: Padding(
+        padding: EdgeInsets.only(left: 18, right: 8), // ajusta la posición horizontal
+        child: Icon(icon, color: Color.fromARGB(255, 200, 156, 125)),
+      ),
+
+      suffixIcon: suffixIcon != null
+        ? Padding(
+            padding: const EdgeInsets.only(right: 23), // 👈 ajusta esto
+            child: suffixIcon,
+          )
+        : null,
 
       labelStyle: TextStyle(
         color: Colors.grey, // label cuando NO está seleccionado
@@ -82,6 +93,33 @@ class InputDecorations {
           color: const Color.fromARGB(255, 85, 83, 83),            // color del borde
           width: 2,                       // grosor del borde
         )
+      ),
+    );
+  }
+
+
+  static Widget errorMessageBox(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 188, 135, 135),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Colors.red,
+            width: 3,
+          ),
+        ),
+        child: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.red,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }
