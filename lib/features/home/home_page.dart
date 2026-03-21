@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class HomePage extends StatelessWidget {
-
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _selectedIndex = 2;
 
   // Función que contiene la lógica de cierre de sesión
   Future<void> logout(BuildContext context) async {
@@ -28,9 +35,9 @@ class HomePage extends StatelessWidget {
   Future<Map<String, dynamic>> getUserData() async {
 
     final token = await getUserToken();
-
+    final apiBaseUrl = getApiBaseUrl();
     final response = await http.get(
-      Uri.parse("http://10.0.2.2:3000/users/me"),
+      Uri.parse("$apiBaseUrl/users/me"),
       headers: {
         "Authorization": "Bearer $token"
       },
@@ -39,50 +46,156 @@ class HomePage extends StatelessWidget {
     return jsonDecode(response.body);
   }
 
+  // Controla qué pasa al pulsar cada icono
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index; // Actualiza el icono seleccionado
+    });
+
+    // Aquí puedes poner la acción de cada icono
+    switch (index) {
+      case 0:
+        print("Calendario pulsado");
+        break;
+      case 1:
+        print("Estrella pulsado");
+        break;
+      case 2:
+        print("Mapa pulsado");
+        break;
+      case 3:
+        print("Notificaciones pulsado");
+        break;
+      case 4:
+        logout(context);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Color.fromARGB(255, 200, 156, 125),
-        foregroundColor: Colors.white,
-        title: Text("Página Principal"),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              logout(context);
-            },
-          )
-        ],
-      ),
-      body: Center(
-        child: FutureBuilder(
-          future: getUserData(),
-          builder: (context, snapshot) {
 
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return CircularProgressIndicator();
-            }
+        // BARRA INFERIOR
+        bottomNavigationBar: SizedBox(
+          height: 125, // 👈 altura total de la barra
+          child: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            // 🎨 COLOR DE FONDO
+            backgroundColor: Color.fromARGB(255, 23, 23, 23),
 
-            if (snapshot.hasError) {
-              return Text("Error: ${snapshot.error}");
-            }
+            // 🎨 ICONO SELECCIONADO
+            selectedItemColor: Color.fromARGB(255, 200, 156, 125),
 
-            if (!snapshot.hasData) {
-              return Text("No hay datos");
-            }
+            // 🎨 ICONOS NO SELECCIONADOS
+            unselectedItemColor: Colors.grey,
 
-            final user = snapshot.data as Map<String, dynamic>;
-
-            return Text(
-              "Bienvenido ${user["username"]}",
-              style: TextStyle(
-                fontSize: 24,
-                color: Colors.white),
-            );
-          },
+            currentIndex: 2,
+            iconSize: 40,
+            onTap: _onItemTapped,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.calendar_month_rounded), label: ""),
+              BottomNavigationBarItem(icon: Icon(Icons.star_rate_rounded), label: ""),
+              BottomNavigationBarItem(icon: Icon(Icons.map_rounded, size: 65), label: ""),
+              BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: ""),
+              BottomNavigationBarItem(icon: Icon(Icons.person), label: ""),
+            ],
+          ),
         ),
-      ),
+
+
+        body: Stack(
+          children: [
+            // 👉 CONTENIDO PRINCIPAL (tu pantalla actual)
+            Container(
+              color: Colors.grey,
+              child: Center(
+                child: FutureBuilder(
+                  future: getUserData(),
+                  builder: (context, snapshot) {
+
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircularProgressIndicator();
+                    }
+
+                    if (snapshot.hasError) {
+                      return Text("Error: ${snapshot.error}");
+                    }
+
+                    if (!snapshot.hasData) {
+                      return Text("No hay datos");
+                    }
+
+                    final user = snapshot.data as Map<String, dynamic>;
+
+                    return Text(
+                      "Bienvenido ${user["username"]}",
+                      style: TextStyle(fontSize: 24, color: Colors.black),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // 👉 BARRA DE BÚSQUEDA FLOTANTE
+            Positioned(
+              top: 50,
+              left: 16,
+              right: 16,
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    )
+                  ],
+                ),
+                child: Row(
+                  children: [
+
+                    SizedBox(width: 15),
+
+                    Icon(Icons.search, color: Colors.grey),
+
+                    SizedBox(width: 8),
+
+                    // 👉 INPUT
+                    Expanded(
+                      child: TextField(
+                        style: TextStyle(
+                          color: Colors.black, // 👈 color del texto que escribe el usuario
+                          fontSize: 16,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: "Buscar locales",
+                          hintStyle: TextStyle(
+                          color: Colors.grey, // 👈 color del placeholder
+                        ),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+
+                    // 👉 ICONO DE FILTROS
+                    IconButton(
+                      icon: Icon(Icons.tune, color: Colors.grey),
+                      onPressed: () {
+                        print("Filtros pulsado");
+                      },
+                    ),
+
+                    SizedBox(width: 1),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
     );
   }
 }

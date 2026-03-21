@@ -4,7 +4,7 @@ import 'package:flutter_application_1/features/auth/register_first.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/features/home/home_page.dart';
-import 'package:flutter_application_1/models/input_decorations.dart';
+import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -210,12 +210,12 @@ class _LoginPageState extends State<LoginPage> {
 
                 // Botón de inicio de sesión con Google.
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
                   child: ElevatedButton.icon(
                     onPressed: loginWithGoogle,
                     icon: FaIcon(FontAwesomeIcons.google, color: Color.fromARGB(255, 200, 156, 125)),
                     style: InputDecorations.borderButton(),
-                    label: Text(" Continuar con Google"),
+                    label: Text("  Iniciar sesión con Google"),
                   ),
                 ),
 
