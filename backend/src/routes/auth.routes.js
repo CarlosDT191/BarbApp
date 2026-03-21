@@ -8,11 +8,14 @@ const authMiddleware = require("../middleware/auth.middleware");
 const User = require("../models/user.model");
 const { formatDate } = require('../config/date');
 
-// REGISTRO
-router.post("/auth/register", authController.register);
+// COMPROBAR EMAIL
+router.post("/auth/email", authController.email);
 
 // LOGIN
 router.post("/auth/login", authController.login);
+
+// REGISTRO
+router.post("/auth/register", authController.register);
 
 // OBTENCIÓN DE USUARIO
 router.get("/users/me", authMiddleware, async (req, res) => {

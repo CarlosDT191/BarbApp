@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter_application_1/features/home/home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/features/auth/register_email.dart';
 import 'package:flutter_application_1/features/auth/register_second.dart';
 import 'package:http/http.dart' as http;
 
@@ -26,13 +27,6 @@ class _RegisterRoleState extends State<RegisterRole> {
   final List<Map<String, dynamic>> roles = [
   {"label": "Propietario", "value": 1},
   {"label": "Cliente", "value": 2},];
-
-  String password = "";
-  String confirmPassword = "";
-  String email= "";
-  String username= "";
-
-  String? errorMessage; 
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +120,7 @@ class _RegisterRoleState extends State<RegisterRole> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => RegisterPage(selectedRole: selectedRole)),
+                          MaterialPageRoute(builder: (context) => RegisterEmail(selectedRole: selectedRole)),
                       );},
                       style: selectedRole != null
                         ? InputDecorations.defaultButton()

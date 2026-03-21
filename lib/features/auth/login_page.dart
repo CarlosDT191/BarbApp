@@ -210,12 +210,24 @@ class _LoginPageState extends State<LoginPage> {
 
                 // Botón de inicio de sesión con Google.
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 48),
-                  child: ElevatedButton.icon(
+                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                  child: ElevatedButton(
                     onPressed: loginWithGoogle,
-                    icon: FaIcon(FontAwesomeIcons.google, color: Color.fromARGB(255, 200, 156, 125)),
                     style: InputDecorations.borderButton(),
-                    label: Text("  Iniciar sesión con Google"),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+
+                        FaIcon(
+                          FontAwesomeIcons.google,
+                          color: Color.fromARGB(255, 200, 156, 125),
+                        ),
+
+                        SizedBox(width: 13), // 👈 CONTROL TOTAL DEL ESPACIO
+
+                        Text("Iniciar sesión con Google"),
+                      ],
+                    ),
                   ),
                 ),
 

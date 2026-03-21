@@ -11,8 +11,9 @@ import 'package:http/http.dart' as http;
 
 class RegisterPage extends StatefulWidget {
   final int? selectedRole;
+  final String? email;
   
-  const RegisterPage({super.key, required this.selectedRole});
+  const RegisterPage({super.key, required this.selectedRole, required this.email});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -27,10 +28,9 @@ class _RegisterPageState extends State<RegisterPage> {
   String username= "";
   String password = "";
   String confirmPassword = "";
-  String email= "";
 
   bool get isFormValid => username.isNotEmpty && password.isNotEmpty &&
-    confirmPassword.isNotEmpty && email.isNotEmpty && (password == confirmPassword);
+    confirmPassword.isNotEmpty && (password == confirmPassword);
 
   Future<void> registerUser() async {
     final apiBaseUrl = getApiBaseUrl();
@@ -40,7 +40,7 @@ class _RegisterPageState extends State<RegisterPage> {
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
-          "email": email,
+          "email": widget.email,
           "username": username,
           "password": password,
           "role": widget.selectedRole
@@ -57,9 +57,11 @@ class _RegisterPageState extends State<RegisterPage> {
         setState(() {
           errorMessage = null;
         });
-        // Quitamos de la pila el register_first y el register_second
-        Navigator.pop(context);
-        Navigator.pop(context);
+
+        // Quitamos de la pila el register_first, el register_email y el register_second
+        for(int i=0; i<3; ++i){
+          Navigator.pop(context);
+        }
 
         Navigator.pushReplacement(
           context,
@@ -152,7 +154,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             SizedBox(height: 40),
 
                             // EMAIL
-                            Padding(
+                            /*Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 35),
                               child: TextFormField(
                                 controller: emailController,
@@ -165,7 +167,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
 
-                            SizedBox(height: 40),
+                            SizedBox(height: 40),*/
 
                             // PASSWORD
                             Padding(

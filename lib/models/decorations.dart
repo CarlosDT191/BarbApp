@@ -102,6 +102,7 @@ class InputDecorations {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
           color: const Color.fromARGB(255, 188, 135, 135),
