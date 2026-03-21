@@ -82,145 +82,157 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text('Datos de la cuenta', style: TextStyle( fontSize: 35, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
 
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30),
-            child: Form(
-              child: Column(
-                children: [
+                    Text(
+                      'Datos de la cuenta',
+                      style: TextStyle(
+                        fontSize: 35,
+                        color: Color.fromARGB(255, 200, 156, 125),
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
 
-                  // TEXTO DE BIENVENIDA
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Text('Especifica todos tus datos correctamente para comenzar en BarbApp', style: TextStyle( fontSize: 18, color: Color.fromARGB(255, 200, 156, 125))),
-                  ),
-                  
-                  // Mensaje de error del BackEnd
-                  if (errorMessage != null) ... [
-                    SizedBox(height: 20),
-                    InputDecorations.errorMessageBox(errorMessage!),
-                  ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 30),
+                      child: Form(
+                        child: Column(
+                          children: [
 
-                  SizedBox(height: 40),
+                            // TEXTO DE BIENVENIDA
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 30),
+                              child: Text(
+                                'Especifica todos tus datos correctamente para comenzar en BarbApp',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Color.fromARGB(255, 200, 156, 125)
+                                )
+                              ),
+                            ),
 
-                  // USERNAME
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: TextFormField(
-                                    controller: usernameController,
-                                    decoration: InputDecorations.defaultInputDecoration(
-                                    labelText: "Nombre de usuario",
-                                    hintText: "Nombre de usuario",
-                                    icon: Icons.person
-                                  ), 
-                                  onChanged: (String value) {
-                                    setState(() {
-                                      username = value;
-                                    });
-                                  },
-                                  validator: (value){
-                                    return value!.isEmpty ? "Please entry username" : null;
-                                  },),
-                  ),
-            
-                  SizedBox(height: 50,),
+                            // ERROR
+                            if (errorMessage != null) ...[
+                              SizedBox(height: 20),
+                              InputDecorations.errorMessageBox(errorMessage!),
+                            ],
 
-                  // EMAIL
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: TextFormField(
-                                    controller: emailController,
-                                    decoration: InputDecorations.defaultInputDecoration(
-                                    labelText: "Correo electrónico",
-                                    hintText: "Correo electrónico",
-                                    icon: Icons.mail
-                                  ), 
-                                  onChanged: (String value) {
-                                    setState(() {
-                                      email= value;
-                                    });
-                                  },
-                                  validator: (value){
-                                    return value!.isEmpty ? "Please entry email" : null;
-                                  },),
-                  ),
-            
-                  SizedBox(height: 50,),
+                            SizedBox(height: 50),
 
-                  // PASSWORD
-                  Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 35),
-                      child: TextFormField(
-                        controller: passwordController,
-                        obscureText: true,
-                        decoration:  InputDecorations.defaultInputDecoration(
-                          labelText: "Contraseña",
-                          hintText: "Contraseña",
-                          icon: Icons.password_rounded
+                            // USERNAME
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: usernameController,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Nombre de usuario",
+                                  hintText: "Nombre de usuario",
+                                  icon: Icons.person
+                                ),
+                                onChanged: (value) => setState(() => username = value),
+                              ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                            // EMAIL
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: emailController,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Correo electrónico",
+                                  hintText: "Correo electrónico",
+                                  icon: Icons.mail
+                                ),
+                                onChanged: (value) => setState(() => email = value),
+                              ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                            // PASSWORD
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: passwordController,
+                                obscureText: true,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Contraseña",
+                                  hintText: "Contraseña",
+                                  icon: Icons.password_rounded
+                                ),
+                                onChanged: (value) => setState(() => password = value),
+                              ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                            // CONFIRM PASSWORD
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: confirmPasswordController,
+                                obscureText: true,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Repita la contraseña",
+                                  hintText: "Repita la contraseña",
+                                  icon: Icons.password_rounded,
+                                  suffixIcon: confirmPassword.isEmpty
+                                    ? null
+                                    : (password == confirmPassword)
+                                      ? Icon(Icons.check_circle, color: Colors.green)
+                                      : Icon(Icons.cancel, color: Color.fromARGB(255, 224, 122, 95)),
+                                ),
+                                onChanged: (value) => setState(() => confirmPassword = value),
+                              ),
+                            ),
+
+                            SizedBox(height: 60),
+
+                            // BOTÓN
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 50),
+                              child: AbsorbPointer(
+                                absorbing: !isFormValid,
+                                child: ElevatedButton(
+                                  onPressed: registerUser,
+                                  style: isFormValid
+                                    ? InputDecorations.defaultButton()
+                                    : InputDecorations.deactivatedButton(),
+                                  child: Text("Continuar"),
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                          ],
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            password = value;
-                          });
-                        },
                       ),
                     ),
-
-                  SizedBox(height: 50),
-
-                  // REPETIR PASSWORD
-                  Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 35),
-                      child: TextFormField(
-                        controller: confirmPasswordController,
-                        obscureText: true,
-                        decoration: InputDecorations.defaultInputDecoration(
-                          labelText: "Repita la contraseña",
-                          hintText: "Repita la contraseña",
-                          icon: Icons.password_rounded,
-                          suffixIcon: (confirmPassword.isEmpty)
-                              ? null
-                              : (password == confirmPassword)
-                                  ? Icon(Icons.check_circle, color: Colors.green)
-                                  : Icon(Icons.cancel, color: Color.fromARGB(255, 224, 122, 95)),
-                        ),
-                      onChanged: (value) {
-                        setState(() {
-                          confirmPassword = value;
-                        });
-                      },
-                    ),
-                  ),
-
-                SizedBox(height: 50),
-
-                // BOTÓN DE CONTINUAR
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 50),
-                  child: AbsorbPointer(
-                    absorbing: !isFormValid,
-                    child: ElevatedButton(
-                      onPressed: () { registerUser();},
-                      style: isFormValid
-                        ? InputDecorations.defaultButton()
-                        : InputDecorations.deactivatedButton(),
-                      child: Text("Continuar"),
-                    )
-                  )
+                  ],
                 ),
-
-                SizedBox(height: 40)]
-
               ),
             ),
-          )
-          ],
+          );
+        },
       ),
     );
   }
