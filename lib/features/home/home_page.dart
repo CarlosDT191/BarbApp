@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -55,7 +56,10 @@ class _HomePageState extends State<HomePage> {
     // Aquí puedes poner la acción de cada icono
     switch (index) {
       case 0:
-        print("Calendario pulsado");
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => CalendarPage()),
+        );
         break;
       case 1:
         print("Estrella pulsado");

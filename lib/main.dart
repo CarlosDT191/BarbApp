@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 // MAIN DE LA APLICACIÓN
 void main() async {
@@ -68,6 +69,19 @@ class _MyAppState extends State<MyApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+
+      locale: const Locale('es', 'ES'),
+
+      supportedLocales: const [
+        Locale('es', 'ES'),
+      ],
+
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
       theme: ThemeData(
         scaffoldBackgroundColor: Color.fromARGB(255, 23, 23, 23),
         primaryColor: Color.fromARGB(255, 23, 23, 23),
@@ -81,7 +95,7 @@ class _MyAppState extends State<MyApp> {
           bodyLarge: TextStyle(color: Colors.white), 
         ),
       ),
-      // home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), ESTO HAY QUE DESACTIVARLO EN LA LÓGICA PRINCIPAL
+      // home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), ESTO HAY QUE DESACTIVARLO CUANDO SE REALICE DE MANERA CORRECTA EL LOGIN
       home: LoginPage(onLogin: _loginSuccess),
       routes: {
         '/login': (context) => LoginPage(onLogin: _loginSuccess),
