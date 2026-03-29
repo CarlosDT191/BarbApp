@@ -25,11 +25,12 @@ Future<void> saveUserSession(String token) async {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  String username= "";
+  String firstname= "";
+  String lastname= "";
   String password = "";
   String confirmPassword = "";
 
-  bool get isFormValid => username.isNotEmpty && password.isNotEmpty &&
+  bool get isFormValid => firstname.isNotEmpty && lastname.isNotEmpty && password.isNotEmpty &&
     confirmPassword.isNotEmpty && (password == confirmPassword);
 
   Future<void> registerUser() async {
@@ -41,7 +42,8 @@ class _RegisterPageState extends State<RegisterPage> {
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
           "email": widget.email,
-          "username": username,
+          "firstname": firstname,
+          "lastname" : lastname,
           "password": password,
           "role": widget.selectedRole
         }),
@@ -76,7 +78,8 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   String? errorMessage;
-  final usernameController = TextEditingController();
+  final firstnameController = TextEditingController();
+  final lastnameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController(); 
@@ -141,33 +144,34 @@ class _RegisterPageState extends State<RegisterPage> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 35),
                               child: TextFormField(
-                                controller: usernameController,
+                                controller: firstnameController,
                                 decoration: InputDecorations.defaultInputDecoration(
-                                  labelText: "Nombre de usuario",
-                                  hintText: "Nombre de usuario",
+                                  labelText: "Nombre",
+                                  hintText: "Escribe tu nombre",
                                   icon: Icons.person
                                 ),
-                                onChanged: (value) => setState(() => username = value),
+                                onChanged: (value) => setState(() => firstname = value),
                               ),
                             ),
 
                             SizedBox(height: 40),
 
                             // EMAIL
-                            /*Padding(
+                            Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 35),
                               child: TextFormField(
-                                controller: emailController,
+                                controller: lastnameController,
                                 decoration: InputDecorations.defaultInputDecoration(
-                                  labelText: "Correo electrónico",
-                                  hintText: "Correo electrónico",
-                                  icon: Icons.mail
+                                  labelText: "Apellidos",
+                                  hintText: "Escribe tus apellidos",
+                                  icon: Icons.person
                                 ),
-                                onChanged: (value) => setState(() => email = value),
+                                onChanged: (value) => setState(() => lastname = value),
                               ),
                             ),
 
-                            SizedBox(height: 40),*/
+
+                            SizedBox(height: 40),
 
                             // PASSWORD
                             Padding(

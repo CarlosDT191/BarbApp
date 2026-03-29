@@ -129,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                     final user = snapshot.data as Map<String, dynamic>;
 
                     return Text(
-                      "Bienvenido ${user["username"]}",
+                      "Bienvenido ${user["firstname"]} ${user["lastname"]}",
                       style: TextStyle(fontSize: 24, color: Colors.black),
                     );
                   },

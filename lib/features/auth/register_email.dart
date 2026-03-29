@@ -5,8 +5,14 @@ import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/features/auth/register_second.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_application_1/features/home/home_page.dart';
 import 'package:http/http.dart' as http;
 
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  scopes: ['email'],
+);
 
 class RegisterEmail extends StatefulWidget {
   final int? selectedRole;
@@ -57,6 +63,70 @@ class _RegisterEmailState extends State<RegisterEmail> {
           errorMessage = data["error"];
         });
       }
+  }
+
+  Future<void> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+
+      if (account == null) return; // usuario canceló
+
+      final GoogleSignInAuthentication auth = await account.authentication;
+
+      final String? idToken = auth.idToken;
+      final String? accessToken = auth.accessToken;
+
+      final String email = account.email;
+      final String? fullName = account.displayName;
+
+      String firstName = "";
+      String lastName = "";
+
+      if (fullName != null) {
+        final parts = fullName.split(" ");
+        firstName = parts.first;
+        lastName = parts.length > 1 ? parts.sublist(1).join(" ") : "";
+      }
+
+      await sendGoogleUserToBackend(email, firstName, lastName, idToken);
+
+    } catch (error) {
+      print("Error Google Sign-In: $error");
+    }
+  }
+
+  Future<void> sendGoogleUserToBackend(String email, String firstName, String lastName, String? idToken) async {
+    final apiBaseUrl = getApiBaseUrl();
+    final url = Uri.parse("$apiBaseUrl/auth/google");
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": email,
+        "token": idToken,
+        "firstname": firstName,
+        "lastname": lastName,
+        "role": widget.selectedRole,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      await saveUserSessions(data["token"]);
+
+      for(int i=0; i<2; ++i){
+        Navigator.pop(context);
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else {
+      print("Error backend");
+    }
   } 
 
   @override
@@ -99,7 +169,7 @@ class _RegisterEmailState extends State<RegisterEmail> {
                       decoration: InputDecorations.defaultInputDecoration(
                         labelText: "Correo electrónico",
                         hintText: "Correo electrónico",
-                        icon: Icons.mail
+                        icon: Icons.mail_rounded
                       ),
                       onChanged: (value) => setState(() => email = value),
                     ),
@@ -161,7 +231,7 @@ class _RegisterEmailState extends State<RegisterEmail> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 50),
                     child: ElevatedButton(
-                      onPressed: () {print('Iniciando sesión con Google...');},
+                      onPressed: () {signInWithGoogle();},
                       style: InputDecorations.borderButton(),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,

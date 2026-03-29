@@ -11,11 +11,15 @@ const { formatDate } = require('../config/date');
 // COMPROBAR EMAIL
 router.post("/auth/email", authController.email);
 
-// LOGIN
-router.post("/auth/login", authController.login);
+// REGISTRO CON Google
+router.post("/auth/google", authController.google);
 
 // REGISTRO
 router.post("/auth/register", authController.register);
+
+// LOGIN
+router.post("/auth/login", authController.login);
+
 
 // OBTENCIÓN DE USUARIO
 router.get("/users/me", authMiddleware, async (req, res) => {

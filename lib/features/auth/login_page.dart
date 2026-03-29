@@ -38,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
-          "username": username,
+          "email": username,
           "password": password
         }),
       );
@@ -96,8 +96,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,9 +120,9 @@ class _LoginPageState extends State<LoginPage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 35),
                     child: TextFormField(decoration: InputDecorations.defaultInputDecoration(
-                                    labelText: "Usuario",
-                                    hintText: "Nombre de usuario / email",
-                                    icon: Icons.person
+                                    labelText: "Correo electrónico",
+                                    hintText: "Correo electrónico",
+                                    icon: Icons.mail_rounded
                                   ), 
                                   onChanged: (String value) {
                                     setState(() {
