@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -110,7 +111,17 @@ class _HomePageState extends State<HomePage> {
 
         body: Stack(
           children: [
-            // 👉 CONTENIDO PRINCIPAL (tu pantalla actual)
+
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(37.8882, -4.7794), // Córdoba
+                zoom: 14,
+              ),
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+            ),
+
+            /* 👉 CÓMO OBTENER VALORES DE USUARIO
             Container(
               color: Colors.grey,
               child: Center(
@@ -139,7 +150,7 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
               ),
-            ),
+            ),  */
 
             // 👉 BARRA DE BÚSQUEDA FLOTANTE
             Positioned(
