@@ -7,7 +7,7 @@ import 'package:flutter_application_1/config/api_config.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_application_1/features/home/home_page.dart';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:http/http.dart' as http;
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(

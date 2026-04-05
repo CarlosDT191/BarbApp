@@ -1,6 +1,6 @@
 import 'package:flutter_application_1/features/auth/login_page.dart';
 import 'package:flutter_application_1/features/auth/register_second.dart';
-import 'package:flutter_application_1/features/home/home_page.dart';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
 
 class AppRoutes {
   static const login = "/login";

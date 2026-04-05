@@ -124,4 +124,59 @@ class InputDecorations {
       ),
     );
   }
+
+  static Widget mainBottomNavBar({
+    required int currentIndex,
+    required Function(int) onTap,
+    bool owner = false,
+    }) {
+      return Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Colors.grey,
+              width: 1,
+            ),
+          ),
+        ),
+        child: SizedBox(
+          height: 125,
+          child: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: const Color.fromARGB(255, 23, 23, 23),
+            selectedItemColor: const Color.fromARGB(255, 200, 156, 125),
+            unselectedItemColor: Colors.grey,
+            currentIndex: currentIndex,
+            iconSize: 40,
+            onTap: onTap,
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_month_rounded),
+                label: "",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(
+                  owner
+                      ? Icons.home_work_rounded
+                      : Icons.star_rate_rounded,
+                ),
+                label: "",
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.map_rounded, size: 65),
+                label: "",
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_rounded),
+                label: "",
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.logout),
+                label: "",
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 }

@@ -3,17 +3,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_application_1/models/decorations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class HomePageOwner extends StatefulWidget {
+  const HomePageOwner({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePageOwner> createState() => _HomePageOwnerState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageOwnerState extends State<HomePageOwner> {
   int _selectedIndex = 2;
 
   // Función que contiene la lógica de cierre de sesión
@@ -57,7 +58,7 @@ class _HomePageState extends State<HomePage> {
     // Aquí puedes poner la acción de cada icono
     switch (index) {
       case 0:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => CalendarPage()),
         );
@@ -77,37 +78,21 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<int?> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("role");
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
 
-        // BARRA INFERIOR
-        bottomNavigationBar: SizedBox(
-          height: 125, // 👈 altura total de la barra
-          child: BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            // 🎨 COLOR DE FONDO
-            backgroundColor: Color.fromARGB(255, 23, 23, 23),
-
-            // 🎨 ICONO SELECCIONADO
-            selectedItemColor: Color.fromARGB(255, 200, 156, 125),
-
-            // 🎨 ICONOS NO SELECCIONADOS
-            unselectedItemColor: Colors.grey,
-
-            currentIndex: 2,
-            iconSize: 40,
-            onTap: _onItemTapped,
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.calendar_month_rounded), label: ""),
-              BottomNavigationBarItem(icon: Icon(Icons.star_rate_rounded), label: ""),
-              BottomNavigationBarItem(icon: Icon(Icons.map_rounded, size: 65), label: ""),
-              BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: ""),
-              BottomNavigationBarItem(icon: Icon(Icons.person), label: ""),
-            ],
-          ),
+        // BARRA INFERIOR CON LOS ICONOS
+        bottomNavigationBar: InputDecorations.mainBottomNavBar(
+          currentIndex: 2,
+          owner: true,
+          onTap: _onItemTapped,
         ),
-
 
         body: Stack(
           children: [

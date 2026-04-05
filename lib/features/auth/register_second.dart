@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
-import 'package:flutter_application_1/features/home/home_page.dart';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/config/api_config.dart';
@@ -19,9 +20,10 @@ class RegisterPage extends StatefulWidget {
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
-Future<void> saveUserSession(String token) async {
+Future<void> saveUserSessions(String token, int role) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString("token", token);
+  await prefs.setInt("role", role);
 }
 
 class _RegisterPageState extends State<RegisterPage> {
@@ -54,7 +56,8 @@ class _RegisterPageState extends State<RegisterPage> {
         final Map<String, dynamic> data = jsonDecode(response.body);
 
         String userToken = data["token"];
-        saveUserSession(userToken);
+        int role = data["user"]["role"];
+        saveUserSessions(userToken, role);
 
         setState(() {
           errorMessage = null;
@@ -63,12 +66,23 @@ class _RegisterPageState extends State<RegisterPage> {
         // Quitamos de la pila el register_first, el register_email y el register_second
         for(int i=0; i<3; ++i){
           Navigator.pop(context);
+        } 
+
+        // PROPIETARIO
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePageOwner()),
+          );
+        } 
+        // CLIENTE
+        else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
         }
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
       } else {
         final Map<String, dynamic> data = jsonDecode(response.body);
         setState(() {

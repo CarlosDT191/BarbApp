@@ -3,7 +3,8 @@ import 'package:flutter_application_1/features/auth/register_second.dart';
 import 'package:flutter_application_1/features/auth/register_first.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_application_1/features/home/home_page.dart';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:http/http.dart' as http;
@@ -48,16 +49,27 @@ class _LoginPageState extends State<LoginPage> {
         final Map<String, dynamic> data = jsonDecode(response.body);
 
         String userToken = data["token"];
-        saveUserSession(userToken);
+        int role = data["user"]["role"];
+        saveUserSessions(userToken, role);
 
         setState(() {
           errorMessage = null;
         });
         
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
+        // PROPIETARIO
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePageOwner()),
+          );
+        } 
+        // CLIENTE
+        else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        }
       } else {
         final Map<String, dynamic> data = jsonDecode(response.body);
         setState(() {

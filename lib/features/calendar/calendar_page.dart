@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/models/decorations.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/intl_standalone.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -18,12 +21,19 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  int _selectedIndex = 0;
+  int role = 0;
 
   Map<DateTime, List<dynamic>> reservations = {};
 
   final primaryColor = Color.fromARGB(255, 200, 156, 125);
   final backgroundColor = Color.fromARGB(255, 23, 23, 23);
   final textColor = Colors.white;
+
+  Future<int?> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("role");
+  }
 
   @override
   void initState() {
@@ -72,14 +82,73 @@ class _CalendarPageState extends State<CalendarPage> {
     return reservations[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  Future<void> logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Elimina los datos de la sesión
+    await prefs.clear();
+
+    Navigator.pushReplacementNamed(context, "/login");
+  }
+
+  // Controla qué pasa al pulsar cada icono
+  void _onItemTapped(int index) async {
+    setState(() {
+      _selectedIndex = index; // Actualiza el icono seleccionado
+    });
+
+    int role = await getUserRole() ?? 0;
+
+    // Aquí puedes poner la acción de cada icono
+    switch (index) {
+      case 0:
+        print("Calendario pulsado");
+        break;
+      case 1:
+        print("Estrella pulsada: $role");
+        break;
+      case 2:
+        // PROPIETARIO
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePageOwner()),
+          );
+        } 
+        // CLIENTE
+        else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        }
+        break;
+      case 3:
+        print("Notificaciones pulsado");
+        break;
+      case 4:
+        logout(context);
+        break;
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
+
+      // BARRA INFERIOR
+      bottomNavigationBar: InputDecorations.mainBottomNavBar(
+        currentIndex: 0,
+        owner: false,
+        onTap: _onItemTapped,
+      ),
 
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          
+          SizedBox(height: 90,),
 
           Text('Mis reservas', style: TextStyle( fontSize: 33, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
           Text('Revisa tus reservas ya creadas o solicita alguna nueva', style: TextStyle( fontSize: 14, color: Color.fromARGB(255, 200, 156, 125))),
@@ -102,6 +171,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 ],
               ),
               child: TableCalendar(
+                daysOfWeekHeight: 40,
                 locale: 'es_ES',
                 startingDayOfWeek: StartingDayOfWeek.monday,
 
