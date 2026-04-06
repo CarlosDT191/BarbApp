@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
+import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -124,7 +125,10 @@ class _CalendarPageState extends State<CalendarPage> {
         }
         break;
       case 3:
-        print("Notificaciones pulsado");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => NotificationPage()),
+        );
         break;
       case 4:
         logout(context);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
+import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:http/http.dart' as http;
@@ -70,7 +71,10 @@ class _HomePageState extends State<HomePage> {
         print("Mapa pulsado");
         break;
       case 3:
-        print("Notificaciones pulsado");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => NotificationPage()),
+        );
         break;
       case 4:
         logout(context);

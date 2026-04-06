@@ -3,7 +3,7 @@
 const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
-const reservationRoutes = require("./routes/reservation.routes");
+const featuresRoutes = require("./routes/features.routes");
 
 const app = express();
 
@@ -12,6 +12,6 @@ app.use(cors());
 
 // Monta los endpoints correspondientes
 app.use(authRoutes);
-app.use(reservationRoutes);
+app.use(featuresRoutes);
 
 module.exports = app;
