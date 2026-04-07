@@ -30,10 +30,16 @@ router.get("/users/me", authMiddleware, async (req, res) => {
   // Obtiene usuario de la base de datos
   const user = await User.findById(req.user.userId).select("-password");
 
-  console.log(`${ip} - - [ ${date} ] "GET /auth/me" 200 `);
+  console.log(`${ip} - - [ ${date} ] "GET /users/me" 200 `);
 
   res.json(user);
 
 });
+
+// ACTUALIZAR PERFIL
+router.put("/users/profile", authMiddleware, authController.updateProfile);
+
+// CAMBIAR CONTRASEÑA
+router.patch("/users/password", authMiddleware, authController.changePassword);
 
 module.exports = router;

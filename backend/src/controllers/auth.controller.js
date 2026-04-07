@@ -251,7 +251,9 @@ exports.login = async (req, res) => {
       message: "Inicio de sesión exitoso",
       token,
       user: {
-        username: user.username,
+        email: user.email,
+        firstname: user.firstname,
+        lastname: user.lastname,
         role: user.role
       }
     });
@@ -259,6 +261,113 @@ exports.login = async (req, res) => {
   } catch (err) {
     console.error(err);
     console.log(`${ip} - - [ ${date} ] "POST /auth/login" 500 (Error interno del servidor)`);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+// ACTUALIZAR PERFIL DE USUARIO
+exports.updateProfile = async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const date = formatDate();
+
+    const { firstname, lastname } = req.body;
+    const userId = req.user.userId;
+
+    if (!firstname && !lastname) {
+      console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 400 (Debe proporcionar al menos un campo)`);
+      return res.status(400).json({ error: "Debe proporcionar al menos nombre o apellido para actualizar" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        ...(firstname && { firstname }),
+        ...(lastname && { lastname })
+      },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 404 (Usuario no encontrado)`);
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 200 (Perfil actualizado exitosamente)`);
+
+    res.json({
+      message: "Perfil actualizado exitosamente",
+      user
+    });
+
+  } catch (err) {
+    console.error(err);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 500 (Error interno del servidor)`);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+// CAMBIAR CONTRASEÑA
+exports.changePassword = async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const date = formatDate();
+
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.user.userId;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 400 (Todos los campos son obligatorios)`);
+      return res.status(400).json({ error: "Todos los campos son obligatorios" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 400 (Las contraseñas no coinciden)`);
+      return res.status(400).json({ error: "Las contraseñas nuevas no coinciden" });
+    }
+
+    if (newPassword.length < 8) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 400 (Contraseña muy corta)`);
+      return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 404 (Usuario no encontrado)`);
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    // Los usuarios de Google no pueden cambiar contraseña por este método
+    if (!user.password) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 403 (Usuario autenticado por Google)`);
+      return res.status(403).json({ error: "No puedes cambiar contraseña. Tu cuenta está autenticada por Google" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isPasswordValid) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 401 (Contraseña actual incorrecta)`);
+      return res.status(401).json({ error: "La contraseña actual es incorrecta" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 200 (Contraseña actualizada exitosamente)`);
+
+    res.json({
+      message: "Contraseña actualizada exitosamente"
+    });
+
+  } catch (err) {
+    console.error(err);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 500 (Error interno del servidor)`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };

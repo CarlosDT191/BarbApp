@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
+import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:http/http.dart' as http;
@@ -17,17 +18,6 @@ class HomePageOwner extends StatefulWidget {
 
 class _HomePageOwnerState extends State<HomePageOwner> {
   int _selectedIndex = 2;
-
-  // Función que contiene la lógica de cierre de sesión
-  Future<void> logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Elimina los datos de la sesión
-    await prefs.clear();
-
-    Navigator.pushReplacementNamed(context, "/login");
-  }
-
 
   // Función que recoge el token del usuario
   Future<String?> getUserToken() async {
@@ -77,7 +67,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         );
         break;
       case 4:
-        logout(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfilePage()),
+        );
         break;
     }
   }

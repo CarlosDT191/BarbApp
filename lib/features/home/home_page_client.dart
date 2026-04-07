@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
+import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:http/http.dart' as http;
@@ -77,7 +78,10 @@ class _HomePageState extends State<HomePage> {
         );
         break;
       case 4:
-        logout(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfilePage()),
+        );
         break;
     }
   }

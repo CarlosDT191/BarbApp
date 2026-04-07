@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
+import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -141,15 +142,6 @@ class _NotificationPageState extends State<NotificationPage> {
     return prefs.getString("token");
   }
 
-  Future<void> logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Elimina los datos de la sesión
-    await prefs.clear();
-
-    Navigator.pushReplacementNamed(context, "/login");
-  }
-
   // Controla qué pasa al pulsar cada icono
   void _onItemTapped(int index) async {
     setState(() {
@@ -189,7 +181,10 @@ class _NotificationPageState extends State<NotificationPage> {
         print("Notificaciones pulsado");
         break;
       case 4:
-        logout(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfilePage()),
+        );
         break;
     }
   }

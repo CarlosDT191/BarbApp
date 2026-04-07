@@ -171,7 +171,7 @@ class InputDecorations {
                 label: "",
               ),
               const BottomNavigationBarItem(
-                icon: Icon(Icons.logout),
+                icon: Icon(Icons.person_rounded),
                 label: "",
               ),
             ],
