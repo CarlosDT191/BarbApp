@@ -214,7 +214,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
           Expanded(
             child: isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: Color.fromARGB(255, 200, 156, 125)))
                 : notifications.isEmpty
                     ? Center(
                         child: Text(

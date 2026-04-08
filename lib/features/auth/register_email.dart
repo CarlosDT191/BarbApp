@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
-import 'package:flutter_application_1/features/auth/register_second.dart';
+import 'package:flutter_application_1/features/auth/register_data.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -34,8 +34,10 @@ class _RegisterEmailState extends State<RegisterEmail> {
   final emailController = TextEditingController();
   String? errorMessage;
   bool get isFormValid => email.isNotEmpty;
+  bool isSent = false;
 
   Future<void> searchEmail() async {
+    setState(() => isSent = true);
     final apiBaseUrl = getApiBaseUrl();
     final url = Uri.parse("$apiBaseUrl/auth/email");
 
@@ -61,8 +63,11 @@ class _RegisterEmailState extends State<RegisterEmail> {
         final Map<String, dynamic> data = jsonDecode(response.body);
         setState(() {
           errorMessage = data["error"];
+          InputDecorations.showTopSnackBarError(context, errorMessage!);
         });
       }
+
+      setState(() => isSent = false);
   }
 
   Future<void> signInWithGoogle() async {
@@ -153,12 +158,6 @@ class _RegisterEmailState extends State<RegisterEmail> {
                       textAlign: TextAlign.justify),
                   ),
 
-                  // ERROR
-                  if (errorMessage != null) ...[
-                    SizedBox(height: 20),
-                    InputDecorations.errorMessageBox(errorMessage!),
-                  ],
-
                   SizedBox(height: 50),
 
                   // EMAIL
@@ -180,16 +179,12 @@ class _RegisterEmailState extends State<RegisterEmail> {
                   // BOTÓN DE CONTINUAR
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: AbsorbPointer(
-                      absorbing: !isFormValid,
-                      child: ElevatedButton(
-                        onPressed: () { searchEmail();},
-                        style: isFormValid
-                          ? InputDecorations.defaultButton()
-                          : InputDecorations.deactivatedButton(),
-                        child: Text("Continuar"),
-                      )
-                    )
+                    child: InputDecorations.loadingButton(
+                      isSent: isSent,
+                      isEnabled: isFormValid,
+                      text: "Continuar",
+                      onPressed: searchEmail,
+                    ),
                   ),
 
                   SizedBox(height: 40),

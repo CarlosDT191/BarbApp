@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:another_flushbar/flushbar.dart';
 
 class InputDecorations {
 
@@ -50,7 +50,6 @@ class InputDecorations {
   }
 
 
-
   static ButtonStyle defaultButton() {
     return ElevatedButton.styleFrom(
       backgroundColor: Color.fromARGB(255, 200, 156, 125),
@@ -67,16 +66,51 @@ class InputDecorations {
     );
   }
 
-
-  static ButtonStyle deactivatedButton() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: Color.fromARGB(60, 200, 156, 125),
-      foregroundColor: Colors.grey,
-      minimumSize: const Size(500, 50),
-      padding: EdgeInsets.symmetric(horizontal: 60, vertical: 15),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30)
+  static Widget loadingButton({
+    required bool isSent,
+    required bool isEnabled,
+    required VoidCallback onPressed,
+    required String text,
+  }) {
+    return AbsorbPointer(
+      absorbing: !isEnabled || isSent,
+      child: ElevatedButton(
+        onPressed: (!isEnabled || isSent) ? null : onPressed,
+        style: isEnabled
+            ? defaultButton()
+            : deactivatedButton(),
+        child: isSent
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(text),
       ),
+    );
+  }
+
+
+ static ButtonStyle deactivatedButton() {
+    return ButtonStyle(
+      minimumSize: MaterialStateProperty.all(const Size(500, 50)),
+      padding: MaterialStateProperty.all(
+        const EdgeInsets.symmetric(horizontal: 60, vertical: 15),
+      ),
+      shape: MaterialStateProperty.all(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+      ),
+      backgroundColor: MaterialStateProperty.resolveWith((states) {
+        return const Color.fromARGB(60, 200, 156, 125);
+      }),
+      foregroundColor: MaterialStateProperty.resolveWith((states) {
+        return Colors.grey;
+      }),
     );
   }
 
@@ -123,6 +157,74 @@ class InputDecorations {
         ),
       ),
     );
+  }
+
+  static void showTopSnackBarSuccess(BuildContext context, String message) {
+    Flushbar(
+      messageText: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            color: Colors.white, 
+            size: 28,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.green,
+      margin: const EdgeInsets.all(0),
+      borderRadius: BorderRadius.circular(0),
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+      forwardAnimationCurve: Curves.easeOut,
+      reverseAnimationCurve: Curves.easeIn,
+      padding: const EdgeInsets.all(30),
+    ).show(context);
+  }
+
+  static void showTopSnackBarError(BuildContext context, String message) {
+    Flushbar(
+      messageText: Row(
+        children: [
+          const Icon(
+            Icons.report_gmailerrorred_rounded,
+            color: Colors.white, 
+            size: 28,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.red,
+      margin: const EdgeInsets.all(0),
+      borderRadius: BorderRadius.circular(0),
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+      forwardAnimationCurve: Curves.easeOut,
+      reverseAnimationCurve: Curves.easeIn,
+      padding: const EdgeInsets.all(30),
+    ).show(context);
   }
 
   static Widget mainBottomNavBar({

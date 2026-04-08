@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/features/auth/register_second.dart';
-import 'package:flutter_application_1/features/auth/register_first.dart';
+import 'package:flutter_application_1/features/auth/register_data.dart';
+import 'package:flutter_application_1/features/auth/register_type_account.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
@@ -26,45 +26,45 @@ class _LoginPageState extends State<LoginPage> {
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   String username= "";
   String password= "";
+  bool isSent = false;
 
   String? errorMessage;
 
   bool get isFormValid => username.isNotEmpty && password.isNotEmpty;
 
   Future<void> loginUser() async {
+    setState(() => isSent = true);
+
     final apiBaseUrl = getApiBaseUrl();
     final url = Uri.parse("$apiBaseUrl/auth/login");
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
           "email": username,
           "password": password
         }),
       );
 
       if (response.statusCode == 200) {
-
         final Map<String, dynamic> data = jsonDecode(response.body);
 
         String userToken = data["token"];
         int role = data["user"]["role"];
-        saveUserSessions(userToken, role);
+        await saveUserSessions(userToken, role);
 
         setState(() {
           errorMessage = null;
         });
-        
-        // PROPIETARIO
+
         if (role == 1) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePageOwner()),
           );
-        } 
-        // CLIENTE
-        else {
+        } else {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePage()),
@@ -74,8 +74,16 @@ class _LoginPageState extends State<LoginPage> {
         final Map<String, dynamic> data = jsonDecode(response.body);
         setState(() {
           errorMessage = data["error"];
+          InputDecorations.showTopSnackBarError(context, errorMessage!);
         });
       }
+    } catch (e) {
+      setState(() {
+        errorMessage = "Error de conexión";
+      });
+    }
+
+    setState(() => isSent = false);
   }
 
   // Función para iniciar sesión con Google
@@ -122,10 +130,6 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 children: [
 
-                  // Mensaje de error del BackEnd
-                  if (errorMessage != null)
-                    InputDecorations.errorMessageBox(errorMessage!),
-
                   SizedBox(height: 50),
     
                   // RELLENAR USERNAME
@@ -171,16 +175,12 @@ class _LoginPageState extends State<LoginPage> {
                 // Botón de LOGIN
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50),
-                  child: AbsorbPointer(
-                    absorbing: !isFormValid,
-                    child: ElevatedButton(
-                      onPressed: () { loginUser();},
-                      style: isFormValid
-                        ? InputDecorations.defaultButton()
-                        : InputDecorations.deactivatedButton(),
-                      child: Text("Continuar"),
-                    )
-                  )
+                  child: InputDecorations.loadingButton(
+                    isSent: isSent,
+                    isEnabled: isFormValid,
+                    text: "Continuar",
+                    onPressed: loginUser,
+                  ),
                 ),
 
                 SizedBox(height: 40),

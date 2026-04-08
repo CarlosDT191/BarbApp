@@ -328,11 +328,6 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ error: "Las contraseñas nuevas no coinciden" });
     }
 
-    if (newPassword.length < 8) {
-      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 400 (Contraseña muy corta)`);
-      return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
-    }
-
     const user = await User.findById(userId);
 
     if (!user) {
@@ -351,6 +346,13 @@ exports.changePassword = async (req, res) => {
     if (!isPasswordValid) {
       console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 401 (Contraseña actual incorrecta)`);
       return res.status(401).json({ error: "La contraseña actual es incorrecta" });
+    }
+
+    const isPasswordSame = await bcrypt.compare(newPassword, user.password);
+
+    if (isPasswordSame) {
+      console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 400 (La nueva contraseña es la misma que la actual)`);
+      return res.status(400).json({ error: "La nueva contraseña no puede ser la misma que la actual" });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);

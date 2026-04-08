@@ -54,6 +54,8 @@ dependencies:
 
   flutter_dotenv: ^6.0.0
 
+  another_flushbar: ^1.10.24
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

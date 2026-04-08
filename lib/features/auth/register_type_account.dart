@@ -6,7 +6,7 @@ import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/features/auth/register_email.dart';
-import 'package:flutter_application_1/features/auth/register_second.dart';
+import 'package:flutter_application_1/features/auth/register_data.dart';
 import 'package:http/http.dart' as http;
 
 

@@ -31,11 +31,13 @@ class _RegisterPageState extends State<RegisterPage> {
   String lastname= "";
   String password = "";
   String confirmPassword = "";
+  bool isSent = false;
 
   bool get isFormValid => firstname.isNotEmpty && lastname.isNotEmpty && password.isNotEmpty &&
     confirmPassword.isNotEmpty && (password == confirmPassword);
 
   Future<void> registerUser() async {
+    setState(() => isSent = true);
     final apiBaseUrl = getApiBaseUrl();
     final url = Uri.parse("$apiBaseUrl/auth/register");
 
@@ -87,8 +89,11 @@ class _RegisterPageState extends State<RegisterPage> {
         final Map<String, dynamic> data = jsonDecode(response.body);
         setState(() {
           errorMessage = data["error"];
+          InputDecorations.showTopSnackBarError(context, errorMessage!);
         });
       }
+
+      setState(() => isSent = false);
   }
 
   String? errorMessage;
@@ -145,12 +150,6 @@ class _RegisterPageState extends State<RegisterPage> {
                                 )
                               ),
                             ),
-
-                            // ERROR
-                            if (errorMessage != null) ...[
-                              SizedBox(height: 20),
-                              InputDecorations.errorMessageBox(errorMessage!),
-                            ],
 
                             SizedBox(height: 50),
 
@@ -229,15 +228,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             // BOTÓN
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 50),
-                              child: AbsorbPointer(
-                                absorbing: !isFormValid,
-                                child: ElevatedButton(
-                                  onPressed: registerUser,
-                                  style: isFormValid
-                                    ? InputDecorations.defaultButton()
-                                    : InputDecorations.deactivatedButton(),
-                                  child: Text("Continuar"),
-                                ),
+                              child: InputDecorations.loadingButton(
+                                isSent: isSent,
+                                isEnabled: isFormValid,
+                                text: "Continuar",
+                                onPressed: registerUser,
                               ),
                             ),
 

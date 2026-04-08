@@ -1,0 +1,288 @@
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:flutter_application_1/features/home/home_page_owner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/config/api_config.dart';
+import 'package:another_flushbar/flushbar.dart';
+import '../../services/user_service.dart';
+import 'package:http/http.dart' as http;
+
+
+class ChangePasswordPage extends StatefulWidget {  
+  const ChangePasswordPage({super.key});
+
+  @override
+  State<ChangePasswordPage> createState() => _ChangePasswordPageState();
+}
+
+Future<void> saveUserSessions(String token, int role) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString("token", token);
+  await prefs.setInt("role", role);
+}
+
+class _ChangePasswordPageState extends State<ChangePasswordPage> {
+  String? currentPassword;
+  String? newPassword;
+  String? confirmPassword;
+  String? actual_password;
+
+  final currentPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+  
+  bool isLoading = true;
+  bool isSent = false;
+  bool get isFormValid => currentPassword?.isNotEmpty == true && newPassword?.isNotEmpty == true && confirmPassword?.isNotEmpty == true && (newPassword == confirmPassword);
+
+  void _showChangePasswordDialog() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Cambiar Contraseña"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: currentPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Contraseña Actual"),
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Nueva Contraseña"),
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "Confirmar Nueva Contraseña"),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await UserService.changePassword(
+                  currentPassword: currentPasswordController.text,
+                  newPassword: newPasswordController.text,
+                  confirmPassword: confirmPasswordController.text,
+                );
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Contraseña actualizada exitosamente")),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error: $e")),
+                  );
+                }
+              }
+            },
+            child: const Text("Cambiar"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> loadUserData() async {
+    try {
+      final userData = await UserService.getCurrentUser();
+      setState(() {
+        actual_password = userData['password'] ?? "";
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al cargar datos: $e")),
+      );
+    }
+  }
+
+  Future<void> handleChangePassword() async {
+    setState(() => isSent = true);
+    try {
+      final response = await UserService.changePassword(
+        currentPassword: currentPasswordController.text,
+        newPassword: newPasswordController.text,
+        confirmPassword: confirmPasswordController.text,
+      );
+
+      final message = response["message"] ?? "Contraseña actualizada exitosamente";
+
+      if (mounted) {
+        Navigator.pop(context);
+        InputDecorations.showTopSnackBarSuccess(context, message);
+      }
+    } catch (e) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(context, e.toString().replaceAll("Exception: ", ""));
+      }
+      setState(() => isSent = false);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+
+                    Text(
+                      'Cambiar contraseña',
+                      style: TextStyle(
+                        fontSize: 35,
+                        color: Color.fromARGB(255, 200, 156, 125),
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 30),
+                      child: Form(
+                        child: Column(
+                          children: [
+
+                            // SUBTÍTULO
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 30),
+                              child: Text(
+                                'Modifica la contraseña de tu cuenta',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Color.fromARGB(255, 200, 156, 125)
+                                )
+                              ),
+                            ),
+
+                            SizedBox(height: 50),
+
+                            // CONTRASEÑA ACTUAL
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: currentPasswordController,
+                                obscureText: true,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Contraseña actual",
+                                  hintText: "Escribe tu contraseña actual",
+                                  icon: Icons.password_rounded
+                                ),
+                                onChanged: (value) => setState(() => currentPassword = value),
+                              ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                            // NUEVA CONTRASEÑA
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: newPasswordController,
+                                obscureText: true,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Nueva contraseña",
+                                  hintText: "Escribe tu nueva contraseña",
+                                  icon: Icons.password_rounded
+                                ),
+                                onChanged: (value) => setState(() => newPassword = value),
+                              ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                            // CONFIRM PASSWORD
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 35),
+                              child: TextFormField(
+                                controller: confirmPasswordController,
+                                obscureText: true,
+                                decoration: InputDecorations.defaultInputDecoration(
+                                  labelText: "Repita la nueva contraseña",
+                                  hintText: "Repita la nueva contraseña",
+                                  icon: Icons.password_rounded,
+                                  suffixIcon: confirmPassword?.isEmpty == true
+                                    ? null
+                                    : (newPassword == confirmPassword)
+                                      ? Icon(Icons.check_circle, color: Colors.green)
+                                      : Icon(Icons.cancel, color: Color.fromARGB(255, 224, 122, 95)),
+                                ),
+                                onChanged: (value) => setState(() => confirmPassword = value),
+                              ),
+                            ),
+                            
+                            SizedBox(height: 60),
+
+                            // BOTÓN
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 50),
+                              child: InputDecorations.loadingButton(
+                                  isSent: isSent,
+                                  isEnabled: isFormValid,
+                                  text: "Confirmar cambios",
+                                  onPressed: handleChangePassword,
+                                ),
+                            ),
+
+                            SizedBox(height: 40),
+
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

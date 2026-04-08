@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/config/api_config.dart';
 
 class UserService {
   static final apiBaseUrl = getApiBaseUrl();
@@ -65,15 +66,17 @@ class UserService {
         await prefs.setString("lastname", lastname);
         return data;
       } else {
-        throw Exception("Error: ${response.body}");
+        final data = json.decode(response.body);
+        String errorMessage = data["error"] ?? "Error desconocido";
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      throw Exception("Error updating profile: $e");
+      throw Exception("Error actualizando perfil: $e");
     }
   }
 
   // Cambiar contraseña
-  static Future<void> changePassword({
+  static Future<Map<String, dynamic>> changePassword({
     required String currentPassword,
     required String newPassword,
     required String confirmPassword,
@@ -100,10 +103,16 @@ class UserService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception("Error: ${response.body}");
+        final data = json.decode(response.body);
+        String errorMessage = data["error"] ?? "Error desconocido";
+        throw Exception(errorMessage);
+      }
+      else{
+        final data = json.decode(response.body);
+        return data;
       }
     } catch (e) {
-      throw Exception("Error changing password: $e");
+      throw Exception("$e");
     }
   }
 }
