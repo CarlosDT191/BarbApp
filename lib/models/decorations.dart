@@ -9,6 +9,19 @@ class InputDecorations {
     required IconData icon,
     Widget? suffixIcon,
   }) {
+    double rightPadding = 23;
+
+    // 🔍 Detectar si es icono de visibilidad
+    if (suffixIcon is IconButton) {
+      final iconWidget = suffixIcon.icon;
+
+      if (iconWidget is Icon) {
+        if (iconWidget.icon == Icons.visibility_rounded ||
+            iconWidget.icon == Icons.visibility_off_rounded) {
+          rightPadding = 10; // 👈 padding reducido
+        }
+      }
+  }
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
@@ -20,7 +33,7 @@ class InputDecorations {
 
       suffixIcon: suffixIcon != null
         ? Padding(
-            padding: const EdgeInsets.only(right: 23), // 👈 ajusta esto
+            padding: EdgeInsets.only(right: rightPadding), // 👈 ajusta esto
             child: suffixIcon,
           )
         : null,
@@ -48,7 +61,6 @@ class InputDecorations {
       ),
     );
   }
-
 
   static ButtonStyle defaultButton() {
     return ElevatedButton.styleFrom(
@@ -231,6 +243,7 @@ class InputDecorations {
     required int currentIndex,
     required Function(int) onTap,
     bool owner = false,
+    int unreadNotifications = 0,
     }) {
       return Container(
         decoration: BoxDecoration(
@@ -268,8 +281,41 @@ class InputDecorations {
                 icon: Icon(Icons.map_rounded, size: 65),
                 label: "",
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_rounded),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.notifications_rounded),
+
+                    // Badge
+                    if (unreadNotifications > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            unreadNotifications > 99
+                                ? '99+'
+                                : unreadNotifications.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 label: "",
               ),
               const BottomNavigationBarItem(
@@ -281,4 +327,39 @@ class InputDecorations {
         ),
       );
     }
+
+    static Widget buildNotificationIconWithBadge(int unreadCount) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.notifications),
+
+        if (unreadCount > 0)
+          Positioned(
+            right: -6,
+            top: -3,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 18,
+                minHeight: 18,
+              ),
+              child: Text(
+                unreadCount > 9 ? '9+' : '$unreadCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

@@ -6,7 +6,13 @@ const { formatDate } = require('../config/date');
 exports.getMyReservations = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const userId = req.user.userId;
@@ -29,7 +35,13 @@ exports.getMyReservations = async (req, res) => {
 exports.createReservation = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const log_date = formatDate();
 
     const userId = req.user.userId;
@@ -71,7 +83,13 @@ exports.createReservation = async (req, res) => {
 // 🔹 Obtener notificaciones del usuario
 exports.getMyNotifications = async (req, res) => {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const userId = req.user.userId;
@@ -94,6 +112,13 @@ exports.getMyNotifications = async (req, res) => {
 exports.markAsRead = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
 
     await Notification.findOneAndUpdate(
       { _id: req.params.id, user: userId },

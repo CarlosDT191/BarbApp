@@ -74,7 +74,7 @@ class _ChangeProfilePageState extends State<ChangeProfilePage> {
 
       if (!mounted) return;
 
-      Navigator.pop(context);
+      Navigator.pop(context, true);
       InputDecorations.showTopSnackBarSuccess(context, message);
 
     } catch (e) {

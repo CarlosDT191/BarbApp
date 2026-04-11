@@ -6,6 +6,7 @@ import 'package:flutter_application_1/features/notifications/notification_page.d
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -18,6 +19,7 @@ class HomePageOwner extends StatefulWidget {
 
 class _HomePageOwnerState extends State<HomePageOwner> {
   int _selectedIndex = 2;
+  int unread = 0;
 
   // Función que recoge el token del usuario
   Future<String?> getUserToken() async {
@@ -80,6 +82,26 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     return prefs.getInt("role");
   }
 
+  Future<int> getUnreadNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("unread_notifications") ?? 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    initNotifications();
+  }
+
+  void initNotifications() async {
+    await UserService.updateUnreadNotifications(); // API
+    int unread = await getUnreadNotifications(); // local
+
+    setState(() {
+      this.unread = unread;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,8 +109,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         // BARRA INFERIOR CON LOS ICONOS
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
           currentIndex: 2,
-          owner: true,
+          owner: false,
           onTap: _onItemTapped,
+          unreadNotifications: unread
         ),
 
         body: Stack(

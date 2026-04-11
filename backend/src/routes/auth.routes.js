@@ -24,7 +24,13 @@ router.post("/auth/login", authController.login);
 // OBTENCIÓN DE USUARIO
 router.get("/users/me", authMiddleware, async (req, res) => {
   // DATOS DE LOGS
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  if (originalIp.includes(',')) {
+    originalIp = originalIp.split(',')[0].trim();
+  }
+  
+  // Se extrae solo el IPv4
+  const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
   const date = formatDate();
 
   // Obtiene usuario de la base de datos

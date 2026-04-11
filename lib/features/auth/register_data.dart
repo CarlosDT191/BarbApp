@@ -32,6 +32,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String password = "";
   String confirmPassword = "";
   bool isSent = false;
+  bool _obscurePassword = true;
 
   bool get isFormValid => firstname.isNotEmpty && lastname.isNotEmpty && password.isNotEmpty &&
     confirmPassword.isNotEmpty && (password == confirmPassword);
@@ -191,11 +192,24 @@ class _RegisterPageState extends State<RegisterPage> {
                               padding: const EdgeInsets.symmetric(horizontal: 35),
                               child: TextFormField(
                                 controller: passwordController,
-                                obscureText: true,
+                                obscureText: _obscurePassword,
                                 decoration: InputDecorations.defaultInputDecoration(
                                   labelText: "Contraseña",
                                   hintText: "Contraseña",
-                                  icon: Icons.password_rounded
+                                  icon: Icons.password_rounded,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_rounded
+                                          : Icons.visibility_off_rounded,
+                                      color: Color.fromARGB(255, 200, 156, 125),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                                  ),
                                 ),
                                 onChanged: (value) => setState(() => password = value),
                               ),

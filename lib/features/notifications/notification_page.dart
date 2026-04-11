@@ -36,6 +36,10 @@ class _NotificationPageState extends State<NotificationPage> {
     return prefs.getInt("role");
   }
 
+  int get unreadCount {
+    return notifications.where((n) => n["read"] == false).length;
+  }
+
   Future<void> fetchNotifications() async {
     final token = await getUserToken();
     final apiBaseUrl = getApiBaseUrl();
@@ -77,6 +81,8 @@ class _NotificationPageState extends State<NotificationPage> {
         return Icons.cancel;
       case "reminder":
         return Icons.notifications;
+      case "welcome":
+        return Icons.waving_hand_outlined;
       default:
         return Icons.info;
     }
@@ -98,11 +104,12 @@ class _NotificationPageState extends State<NotificationPage> {
         ),
         child: Row(
           children: [
+            SizedBox(width: 3),
             Icon(
               _getIcon(notif["type"]),
               color: primaryColor,
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 18),
 
             Expanded(
               child: Column(
@@ -199,6 +206,7 @@ class _NotificationPageState extends State<NotificationPage> {
         currentIndex: 3,
         owner: false,
         onTap: _onItemTapped,
+        unreadNotifications: unreadCount,
       ),
 
       body: Column(

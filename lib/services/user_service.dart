@@ -115,4 +115,34 @@ class UserService {
       throw Exception("$e");
     }
   }
+
+  // Obtener el número de notificaciones no leídas al entrar a la app
+  static Future<void> fetchAndStoreNotifications(String token) async {
+    final apiBaseUrl = getApiBaseUrl();
+
+    final response = await http.get(
+      Uri.parse("$apiBaseUrl/notifications"),
+      headers: {
+        "Authorization": "Bearer $token"
+      },
+    );
+
+    final data = jsonDecode(response.body);
+
+    // Calcular no leídas
+    int unread = data.where((n) => n["read"] == false).length;
+
+    // Guardar en local
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt("unread_notifications", unread);
+  }
+
+  static Future<void> updateUnreadNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    if (token == null) return;
+
+    await fetchAndStoreNotifications(token);
+  }
 }

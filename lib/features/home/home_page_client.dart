@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
@@ -18,6 +19,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 2;
+  int unread = 0;
 
   // Función que contiene la lógica de cierre de sesión
   Future<void> logout(BuildContext context) async {
@@ -34,6 +36,11 @@ class _HomePageState extends State<HomePage> {
   Future<String?> getUserToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString("token");
+  }
+
+  Future<int> getUnreadNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("unread_notifications") ?? 0;
   }
 
   // Función que recoge los datos del usuario desde el backend
@@ -92,6 +99,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    initNotifications();
+  }
+
+  void initNotifications() async {
+    await UserService.updateUnreadNotifications(); // API
+    int unread = await getUnreadNotifications(); // local
+
+    setState(() {
+      this.unread = unread;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
 
@@ -100,6 +122,7 @@ class _HomePageState extends State<HomePage> {
           currentIndex: 2,
           owner: false,
           onTap: _onItemTapped,
+          unreadNotifications: unread
         ),
 
         body: Stack(

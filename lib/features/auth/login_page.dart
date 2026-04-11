@@ -27,6 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   String username= "";
   String password= "";
   bool isSent = false;
+  bool _obscurePassword = true;
 
   String? errorMessage;
 
@@ -155,19 +156,35 @@ class _LoginPageState extends State<LoginPage> {
                   // RELLENAR CONTRASEÑA
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: TextFormField(obscureText: true, decoration: InputDecorations.defaultInputDecoration(
-                                    labelText: "Contraseña",
-                                    hintText: "Contraseña",
-                                    icon: Icons.password_rounded
-                                  ), 
-                                  onChanged: (String value) {
-                                    setState(() {
-                                      password = value;
-                                    });
-                                  },
-                                  validator: (value){
-                                    return value!.isEmpty ? "Please entry password" : null;
-                                  },),
+                    child: TextFormField(
+                      obscureText: _obscurePassword,
+                      decoration: InputDecorations.defaultInputDecoration(
+                        labelText: "Contraseña",
+                        hintText: "Contraseña",
+                        icon: Icons.password_rounded,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                            color: Color.fromARGB(255, 200, 156, 125),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: (String value) {
+                        setState(() {
+                          password = value;
+                        });
+                      },
+                      validator: (value) {
+                        return value!.isEmpty ? "Please entry password" : null;
+                      },
+                    ),
                   ),
 
                 SizedBox(height: 40),

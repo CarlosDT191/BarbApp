@@ -3,15 +3,12 @@ import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
+import 'package:flutter_application_1/features/calendar/pages/day_detail_page.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/models/decorations.dart';
-import 'package:intl/intl.dart';
-import 'package:intl/intl_standalone.dart';
-import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_application_1/services/reservation_service.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -23,10 +20,11 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  int _selectedIndex = 0;
   int role = 0;
+  int unread= 0;
 
   Map<DateTime, List<dynamic>> reservations = {};
+  final ReservationService _reservationService = ReservationService();
 
   final primaryColor = Color.fromARGB(255, 200, 156, 125);
   final backgroundColor = Color.fromARGB(255, 23, 23, 23);
@@ -41,43 +39,32 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     super.initState();
     fetchReservations();
-  }
-
-  Future<String?> getUserToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString("token");
+    initNotifications();
   }
 
   Future<void> fetchReservations() async {
-    final token = await getUserToken();
-    final apiBaseUrl = getApiBaseUrl();
+    try {
+      final grouped = await _reservationService.getReservationsGroupedByDay();
+      
+      // Convertir a Map<DateTime, List<dynamic>> para compatibilidad
+      Map<DateTime, List<dynamic>> loaded = {};
+      grouped.forEach((date, reservations) {
+        loaded[date] = reservations.cast<dynamic>();
+      });
 
-    final response = await http.get(
-      Uri.parse("$apiBaseUrl/reservations/me"),
-      headers: {
-        "Authorization": "Bearer $token"
-      },
-    );
-
-    final data = jsonDecode(response.body);
-
-    Map<DateTime, List<dynamic>> loaded = {};
-
-    for (var res in data) {
-      DateTime date = DateTime.parse(res["date"]);
-
-      DateTime normalized = DateTime(date.year, date.month, date.day);
-
-      if (loaded[normalized] == null) {
-        loaded[normalized] = [];
+      setState(() {
+        reservations = loaded;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar reservaciones: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-
-      loaded[normalized]!.add(res);
     }
-
-    setState(() {
-      reservations = loaded;
-    });
   }
 
   List<dynamic> _getReservationsForDay(DateTime day) {
@@ -86,10 +73,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
   // Controla qué pasa al pulsar cada icono
   void _onItemTapped(int index) async {
-    setState(() {
-      _selectedIndex = index; // Actualiza el icono seleccionado
-    });
-
     int role = await getUserRole() ?? 0;
 
     // Aquí puedes poner la acción de cada icono
@@ -131,6 +114,20 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
+  Future<int> getUnreadNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("unread_notifications") ?? 0;
+  }
+
+  void initNotifications() async {
+    await UserService.updateUnreadNotifications(); // API
+    int unread = await getUnreadNotifications(); // local
+
+    setState(() {
+      this.unread = unread;
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +138,7 @@ class _CalendarPageState extends State<CalendarPage> {
         currentIndex: 0,
         owner: false,
         onTap: _onItemTapped,
+        unreadNotifications: unread
       ),
 
       body: Column(
@@ -187,6 +185,16 @@ class _CalendarPageState extends State<CalendarPage> {
                     _selectedDay = selectedDay;
                     _focusedDay = focusedDay;
                   });
+
+                  // Abrir la vista detallada del día
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DayDetailPage(
+                        initialDate: selectedDay,
+                      ),
+                    ),
+                  );
                 },
 
                 eventLoader: (day) {

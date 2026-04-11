@@ -24,11 +24,13 @@ class _ProfilePageState extends State<ProfilePage> {
   String? email;
   bool isLoading = true;
   int _selectedIndex = 4;
+  int unread = 0;
 
   @override
   void initState() {
     super.initState();
     loadUserData();
+    initNotifications();
   }
 
   Future<int?> getUserRole() async {
@@ -122,7 +124,7 @@ class _ProfilePageState extends State<ProfilePage> {
         content: const Text("¿Estás seguro de que quieres cerrar sesión?", style: const TextStyle(color: Colors.white)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
               foregroundColor: Colors.white,
             ),
@@ -137,11 +139,25 @@ class _ProfilePageState extends State<ProfilePage> {
               foregroundColor: Colors.white,
               backgroundColor: Color.fromARGB(255, 30, 30, 30), // color de fondo
             ),
-            child: const Text("Cerrar sesión", style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125))),
+            child: const Text("Cerrar sesión", style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+  }
+
+  Future<int> getUnreadNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("unread_notifications") ?? 0;
+  }
+
+  void initNotifications() async {
+    await UserService.updateUnreadNotifications(); // API
+    int unread = await getUnreadNotifications(); // local
+
+    setState(() {
+      this.unread = unread;
+    });
   }
 
   @override
@@ -159,6 +175,7 @@ class _ProfilePageState extends State<ProfilePage> {
           currentIndex: 4,
           owner: false,
           onTap: _onItemTapped,
+          unreadNotifications: unread
         ),
       );
     }
@@ -216,11 +233,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 mainAxisSize: MainAxisSize.min,
                 spacing: 8,
                 children: [
-                  _buildOption(Icons.edit_rounded, "Editar perfil", () {
-                    Navigator.push(
+                  _buildOption(Icons.edit_rounded, "Editar perfil", () async {
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => ChangeProfilePage()),
                     );
+
+                    if (result == true) {
+                      loadUserData(); // 👈 recargar datos
+                    }
                   }),
                   _buildOption(Icons.lock_rounded, "Cambiar contraseña", () {
                     Navigator.push(
@@ -242,6 +263,7 @@ class _ProfilePageState extends State<ProfilePage> {
         currentIndex: 4,
         owner: false,
         onTap: _onItemTapped,
+        unreadNotifications: unread
       ),
     );
   }

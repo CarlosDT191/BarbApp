@@ -37,6 +37,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   
   bool isLoading = true;
   bool isSent = false;
+  bool _obscureCurrentPassword = true;
+  bool _obscureNewPassword = true;
   bool get isFormValid => currentPassword?.isNotEmpty == true && newPassword?.isNotEmpty == true && confirmPassword?.isNotEmpty == true && (newPassword == confirmPassword);
 
   void _showChangePasswordDialog() {
@@ -136,7 +138,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       final message = response["message"] ?? "Contraseña actualizada exitosamente";
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
         InputDecorations.showTopSnackBarSuccess(context, message);
       }
     } catch (e) {
@@ -208,11 +210,24 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               padding: const EdgeInsets.symmetric(horizontal: 35),
                               child: TextFormField(
                                 controller: currentPasswordController,
-                                obscureText: true,
+                                obscureText: _obscureCurrentPassword,
                                 decoration: InputDecorations.defaultInputDecoration(
                                   labelText: "Contraseña actual",
                                   hintText: "Escribe tu contraseña actual",
-                                  icon: Icons.password_rounded
+                                  icon: Icons.password_rounded,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureCurrentPassword
+                                          ? Icons.visibility_rounded
+                                          : Icons.visibility_off_rounded,
+                                      color: Color.fromARGB(255, 200, 156, 125),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureCurrentPassword = !_obscureCurrentPassword;
+                                      });
+                                    },
+                                  ),
                                 ),
                                 onChanged: (value) => setState(() => currentPassword = value),
                               ),
@@ -225,11 +240,24 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               padding: const EdgeInsets.symmetric(horizontal: 35),
                               child: TextFormField(
                                 controller: newPasswordController,
-                                obscureText: true,
+                                obscureText: _obscureNewPassword,
                                 decoration: InputDecorations.defaultInputDecoration(
                                   labelText: "Nueva contraseña",
                                   hintText: "Escribe tu nueva contraseña",
-                                  icon: Icons.password_rounded
+                                  icon: Icons.password_rounded,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureNewPassword
+                                          ? Icons.visibility_rounded
+                                          : Icons.visibility_off_rounded,
+                                      color: Color.fromARGB(255, 200, 156, 125),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureNewPassword = !_obscureNewPassword;
+                                      });
+                                    },
+                                  ),
                                 ),
                                 onChanged: (value) => setState(() => newPassword = value),
                               ),

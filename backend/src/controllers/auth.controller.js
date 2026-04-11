@@ -8,7 +8,13 @@ const { formatDate } = require('../config/date');
 exports.email = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const { email, role } = req.body;
@@ -56,7 +62,13 @@ exports.email = async (req, res) => {
 exports.google = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
     let provider= "google";
 
@@ -144,7 +156,13 @@ exports.register = async (req, res) => {
 
   try {
     // DATOS DE LOGS
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const { email, firstname, lastname, password, role } = req.body;
@@ -218,7 +236,13 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const { email, password } = req.body;
@@ -268,7 +292,13 @@ exports.login = async (req, res) => {
 // ACTUALIZAR PERFIL DE USUARIO
 exports.updateProfile = async (req, res) => {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const { firstname, lastname } = req.body;
@@ -302,7 +332,13 @@ exports.updateProfile = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
     console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 500 (Error interno del servidor)`);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -312,7 +348,13 @@ exports.updateProfile = async (req, res) => {
 // CAMBIAR CONTRASEÑA
 exports.changePassword = async (req, res) => {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
     const { currentPassword, newPassword, confirmPassword } = req.body;
@@ -367,7 +409,13 @@ exports.changePassword = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+    
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
     console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 500 (Error interno del servidor)`);
     res.status(500).json({ error: "Error interno del servidor" });
