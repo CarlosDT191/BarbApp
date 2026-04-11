@@ -5,7 +5,7 @@ const { formatDate } = require('../config/date');
 function authMiddleware(req, res, next) {
   
   // DATOS DE LOGS
-  const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   if (originalIp.includes(',')) {
     originalIp = originalIp.split(',')[0].trim();
   }

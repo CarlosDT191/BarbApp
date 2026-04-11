@@ -8,7 +8,7 @@ const { formatDate } = require('../config/date');
 exports.email = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -62,7 +62,7 @@ exports.email = async (req, res) => {
 exports.google = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -156,7 +156,7 @@ exports.register = async (req, res) => {
 
   try {
     // DATOS DE LOGS
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -236,7 +236,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -292,7 +292,7 @@ exports.login = async (req, res) => {
 // ACTUALIZAR PERFIL DE USUARIO
 exports.updateProfile = async (req, res) => {
   try {
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -332,7 +332,7 @@ exports.updateProfile = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -348,7 +348,7 @@ exports.updateProfile = async (req, res) => {
 // CAMBIAR CONTRASEÑA
 exports.changePassword = async (req, res) => {
   try {
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -409,7 +409,7 @@ exports.changePassword = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -418,6 +418,57 @@ exports.changePassword = async (req, res) => {
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
     console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 500 (Error interno del servidor)`);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+// ELIMINAR PERFIL DE USUARIO
+exports.deleteProfile = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':')
+      ? originalIp.split(':').pop()
+      : originalIp;
+
+    const date = formatDate();
+
+    const userId = req.user.userId;
+
+    const user = await User.findByIdAndDelete(userId);
+
+    if (!user) {
+      console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 404 (Usuario no encontrado)`);
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 200 (Usuario eliminado exitosamente)`);
+
+    res.json({
+      message: "Usuario eliminado exitosamente"
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':')
+      ? originalIp.split(':').pop()
+      : originalIp;
+
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 500 (Error interno del servidor)`);
+
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };

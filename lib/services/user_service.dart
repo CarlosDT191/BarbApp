@@ -145,4 +145,33 @@ class UserService {
 
     await fetchAndStoreNotifications(token);
   }
+
+  // Eliminar perfil del usuario
+  static Future<Map<String, dynamic>> deleteProfile() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    if (token == null) {
+      throw Exception("No token found");
+    }
+
+    final response = await http.delete(
+      Uri.parse("$apiBaseUrl/users/profile"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      final data = json.decode(response.body);
+      throw Exception(data["error"] ?? "Error eliminando usuario");
+    }
+  } catch (e) {
+    throw Exception("Error eliminando cuenta: $e");
+  }
+}
 }

@@ -3,6 +3,7 @@ import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
 import 'package:flutter_application_1/features/calendar/widgets/day_timeline_view.dart';
 import 'package:flutter_application_1/features/calendar/widgets/create_event_modal.dart';
+import 'package:flutter_application_1/models/decorations.dart';
 import 'package:intl/intl.dart';
 
 class DayDetailPage extends StatefulWidget {
@@ -138,21 +139,11 @@ class _DayDetailPageState extends State<DayDetailPage> {
       setState(() {});
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reservación creada exitosamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        InputDecorations.showTopSnackBarSuccess(context, "Reservación creada exitosamente");
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al crear reservación: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        InputDecorations.showTopSnackBarError(context, "Error al crear la reserva: $e");
       }
     }
   }

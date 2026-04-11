@@ -231,7 +231,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ? null
                                     : (password == confirmPassword)
                                       ? Icon(Icons.check_circle, color: Colors.green)
-                                      : Icon(Icons.cancel, color: Color.fromARGB(255, 224, 122, 95)),
+                                      : Icon(Icons.cancel, color: Colors.red),
                                 ),
                                 onChanged: (value) => setState(() => confirmPassword = value),
                               ),

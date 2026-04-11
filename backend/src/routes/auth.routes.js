@@ -24,7 +24,7 @@ router.post("/auth/login", authController.login);
 // OBTENCIÓN DE USUARIO
 router.get("/users/me", authMiddleware, async (req, res) => {
   // DATOS DE LOGS
-  const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   if (originalIp.includes(',')) {
     originalIp = originalIp.split(',')[0].trim();
   }
@@ -47,5 +47,8 @@ router.put("/users/profile", authMiddleware, authController.updateProfile);
 
 // CAMBIAR CONTRASEÑA
 router.patch("/users/password", authMiddleware, authController.changePassword);
+
+// ELIMINACIÓN DE CUENTA
+router.delete("/users/profile", authMiddleware, authController.deleteProfile);
 
 module.exports = router;

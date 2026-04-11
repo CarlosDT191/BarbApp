@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:flutter/services.dart';
 import 'features/auth/login_page.dart';
 import 'features/home/home_page_client.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,6 +11,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 // MAIN DE LA APLICACIÓN
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
 
   await dotenv.load(fileName: "assets/.env");
 
@@ -95,8 +100,7 @@ class _MyAppState extends State<MyApp> {
           bodyLarge: TextStyle(color: Colors.white), 
         ),
       ),
-      // home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), ESTO HAY QUE DESACTIVARLO CUANDO SE REALICE DE MANERA CORRECTA EL LOGIN
-      home: LoginPage(onLogin: _loginSuccess),
+      home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), // Habría que habilitar la opción dependiendo si se inicia la cuenta como Cliente o como Propietario
       routes: {
         '/login': (context) => LoginPage(onLogin: _loginSuccess),
         '/home': (context) => HomePage(),

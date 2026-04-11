@@ -279,7 +279,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                     ? null
                                     : (newPassword == confirmPassword)
                                       ? Icon(Icons.check_circle, color: Colors.green)
-                                      : Icon(Icons.cancel, color: Color.fromARGB(255, 224, 122, 95)),
+                                      : Icon(Icons.cancel, color: Colors.red),
                                 ),
                                 onChanged: (value) => setState(() => confirmPassword = value),
                               ),

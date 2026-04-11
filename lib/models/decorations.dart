@@ -143,34 +143,10 @@ class InputDecorations {
     );
   }
 
-
-  static Widget errorMessageBox(String message) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 188, 135, 135),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: Colors.red,
-            width: 3,
-          ),
-        ),
-        child: Text(
-          message,
-          style: const TextStyle(
-            color: Colors.red,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
+  /* =============================================================================
+          FUNCIONES SOBRE MENSAJES DE ERROR PERSONALIZADOS TRAS ACCIONES 
+    ==============================================================================
+  */
   static void showTopSnackBarSuccess(BuildContext context, String message) {
     Flushbar(
       messageText: Row(
@@ -239,6 +215,40 @@ class InputDecorations {
     ).show(context);
   }
 
+  static void showTopSnackBarInfo(BuildContext context, String message) {
+    Flushbar(
+      messageText: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Colors.white, 
+            size: 28,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.blueAccent,
+      margin: const EdgeInsets.all(0),
+      borderRadius: BorderRadius.circular(0),
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+      forwardAnimationCurve: Curves.easeOut,
+      reverseAnimationCurve: Curves.easeIn,
+      padding: const EdgeInsets.all(30),
+    ).show(context);
+  }
+
   static Widget mainBottomNavBar({
     required int currentIndex,
     required Function(int) onTap,
@@ -265,61 +275,87 @@ class InputDecorations {
             iconSize: 40,
             onTap: onTap,
             items: [
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_month_rounded),
-                label: "",
-              ),
               BottomNavigationBarItem(
-                icon: Icon(
-                  owner
-                      ? Icons.home_work_rounded
-                      : Icons.star_rate_rounded,
-                ),
-                label: "",
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.map_rounded, size: 65),
-                label: "",
-              ),
-              BottomNavigationBarItem(
-                icon: Stack(
-                  children: [
-                    const Icon(Icons.notifications_rounded),
-
-                    // Badge
-                    if (unreadNotifications > 0)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          child: Text(
-                            unreadNotifications > 99
-                                ? '99+'
-                                : unreadNotifications.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
+                icon: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.calendar_month_rounded),
                   ],
                 ),
                 label: "",
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.person_rounded),
+
+              BottomNavigationBarItem(
+                icon: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      owner ? Icons.home_work_rounded : Icons.star_rate_rounded,
+                    ),
+                  ],
+                ),
+                label: "",
+              ),
+
+              BottomNavigationBarItem(
+                icon: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.map_rounded, size: 65),
+                  ],
+                ),
+                label: "",
+              ),
+
+              BottomNavigationBarItem(
+                icon: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      children: [
+                        const Icon(Icons.notifications_rounded),
+
+                        if (unreadNotifications > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Text(
+                                unreadNotifications > 99
+                                    ? '99+'
+                                    : unreadNotifications.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                label: "",
+              ),
+
+              BottomNavigationBarItem(
+                icon: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.person_rounded),
+                  ],
+                ),
                 label: "",
               ),
             ],

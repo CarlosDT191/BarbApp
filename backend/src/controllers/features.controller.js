@@ -6,7 +6,7 @@ const { formatDate } = require('../config/date');
 exports.getMyReservations = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -35,7 +35,7 @@ exports.getMyReservations = async (req, res) => {
 exports.createReservation = async (req, res) => {
   try {
     // DATOS DE LOGS
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -83,7 +83,7 @@ exports.createReservation = async (req, res) => {
 // 🔹 Obtener notificaciones del usuario
 exports.getMyNotifications = async (req, res) => {
   try {
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
@@ -112,7 +112,7 @@ exports.getMyNotifications = async (req, res) => {
 exports.markAsRead = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }

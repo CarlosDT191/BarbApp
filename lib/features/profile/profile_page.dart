@@ -100,9 +100,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al cargar datos: $e")),
-      );
+      InputDecorations.showTopSnackBarError(context, "Error al cargar datos: $e");
     }
   }
 
@@ -111,7 +109,34 @@ class _ProfilePageState extends State<ProfilePage> {
     await prefs.clear();
 
     if (mounted) {
-      Navigator.pushReplacementNamed(context, "/login");
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        "/login",
+        (route) => false,
+      );
+      InputDecorations.showTopSnackBarInfo(context, "Sesión cerrada");
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    try {
+      await UserService.deleteProfile();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          "/login",
+          (route) => false,
+        );
+        InputDecorations.showTopSnackBarSuccess(context, "Cuenta eliminada exitosamente");
+      }
+    } catch (e) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(context, "Error al eliminar cuenta: $e");
+      }
     }
   }
 
@@ -140,6 +165,36 @@ class _ProfilePageState extends State<ProfilePage> {
               backgroundColor: Color.fromARGB(255, 30, 30, 30), // color de fondo
             ),
             child: const Text("Cerrar sesión", style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color.fromARGB(255, 23, 23, 23),
+        title: const Text("Eliminar cuenta", style: const TextStyle(color: Colors.white)),
+        content: const Text("¿Estás seguro de que quieres eliminar tu cuenta? Toda tu información será eliminada permanentemente.", style: const TextStyle(color: Colors.white), textAlign: TextAlign.justify),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Cancelar", style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              deleteAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Color.fromARGB(255, 30, 30, 30), // color de fondo
+            ),
+            child: const Text("Eliminar cuenta", style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -252,6 +307,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildOption(Icons.logout, "Cerrar sesión", () {
                     _showLogoutConfirmation();
                   }),
+                  _buildOption(Icons.delete_forever_rounded, "Eliminar cuenta", () {
+                    _showDeleteConfirmation();
+                  }, mainColor: Colors.red),
                 ],
               ),
             ),
@@ -268,34 +326,34 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildOption(IconData icon, String text, VoidCallback onTap) {
-    return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(color: Colors.white, fontSize: 16),
+    Widget _buildOption(IconData icon, String text, VoidCallback onTap, {Color mainColor = Colors.white,}) {
+      return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          child: Row(
+            children: [
+              Icon(icon, color: mainColor),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(color: mainColor, fontSize: 16),
+                ),
               ),
-            ),
 
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white,
-              size: 16,
-            ),
-          ],
+              Icon(
+                Icons.arrow_forward_ios,
+                color: mainColor,
+                size: 16,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
