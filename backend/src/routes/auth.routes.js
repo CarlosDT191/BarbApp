@@ -21,6 +21,12 @@ router.post("/auth/register", authController.register);
 router.post("/auth/login", authController.login);
 
 
+/**
+ * Obtiene los datos completos del usuario autenticado
+ * Excluye la contraseña de los datos retornados
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @return json {object} Objeto con todos los datos del usuario (sin contraseña)
+ */
 // OBTENCIÓN DE USUARIO
 router.get("/users/me", authMiddleware, async (req, res) => {
   // DATOS DE LOGS

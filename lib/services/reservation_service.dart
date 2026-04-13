@@ -13,13 +13,19 @@ class ReservationService {
 
   ReservationService._internal();
 
-  /// Obtiene el token del usuario desde SharedPreferences
+  /// Obtiene el token JWT almacenado del usuario desde [SharedPreferences].
+  ///
+  /// Se utiliza para autenticar las solicitudes HTTP al backend.
+  /// Retorna un token (`String`) o `null` si no se encuentra almacenado.
   Future<String?> _getUserToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString("token");
   }
 
-  /// Obtiene todas las reservaciones del usuario actual
+  /// Obtiene todas las reservas del usuario autenticado.
+  ///
+  /// Retorna una `List<Reservation>` ordenada de todas las reservas registradas
+  /// del usuario actual. Si no hay reservas, devuelve una lista vacía.
   Future<List<Reservation>> getMyReservations() async {
     try {
       final token = await _getUserToken();
@@ -35,7 +41,7 @@ class ReservationService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception("Error al obtener reservaciones: ${response.statusCode}");
+        throw Exception("Error al obtener reservas: ${response.statusCode}");
       }
 
       final List<dynamic> data = jsonDecode(response.body);
@@ -45,7 +51,12 @@ class ReservationService {
     }
   }
 
-  /// Obtiene las reservaciones de un día específico
+  /// Obtiene las reservas de un día específico.
+  ///
+  /// [date] es la fecha para la cual se desean obtener las reservas (`DateTime`).
+  ///
+  /// Filtra y ordena las reservas por hora de inicio. Retorna un `List<Reservation>`
+  /// con las reservas de ese día ordenadas cronológicamente.
   Future<List<Reservation>> getReservationsForDay(DateTime date) async {
     try {
       final allReservations = await getMyReservations();
@@ -64,11 +75,18 @@ class ReservationService {
 
       return dayReservations;
     } catch (e) {
-      throw Exception("Error al obtener reservaciones del día: $e");
+      throw Exception("Error al obtener reservas del día: $e");
     }
   }
 
-  /// Crea una nueva reservación
+  /// Crea una nueva reservación para el usuario autenticado.
+  ///
+  /// [date] es la fecha deseada para la reservación (`DateTime`).
+  /// [time] es la hora deseada en formato HH:mm, como "14:30" (`String`).
+  /// [localName] es el nombre del establecimiento para la reservación (`String`).
+  ///
+  /// Envía los datos al backend y retorna un objeto `Reservation` con los datos
+  /// de la nueva reserva creada.
   Future<Reservation> createReservation({
     required DateTime date,
     required String time, // Formato: "HH:mm"
@@ -107,7 +125,12 @@ class ReservationService {
     }
   }
 
-  /// Elimina una reservación por ID
+  /// Elimina una reservación existente del usuario.
+  ///
+  /// [reservationId] es el ID único de la reservación a eliminar (`String`).
+  ///
+  /// Solo puede eliminar sus propias reservas. Realiza una solicitud DELETE al backend
+  /// para eliminar la reservación de forma permanente.
   Future<void> deleteReservation(String reservationId) async {
     try {
       final token = await _getUserToken();
@@ -131,7 +154,11 @@ class ReservationService {
     }
   }
 
-  /// Agrupa las reservaciones por día
+  /// Agrupa todas las reservas del usuario por fecha.
+  ///
+  /// Útil para mostrar las reservas organizadas por día en la interfaz de usuario.
+  /// Retorna un `Map<DateTime, List<Reservation>>` donde cada clave es una fecha
+  /// y el valor es una lista de reservas de ese día, ordenadas por hora.
   Future<Map<DateTime, List<Reservation>>> getReservationsGroupedByDay() async {
     try {
       final allReservations = await getMyReservations();

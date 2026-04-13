@@ -15,12 +15,19 @@ class EventBlock extends StatelessWidget {
     this.onDelete,
   });
 
-  /// Calcula la posición vertical del evento dentro de la hora
+  /// Calcula la posición vertical del evento dentro de la fila horaria.
+  ///
+  /// Basado en los minutos de inicio y la altura de la hora.
+  /// Retorna un `double` con la posición en píxeles desde la parte superior.
   double get topPosition {
-    return (reservation.startMinute / 60) * hourHeight;
+    final totalMinutes = (reservation.startHour * 60) + reservation.startMinute;
+    return (totalMinutes / 60) * hourHeight;
   }
 
-  /// Calcula la altura del evento basado en su duración
+  /// Calcula la altura del bloque del evento en píxeles.
+  ///
+  /// Se basa en la duración total del evento en minutos.
+  /// Retorna un `double` con la altura del bloque en píxeles.
   double get blockHeight {
     final minutesFraction = reservation.durationMinutes / 60;
     return minutesFraction * hourHeight;
@@ -30,7 +37,7 @@ class EventBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       top: topPosition,
-      left: 60,
+      left: 70,
       right: 8,
       height: blockHeight.clamp(30.0, double.infinity),
       child: GestureDetector(

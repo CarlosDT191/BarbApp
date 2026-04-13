@@ -1,7 +1,14 @@
 const jwt = require("jsonwebtoken");
 const { formatDate } = require('../config/date');
 
-// Función que protege rutas usando el token
+/**
+ * Middleware de autenticación que valida el token JWT en las cabeceras de la solicitud
+ * Permite que solo usuarios autenticados accedan a rutas protegidas
+ * @param Object req Objeto de solicitud HTTP
+ * @param Object res Objeto de respuesta HTTP
+ * @param Function next Función para pasar al siguiente middleware
+ * @return void Valida el token y permite o deniega el acceso
+ */
 function authMiddleware(req, res, next) {
   
   // DATOS DE LOGS

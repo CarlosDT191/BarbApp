@@ -2,6 +2,12 @@ const Reservation = require("../models/reservation.model");
 const Notification = require("../models/notification.model");
 const { formatDate } = require('../config/date');
 
+/**
+ * Obtiene todas las reservas del usuario autenticado
+ * Ordena las reservas por fecha de forma ascendente
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @return json [objects] Array de objetos de reservas del usuario
+ */
 // 🔹 Obtener reservas del usuario logueado
 exports.getMyReservations = async (req, res) => {
   try {
@@ -31,6 +37,15 @@ exports.getMyReservations = async (req, res) => {
   }
 };
 
+/**
+ * Crea una nueva reserva para el usuario autenticado
+ * Genera automáticamente una notificación asociada a la reserva
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param Object req.body.date Fecha de la reserva (YYYY-MM-DD)
+ * @param string req.body.time Hora de la reserva (HH:mm)
+ * @param string req.body.local_name Nombre del local/establecimiento para la reserva
+ * @return json {object} Objeto con los datos de la reserva creada
+ */
 // 🔹 Crear reserva (opcional pero recomendable)
 exports.createReservation = async (req, res) => {
   try {
@@ -80,6 +95,12 @@ exports.createReservation = async (req, res) => {
 };
 
 
+/**
+ * Obtiene todas las notificaciones del usuario autenticado
+ * Ordena las notificaciones por fecha de creación en orden descendente
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @return json [objects] Array de notificaciones del usuario
+ */
 // 🔹 Obtener notificaciones del usuario
 exports.getMyNotifications = async (req, res) => {
   try {
@@ -108,6 +129,13 @@ exports.getMyNotifications = async (req, res) => {
   }
 };
 
+/**
+ * Marca una notificación específica como leída
+ * Solo afecta notificaciones que pertenecen al usuario autenticado
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param string req.params.id ID de la notificación a marcar como leída
+ * @return json {message: string} Mensaje confirmando que la notificación se marcó como leída
+ */
 // 🔹 Marcar notificación como leída
 exports.markAsRead = async (req, res) => {
   try {

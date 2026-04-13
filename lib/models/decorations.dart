@@ -3,6 +3,14 @@ import 'package:another_flushbar/flushbar.dart';
 
 class InputDecorations {
 
+  /// Crea una decoración estándar para campos de entrada de texto.
+  ///
+  /// [labelText] es la etiqueta que aparece en el campo (`String`).
+  /// [hintText] es el texto de sugerencia dentro del campo (`String`).
+  /// [icon] es el iconono a mostrar al inicio del campo (`IconData`).
+  /// [suffixIcon] es un icono opcional al final del campo (`Widget?`).
+  ///
+  /// Incluye bordes redondeados, colores corporativos y manejo de padding.
   static InputDecoration defaultInputDecoration({
     required String labelText,
     required String hintText,
@@ -62,6 +70,10 @@ class InputDecorations {
     );
   }
 
+  /// Devuelve el estilo estándar para botones ElevatedButton de la aplicación.
+  ///
+  /// Retorna un `ButtonStyle` con colores corporativos, bordes redondeados
+  /// y dimensiones consistentes para todos los botones de la aplicación.
   static ButtonStyle defaultButton() {
     return ElevatedButton.styleFrom(
       backgroundColor: Color.fromARGB(255, 200, 156, 125),
@@ -78,6 +90,14 @@ class InputDecorations {
     );
   }
 
+  /// Crea un botón que muestra un indicador de carga cuando se envía información.
+  ///
+  /// [isSent] indica si la solicitud está siendo procesada (`bool`).
+  /// [isEnabled] indica si el botón debe estar habilitado (`bool`).
+  /// [onPressed] es la función que se ejecuta al presionar el botón (`VoidCallback`).
+  /// [text] es el texto que muestra el botón (`String`).
+  ///
+  /// Desactiva el botón mientras la solicitud está en progreso.
   static Widget loadingButton({
     required bool isSent,
     required bool isEnabled,
@@ -105,8 +125,11 @@ class InputDecorations {
     );
   }
 
-
- static ButtonStyle deactivatedButton() {
+  /// Devuelve el estilo para botones desactivados de la aplicación.
+  ///
+  /// Retorna un [ButtonStyle] con colores atenuados (gris) que indica
+  /// que el botón no está disponible para interacción.
+  static ButtonStyle deactivatedButton() {
     return ButtonStyle(
       minimumSize: MaterialStateProperty.all(const Size(500, 50)),
       padding: MaterialStateProperty.all(
@@ -126,7 +149,10 @@ class InputDecorations {
     );
   }
 
-
+  /// Devuelve el estilo para botones con borde de la aplicación.
+  ///
+  /// Retorna un [ButtonStyle] con fondo oscuro y borde gris,
+  /// utilizado para botones secundarios o de acción alternativa.
   static ButtonStyle borderButton() {
     return ElevatedButton.styleFrom(
       backgroundColor: Color.fromARGB(255, 23, 23, 23),
@@ -147,6 +173,13 @@ class InputDecorations {
           FUNCIONES SOBRE MENSAJES DE ERROR PERSONALIZADOS TRAS ACCIONES 
     ==============================================================================
   */
+  /// Muestra un mensaje de éxito en la parte superior de la pantalla.
+  ///
+  /// [context] es el contexto de construcción de la aplicación (BuildContext).
+  /// [message] es el texto del mensaje de éxito a mostrar (String).
+  ///
+  /// Retorna un [void]. Muestra una notificación tipo Flushbar con icono verde
+  /// y color de fondo verde durante 3 segundos.
   static void showTopSnackBarSuccess(BuildContext context, String message) {
     Flushbar(
       messageText: Row(
@@ -181,6 +214,13 @@ class InputDecorations {
     ).show(context);
   }
 
+  /// Muestra un mensaje de error en la parte superior de la pantalla.
+  ///
+  /// [context] es el contexto de construcción de la aplicación (BuildContext).
+  /// [message] es el texto del mensaje de error a mostrar (String).
+  ///
+  /// Retorna un [void]. Muestra una notificación tipo Flushbar con icono de error rojo
+  /// y color de fondo rojo durante 3 segundos.
   static void showTopSnackBarError(BuildContext context, String message) {
     Flushbar(
       messageText: Row(
@@ -215,6 +255,13 @@ class InputDecorations {
     ).show(context);
   }
 
+  /// Muestra un mensaje informativo en la parte superior de la pantalla.
+  ///
+  /// [context] es el contexto de construcción de la aplicación (BuildContext).
+  /// [message] es el texto del mensaje informativo a mostrar (String).
+  ///
+  /// Retorna un [void]. Muestra una notificación tipo Flushbar con icono de información azul
+  /// y color de fondo azul durante 3 segundos.
   static void showTopSnackBarInfo(BuildContext context, String message) {
     Flushbar(
       messageText: Row(
@@ -249,6 +296,15 @@ class InputDecorations {
     ).show(context);
   }
 
+  /// Crea la barra de navegación inferior con 5 pestañas principales.
+  ///
+  /// [currentIndex] es el índice de la pestaña actualmente seleccionada (int).
+  /// [onTap] es la función de callback que se ejecuta al seleccionar una pestaña (Function(int)).
+  /// [owner] indica si el usuario es propietario de propiedades (bool, valor por defecto false).
+  /// [unreadNotifications] es la cantidad de notificaciones sin leer (int, valor por defecto 0).
+  ///
+  /// Retorna un [Widget] con la barra de navegación personalizada que muestra
+  /// calendario, propiedades/favoritos, mapa, notificaciones y perfil.
   static Widget mainBottomNavBar({
     required int currentIndex,
     required Function(int) onTap,
@@ -364,6 +420,12 @@ class InputDecorations {
       );
     }
 
+    /// Construye un icono de notificaciones con un badge que muestra el contador.
+    ///
+    /// [unreadCount] es la cantidad de notificaciones sin leer (int).
+    ///
+    /// Retorna un [Widget] con un icono de campana y un badge rojo en la esquina superior derecha
+    /// que muestra el número de notificaciones (máximo 9+).
     static Widget buildNotificationIconWithBadge(int unreadCount) {
     return Stack(
       clipBehavior: Clip.none,

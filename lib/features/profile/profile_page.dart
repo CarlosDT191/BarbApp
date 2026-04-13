@@ -33,11 +33,20 @@ class _ProfilePageState extends State<ProfilePage> {
     initNotifications();
   }
 
+  /// Obtiene el rol del usuario desde [SharedPreferences].
+  ///
+  /// Los roles son: 0=admin, 1=propietario, 2=usuario.
+  /// Retorna un `int` con el rol o `null` si no se encuentra almacenado.
   Future<int?> getUserRole() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("role");
   }
 
+  /// Maneja la navegación cuando se presiona un ícono de la barra inferior.
+  ///
+  /// [index] es el índice del ícono presionado, del 0 al 4 (`int`).
+  ///
+  /// Navega a diferentes páginas según el índice y el rol del usuario autenticado.
   void _onItemTapped(int index) async {
     setState(() {
       _selectedIndex = index; // Actualiza el icono seleccionado
@@ -87,6 +96,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Carga los datos del usuario actual desde el servidor.
+  ///
+  /// Llama a [UserService.getCurrentUser] para obtener la información del usuario
+  /// y actualiza el estado con nombre, apellido y email.
   Future<void> loadUserData() async {
     try {
       final userData = await UserService.getCurrentUser();
@@ -104,6 +117,9 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Realiza el cierre de sesión del usuario.
+  ///
+  /// Cierra la pestaña y evita que se pueda volver a la página anterior. Limpia el token y datos del usuario.
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -118,6 +134,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Elimina la cuenta del usuario actual.
+  ///
+  /// Realiza la solicitud de eliminación al backend mediante [UserService.deleteProfile],
+  /// limpia los datos locales y redirige a la pantalla de login. Muestra mensajes de éxito o error según corresponda.
   Future<void> deleteAccount() async {
     try {
       await UserService.deleteProfile();
@@ -140,6 +160,8 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Pestaña que se muestra para confirmar el cierre de sesión del usuario.
+  ///
   void _showLogoutConfirmation() {
     showDialog(
       context: context,
@@ -171,6 +193,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// Pestaña que se muestra para confirmar la eliminación de la cuenta.
+  ///
   void _showDeleteConfirmation() {
     showDialog(
       context: context,
@@ -201,11 +225,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// Función que recoge el número de notificaciones no leídas del almacenamiento local.
+  ///
   Future<int> getUnreadNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("unread_notifications") ?? 0;
   }
 
+  /// Función que inicializa el conteo de notificaciones no leídas.
+  ///
   void initNotifications() async {
     await UserService.updateUnreadNotifications(); // API
     int unread = await getUnreadNotifications(); // local

@@ -30,6 +30,10 @@ class _CalendarPageState extends State<CalendarPage> {
   final backgroundColor = Color.fromARGB(255, 23, 23, 23);
   final textColor = Colors.white;
 
+  /// Obtiene el rol del usuario desde [SharedPreferences].
+  ///
+  /// Retorna un `int` con el rol del usuario o `null` si no se encuentra.
+  /// Los roles disponibles son: 0=cliente, 1=propietario, 2=admin.
   Future<int?> getUserRole() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("role");
@@ -42,6 +46,10 @@ class _CalendarPageState extends State<CalendarPage> {
     initNotifications();
   }
 
+  /// Obtiene todas las reservas del usuario del servidor.
+  ///
+  /// Agrupa las reservas por día para mostrarlas en el calendario.
+  /// Actualiza el estado con las reservas ordenadas por fecha.
   Future<void> fetchReservations() async {
     try {
       final grouped = await _reservationService.getReservationsGroupedByDay();
@@ -59,7 +67,7 @@ class _CalendarPageState extends State<CalendarPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al cargar reservaciones: $e'),
+            content: Text('Error al cargar reservas: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -67,11 +75,20 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
+  /// Obtiene las reservas para un día específico.
+  ///
+  /// [day] es el día para el cual se desean obtener las reservas (`DateTime`).
+  ///
+  /// Retorna un `List<dynamic>` con las reservas de ese día o una lista vacía.
   List<dynamic> _getReservationsForDay(DateTime day) {
     return reservations[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
-  // Controla qué pasa al pulsar cada icono
+  /// Maneja la navegación cuando se presiona un ícono de la barra inferior.
+  ///
+  /// [index] es el índice del ícono presionado, del 0 al 4 (`int`).
+  ///
+  /// Navega a diferentes páginas según el índice y el rol del usuario.
   void _onItemTapped(int index) async {
     int role = await getUserRole() ?? 0;
 

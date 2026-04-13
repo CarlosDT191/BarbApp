@@ -24,6 +24,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
   final ReservationService _reservationService = ReservationService();
   Map<DateTime, List<Reservation>> _cachedReservations = {};
   bool _isLoading = true;
+  static const int _initialPage = 10000;
   int? _selectedHourForCreation;
 
   @override
@@ -35,7 +36,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
       widget.initialDate.day,
     );
     _pageController = PageController(
-      initialPage: 0,
+      initialPage: _initialPage,
     );
     _loadReservations();
   }
@@ -46,7 +47,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
     super.dispose();
   }
 
-  /// Carga todas las reservaciones agrupadas por día
+  /// Carga todas las reservas agrupadas por día
   Future<void> _loadReservations() async {
     try {
       setState(() => _isLoading = true);
@@ -57,18 +58,13 @@ class _DayDetailPageState extends State<DayDetailPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar reservaciones: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        InputDecorations.showTopSnackBarError(context, "Error al cargar reservas: $e");
       }
       setState(() => _isLoading = false);
     }
   }
 
-  /// Obtiene las reservaciones para un día específico
+  /// Obtiene las reservas para un día específico
   List<Reservation> _getReservationsForDay(DateTime date) {
     final normalized = DateTime(date.year, date.month, date.day);
     return _cachedReservations[normalized] ?? [];
@@ -76,8 +72,6 @@ class _DayDetailPageState extends State<DayDetailPage> {
 
   /// Navega al día anterior
   void _previousDay() {
-    final previousDate = _displayedDate.subtract(const Duration(days: 1));
-    _displayedDate = previousDate;
     _pageController.previousPage(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -86,8 +80,6 @@ class _DayDetailPageState extends State<DayDetailPage> {
 
   /// Navega al día siguiente
   void _nextDay() {
-    final nextDate = _displayedDate.add(const Duration(days: 1));
-    _displayedDate = nextDate;
     _pageController.nextPage(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -114,7 +106,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
     );
   }
 
-  /// Crea una nueva reservación
+  /// Crea una nueva reserva
   Future<void> _createReservation(
     DateTime date,
     String time,
@@ -139,7 +131,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
       setState(() {});
 
       if (mounted) {
-        InputDecorations.showTopSnackBarSuccess(context, "Reservación creada exitosamente");
+        InputDecorations.showTopSnackBarSuccess(context, "Reserva creada exitosamente");
       }
     } catch (e) {
       if (mounted) {
@@ -148,7 +140,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
     }
   }
 
-  /// Elimina una reservación
+  /// Elimina una reserva
   Future<void> _deleteReservation(String reservationId) async {
     try {
       await _reservationService.deleteReservation(reservationId);
@@ -166,21 +158,11 @@ class _DayDetailPageState extends State<DayDetailPage> {
       setState(() {});
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reservación eliminada'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        InputDecorations.showTopSnackBarInfo(context, "Reserva eliminada");
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al eliminar: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        InputDecorations.showTopSnackBarError(context, "Error al eliminar: $e");
       }
     }
   }
@@ -224,28 +206,13 @@ class _DayDetailPageState extends State<DayDetailPage> {
             ),
           ],
         ),
-        actions: [
-          // Botón anterior
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
-            onPressed: _previousDay,
-            tooltip: 'Día anterior',
-          ),
-          // Botón siguiente
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios),
-            onPressed: _nextDay,
-            tooltip: 'Día siguiente',
-          ),
-        ],
       ),
+
       backgroundColor: const Color.fromARGB(255, 23, 23, 23),
       body: PageView.builder(
         controller: _pageController,
         onPageChanged: (index) {
-          // Calcular la nueva fecha basada en el índice
-          // El índice 0 es today, -1 es yesterday, +1 es tomorrow, etc.
-          final daysOffset = index;
+          final daysOffset = index - _initialPage;
           final newDate = widget.initialDate.add(Duration(days: daysOffset));
 
           setState(() {
@@ -258,7 +225,8 @@ class _DayDetailPageState extends State<DayDetailPage> {
         },
         itemBuilder: (context, index) {
           // Calcular la fecha para esta página
-          final pageDate = widget.initialDate.add(Duration(days: index));
+          final daysOffset = index - _initialPage;
+          final pageDate = widget.initialDate.add(Duration(days: daysOffset));
           final normalizedDate = DateTime(
             pageDate.year,
             pageDate.month,
@@ -282,7 +250,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
         onPressed: () => _openCreateEventModal(_displayedDate),
         backgroundColor: const Color.fromARGB(255, 200, 156, 125),
         foregroundColor: Colors.black,
-        tooltip: 'Nueva reservación',
+        tooltip: 'Nueva reserva',
         child: const Icon(Icons.add),
       ),
     );

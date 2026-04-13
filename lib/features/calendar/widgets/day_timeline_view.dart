@@ -18,7 +18,7 @@ class DayTimelineView extends StatefulWidget {
     this.onHourTap,
     this.onHourSelected,
     this.onDeleteReservation,
-    this.hourHeight = 60.0,
+    this.hourHeight = 100.0,
   });
 
   @override
@@ -64,6 +64,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       controller: _scrollController,
+      padding: const EdgeInsets.only(bottom: 100),
       child: Stack(
         children: [
           // Timeline de horas

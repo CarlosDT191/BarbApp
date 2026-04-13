@@ -19,6 +19,12 @@ class ChangeProfilePage extends StatefulWidget {
   State<ChangeProfilePage> createState() => _ChangeProfilePageState();
 }
 
+/// Guarda el token JWT y el rol del usuario en [SharedPreferences].
+///
+/// [token] es el token JWT obtenido del backend (`String`).
+/// [role] es el rol del usuario: 0=cliente, 1=propietario, 2=admin (`int`).
+///
+/// Permite mantener la sesión activa entre ejecuciones de la aplicación.
 Future<void> saveUserSessions(String token, int role) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString("token", token);
@@ -43,6 +49,10 @@ class _ChangeProfilePageState extends State<ChangeProfilePage> {
     loadUserData();
   }
 
+  /// Carga los datos del usuario actual desde el servidor.
+  ///
+  /// Obtiene la información del usuario usando [UserService.getCurrentUser]
+  /// y completa los campos del formulario con los valores existentes.
   Future<void> loadUserData() async {
     try {
       final userData = await UserService.getCurrentUser();
@@ -61,6 +71,10 @@ class _ChangeProfilePageState extends State<ChangeProfilePage> {
     }
   }
 
+  /// Envía la solicitud de actualización de perfil al backend.
+  ///
+  /// Valida los datos del formulario y llama a [UserService.updateProfile]
+  /// para actualizar el nombre y apellido. Muestra mensajes de éxito o error.
   Future<void> updateProfile() async {
     setState(() => isSent = true);
 

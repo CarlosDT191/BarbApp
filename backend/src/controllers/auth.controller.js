@@ -4,6 +4,13 @@ const jwt = require("jsonwebtoken");
 const { formatDate } = require('../config/date');
 
 
+/**
+ * Verifica si un correo electrónico ya está registrado en la base de datos
+ * Valida el formato del correo y el rol del usuario
+ * @param Object req.body.email Correo electrónico a verificar
+ * @param int req.body.role Rol del usuario (0=cliente, 1=propietario, 2=admin)
+ * @return json {message: string} Indica si el correo está registrado o no
+ */
 // COMPROBAR CORREO
 exports.email = async (req, res) => {
   try {
@@ -58,6 +65,16 @@ exports.email = async (req, res) => {
   }
 };
 
+/**
+ * Registra un nuevo usuario autenticado con Google
+ * Si el email ya existe, agrega el ID de Google a la cuenta existente
+ * @param Object req.body.email Correo electrónico del usuario
+ * @param string req.body.token Token de Google ID
+ * @param string req.body.firstname Nombre del usuario
+ * @param string req.body.lastname Apellido del usuario
+ * @param int req.body.role Rol del usuario (0=cliente, 1=propietario, 2=admin)
+ * @return json {message: string, token: string, user: object} Token JWT y datos del usuario
+ */
 // REGISTRO POR Google
 exports.google = async (req, res) => {
   try {
@@ -151,6 +168,16 @@ exports.google = async (req, res) => {
   }
 };
 
+/**
+ * Registra un nuevo usuario con correo y contraseña en la plataforma
+ * Valida que el correo no exista y cumple con el formato requerido
+ * @param Object req.body.email Correo electrónico del usuario
+ * @param string req.body.firstname Nombre del usuario
+ * @param string req.body.lastname Apellido del usuario
+ * @param string req.body.password Contraseña en texto plano (será hasheada)
+ * @param int req.body.role Rol del usuario (0=cliente, 1=propietario, 2=admin)
+ * @return json {message: string, token: string, user: object} Token JWT y datos del usuario registrado
+ */
 // LÓGICA DE REGISTRO DE CUENTAS
 exports.register = async (req, res) => {
 
@@ -232,6 +259,13 @@ exports.register = async (req, res) => {
 };
 
 
+/**
+ * Autentica a un usuario con correo y contraseña
+ * Valida las credenciales contra la base de datos y genera un token JWT
+ * @param Object req.body.email Correo electrónico del usuario
+ * @param string req.body.password Contraseña del usuario
+ * @return json {message: string, token: string, user: object} Token JWT y datos del usuario autenticado
+ */
 // LÓGICA DE LOGINS DE USUARIO
 exports.login = async (req, res) => {
   try {
@@ -289,6 +323,14 @@ exports.login = async (req, res) => {
   }
 };
 
+/**
+ * Actualiza el nombre y/o apellido del usuario autenticado
+ * Requiere token JWT válido para identificar al usuario
+ * @param Object req.body.firstname Nuevo nombre del usuario (opcional)
+ * @param string req.body.lastname Nuevo apellido del usuario (opcional)
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @return json {message: string, user: object} Mensaje de éxito y datos del usuario actualizado
+ */
 // ACTUALIZAR PERFIL DE USUARIO
 exports.updateProfile = async (req, res) => {
   try {
@@ -345,6 +387,16 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+/**
+ * Cambia la contraseña del usuario autenticado
+ * Valida la contraseña actual y requiere que las nuevas contraseñas coincidan
+ * No permite cambiar contraseña en cuentas autenticadas solo por Google
+ * @param string req.body.currentPassword Contraseña actual del usuario
+ * @param string req.body.newPassword Nueva contraseña deseada
+ * @param string req.body.confirmPassword Confirmación de la nueva contraseña
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @return json {message: string} Mensaje confirmando el cambio de contraseña
+ */
 // CAMBIAR CONTRASEÑA
 exports.changePassword = async (req, res) => {
   try {
@@ -422,6 +474,12 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+/**
+ * Elimina permanentemente la cuenta del usuario autenticado
+ * Requiere token JWT válido y elimina todos los datos asociados del usuario
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @return json {message: string} Mensaje confirmando la eliminación de la cuenta
+ */
 // ELIMINAR PERFIL DE USUARIO
 exports.deleteProfile = async (req, res) => {
   try {

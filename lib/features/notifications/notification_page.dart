@@ -31,6 +31,10 @@ class _NotificationPageState extends State<NotificationPage> {
   final backgroundColor = Color.fromARGB(255, 23, 23, 23);
   final textColor = Colors.white;
 
+  /// Obtiene el rol del usuario desde [SharedPreferences].
+  ///
+  /// Retorna un `int` con el rol del usuario o `null` si no existe.
+  /// Los roles son: 0=cliente, 1=propietario, 2=admin.
   Future<int?> getUserRole() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("role");
@@ -40,6 +44,10 @@ class _NotificationPageState extends State<NotificationPage> {
     return notifications.where((n) => n["read"] == false).length;
   }
 
+  /// Obtiene todas las notificaciones del usuario desde el backend.
+  ///
+  /// Realiza una solicitud HTTP al servidor y actualiza el estado 
+  /// con la lista completa de notificaciones del usuario autenticado.
   Future<void> fetchNotifications() async {
     final token = await getUserToken();
     final apiBaseUrl = getApiBaseUrl();
@@ -59,6 +67,11 @@ class _NotificationPageState extends State<NotificationPage> {
     });
   }
 
+  /// Marca una notificación como leída.
+  ///
+  /// [id] es el ID único de la notificación a marcar como leída (`String`).
+  ///
+  /// Realiza una solicitud PATCH al backend y recarga la lista de notificaciones.
   Future<void> markAsRead(String id) async {
     final token = await getUserToken();
     final apiBaseUrl = getApiBaseUrl();
@@ -73,6 +86,11 @@ class _NotificationPageState extends State<NotificationPage> {
     fetchNotifications();
   }
 
+  /// Devuelve el icono correspondiente según el tipo de notificación.
+  ///
+  /// [type] es el tipo de notificación (`String`): "reservation", "cancel", "reminder", "welcome", etc.
+  ///
+  /// Retorna un `IconData` con el icono representativo del tipo de notificación.
   IconData _getIcon(String type) {
     switch (type) {
       case "reservation":

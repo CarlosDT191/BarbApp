@@ -12,6 +12,11 @@ class TimelineHour extends StatelessWidget {
     this.onTap,
   });
 
+  /// Formatea un número de hora en formato HH:00.
+  ///
+  /// [hour] es la hora en formato 0-23 (`int`).
+  ///
+  /// Retorna un `String` con la hora formateada (ej: "14:00").
   String _formatHour(int hour) {
     return '${hour.toString().padLeft(2, '0')}:00';
   }

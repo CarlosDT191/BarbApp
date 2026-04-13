@@ -19,6 +19,12 @@ class ChangePasswordPage extends StatefulWidget {
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();
 }
 
+/// Guarda el token JWT y el rol del usuario en [SharedPreferences].
+///
+/// [token] es el token JWT obtenido del backend (`String`).
+/// [role] es el rol del usuario: 0=cliente, 1=propietario, 2=admin (`int`).
+///
+/// Permite mantener la sesión activa entre ejecuciones de la aplicación.
 Future<void> saveUserSessions(String token, int role) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString("token", token);
@@ -41,6 +47,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   bool _obscureNewPassword = true;
   bool get isFormValid => currentPassword?.isNotEmpty == true && newPassword?.isNotEmpty == true && confirmPassword?.isNotEmpty == true && (newPassword == confirmPassword);
 
+  /// Muestra un diálogo para cambiar la contraseña del usuario.
+  ///
+  /// Permite al usuario ingresar la contraseña actual, una nueva contraseña
+  /// y la confirmación. Valida y procesa el cambio al presionar el botón.
   void _showChangePasswordDialog() {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
@@ -109,6 +119,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     );
   }
 
+  /// Carga los datos del usuario desde el servidor.
+  ///
+  /// Recupera información del usuario actual usando [UserService.getCurrentUser]
+  /// para validaciones posteriores (ej: verificar si la cuenta es de Google).
   Future<void> loadUserData() async {
     try {
       final userData = await UserService.getCurrentUser();
@@ -126,6 +140,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     }
   }
 
+  /// Procesa el cambio de contraseña del usuario.
+  ///
+  /// Valida que la contraseña actual sea correcta mediante [UserService.changePassword],
+  /// envía la solicitud al backend y cierra la página si el cambio es exitoso.
   Future<void> handleChangePassword() async {
     setState(() => isSent = true);
     try {

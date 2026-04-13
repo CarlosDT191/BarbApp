@@ -21,7 +21,12 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 2;
   int unread = 0;
 
-  // Función que contiene la lógica de cierre de sesión
+  /// Cierra la sesión del usuario autenticado.
+  ///
+  /// [context] es el contexto de navegación (`BuildContext`).
+  ///
+  /// Elimina todos los datos almacenados en [SharedPreferences]
+  /// y redirige a la página de login.
   Future<void> logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -32,18 +37,30 @@ class _HomePageState extends State<HomePage> {
   }
 
 
-  // Función que recoge el token del usuario
+  /// Obtiene el token JWT almacenado del usuario.
+  ///
+  /// Retorna un `String` con el token o `null` si no existe en local.
+  /// El token se utiliza para autenticar todas las solicitudes al backend.
   Future<String?> getUserToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString("token");
   }
 
+  /// Obtiene el número de notificaciones no leídas.
+  ///
+  /// Lee el valor almacenado en [SharedPreferences] para obtener
+  /// rápidamente el conteo de notificaciones sin leer.
+  /// Retorna un `int` con el número de notificaciones no leídas.
   Future<int> getUnreadNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("unread_notifications") ?? 0;
   }
 
-  // Función que recoge los datos del usuario desde el backend
+  /// Obtiene los datos del usuario desde el backend.
+  ///
+  /// Requiere un token JWT válido en [SharedPreferences].
+  /// Retorna un `Map<String, dynamic>` con los datos del usuario
+  /// (email, nombre, apellido, rol).
   Future<Map<String, dynamic>> getUserData() async {
 
     final token = await getUserToken();
@@ -58,7 +75,11 @@ class _HomePageState extends State<HomePage> {
     return jsonDecode(response.body);
   }
 
-  // Controla qué pasa al pulsar cada icono
+  /// Maneja la navegación cuando se presiona un ícono de la barra inferior.
+  ///
+  /// [index] es el índice del ícono presionado, del 0 al 4 (`int`).
+  ///
+  /// Navega a diferentes páginas según el índice y actualiza el estado de selección.
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index; // Actualiza el icono seleccionado
@@ -93,6 +114,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Obtiene el rol del usuario desde [SharedPreferences].
+  ///
+  /// Los roles disponibles son: 0=cliente, 1=propietario, 2=admin.
+  /// Retorna un `int` con el rol o `null` si no se encuentra almacenado.
   Future<int?> getUserRole() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt("role");

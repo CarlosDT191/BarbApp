@@ -1,3 +1,8 @@
+/**
+ * Formatea la fecha y hora actual con zona horaria
+ * @param void
+ * @return string Devuelve la fecha y hora en formato DD/MM/YYYY HH:MM:SS GMT±HH:MM
+ */
 function formatDate() {
   let date = new Date();  
   const day = String(date.getDate()).padStart(2, '0');
