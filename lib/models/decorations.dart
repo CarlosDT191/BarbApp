@@ -357,6 +357,8 @@ class InputDecorations {
   }) {
     final Color selectedColor = const Color.fromARGB(255, 200, 156, 125);
     final Color backgroundColor = const Color.fromARGB(255, 23, 23, 23);
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
+    const double contentHeight = 92;
 
     Widget buildItem({
       required int index,
@@ -375,55 +377,49 @@ class InputDecorations {
             highlightColor: Colors.transparent,
             onTap: () => onTap(index),
             child: SizedBox(
-              height: 90,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 30, left: 11, right: 11),
-                  child: Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        AnimatedScale(
-                          duration: const Duration(milliseconds: 150),
-                          scale: isSelected ? 1.2 : 1.0,
-                          child: IconTheme(
-                            data: IconThemeData(
-                              color: isSelected ? selectedColor : Colors.grey,
-                              size: index == 2 ? 65 : 40,
+              height: double.infinity,
+              child: Center(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedScale(
+                      duration: const Duration(milliseconds: 150),
+                      scale: isSelected ? 1.2 : 1.0,
+                      child: IconTheme(
+                        data: IconThemeData(
+                          color: isSelected ? selectedColor : Colors.grey,
+                          size: index == 2 ? 56 : 36,
+                        ),
+                        child: icon,
+                      ),
+                    ),
+
+                    if (hasBadge && badgeCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            badgeCount > 99 ? '99+' : badgeCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: icon,
+                            textAlign: TextAlign.center,
                           ),
                         ),
-
-                        if (hasBadge && badgeCount > 0)
-                          Positioned(
-                            right: -6,
-                            top: -6,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              child: Text(
-                                badgeCount > 99 ? '99+' : badgeCount.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -442,9 +438,10 @@ class InputDecorations {
         ),
       ),
       child: SizedBox(
-        height: 125,
+        height: contentHeight + bottomInset,
         child: Container(
           color: backgroundColor,
+          padding: EdgeInsets.only(bottom: bottomInset),
           child: Row(
             children: [
               buildItem(

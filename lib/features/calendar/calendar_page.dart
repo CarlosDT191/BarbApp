@@ -74,12 +74,7 @@ class _CalendarPageState extends State<CalendarPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar reservas: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        InputDecorations.showTopSnackBarError(context, "Error al cargar reservas: $e");
       }
     }
   }

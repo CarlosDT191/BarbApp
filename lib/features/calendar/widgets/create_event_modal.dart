@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/models/decorations.dart';
 
 class CreateEventModal extends StatefulWidget {
   final DateTime selectedDate;
@@ -43,12 +44,7 @@ class _CreateEventModalState extends State<CreateEventModal> {
 
   void _createEvent() {
     if (_localNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor ingresa el nombre del local'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      InputDecorations.showTopSnackBarWarning(context, 'Por favor ingresa el nombre del local');
       return;
     }
 

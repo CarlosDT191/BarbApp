@@ -114,7 +114,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
       context: context,
       backgroundColor: const Color.fromARGB(255, 35, 35, 35),
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(bottom: 70, left: 20, right: 20, top: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
