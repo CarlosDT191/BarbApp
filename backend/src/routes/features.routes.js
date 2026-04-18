@@ -10,6 +10,15 @@ router.get("/reservations/me", authMiddleware, featuresController.getMyReservati
 // Crear reserva
 router.post("/reservations", authMiddleware, featuresController.createReservation);
 
+// Obtener negocios del usuario
+router.get("/businesses/me", authMiddleware, featuresController.getMyBusinesses);
+
+// Crear negocio
+router.post("/businesses", authMiddleware, featuresController.createBusiness);
+
+// Guardar datos generados de la consulta de creación de negocio
+router.post("/businesses/creation-data", authMiddleware, featuresController.createBusinessCreationData);
+
 // DONDE DEBEN DE IR LAS NOTIFICACIONES
 router.get("/notifications", authMiddleware, featuresController.getMyNotifications);
 

@@ -4,6 +4,7 @@ import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
+import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/services/user_service.dart';
@@ -68,7 +69,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         );
         break;
       case 1:
-        print("Estrella pulsado");
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
+        );
         break;
       case 2:
         print("Mapa pulsado");
@@ -80,7 +84,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         );
         break;
       case 4:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProfilePage()),
         );
@@ -131,8 +135,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
         // BARRA INFERIOR CON LOS ICONOS
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
+          context: context,
           currentIndex: 2,
-          owner: false,
+          owner: true,
           onTap: _onItemTapped,
           unreadNotifications: unread
         ),

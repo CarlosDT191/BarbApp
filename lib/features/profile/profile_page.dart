@@ -6,6 +6,7 @@ import 'package:flutter_application_1/features/profile/change_profile_page.dart'
 import 'package:flutter_application_1/features/profile/change_password_page.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
+import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 
 import '../../services/user_service.dart';
@@ -25,12 +26,21 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isLoading = true;
   int _selectedIndex = 4;
   int unread = 0;
+  int? role = 0;
 
   @override
   void initState() {
     super.initState();
     loadUserData();
     initNotifications();
+    loadUserRole();
+  }
+
+  void loadUserRole() async {
+    int? r = await getUserRole();
+    setState(() {
+      role = r;
+    });
   }
 
   /// Obtiene el rol del usuario desde [SharedPreferences].
@@ -63,7 +73,14 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         break;
       case 1:
-        print("Estrella pulsado");
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
+          );
+        } else {
+          print("Favoritos pulsado");
+        }
         break;
       case 2:
         // PROPIETARIO
@@ -88,10 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         break;
       case 4:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfilePage()),
-        );
+        print("Perfil pulsado");
         break;
     }
   }
@@ -255,8 +269,9 @@ class _ProfilePageState extends State<ProfilePage> {
           child: CircularProgressIndicator(color: Color.fromARGB(255, 200, 156, 125)),
         ),
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
+          context: context,
           currentIndex: 4,
-          owner: false,
+          owner: role == 1,
           onTap: _onItemTapped,
           unreadNotifications: unread
         ),
@@ -346,8 +361,9 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
 
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
+        context: context,
         currentIndex: 4,
-        owner: false,
+        owner: role == 1,
         onTap: _onItemTapped,
         unreadNotifications: unread
       ),

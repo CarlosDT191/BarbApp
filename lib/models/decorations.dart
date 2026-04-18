@@ -296,6 +296,49 @@ class InputDecorations {
     ).show(context);
   }
 
+
+  /// Muestra un mensaje de advertencia en la parte superior de la pantalla.
+  ///
+  /// [context] es el contexto de construcción de la aplicación (BuildContext).
+  /// [message] es el texto del mensaje de advertencia a mostrar (String).
+  ///
+  /// Retorna un [void]. Muestra una notificación tipo Flushbar con icono de advertencia
+  /// y color de fondo amarillo durante 3 segundos.
+  /// y color de fondo verde durante 3 segundos.
+  static void showTopSnackBarWarning(BuildContext context, String message) {
+    Flushbar(
+      messageText: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.white, 
+            size: 28,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.orange,
+      margin: const EdgeInsets.all(0),
+      borderRadius: BorderRadius.circular(0),
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      animationDuration: const Duration(milliseconds: 500),
+      forwardAnimationCurve: Curves.easeOut,
+      reverseAnimationCurve: Curves.easeIn,
+      padding: const EdgeInsets.all(30),
+    ).show(context);
+  }
+
   /// Crea la barra de navegación inferior con 5 pestañas principales.
   ///
   /// [currentIndex] es el índice de la pestaña actualmente seleccionada (int).
@@ -306,75 +349,57 @@ class InputDecorations {
   /// Retorna un [Widget] con la barra de navegación personalizada que muestra
   /// calendario, propiedades/favoritos, mapa, notificaciones y perfil.
   static Widget mainBottomNavBar({
+    required BuildContext context,
     required int currentIndex,
     required Function(int) onTap,
     bool owner = false,
     int unreadNotifications = 0,
+  }) {
+    final Color selectedColor = const Color.fromARGB(255, 200, 156, 125);
+    final Color backgroundColor = const Color.fromARGB(255, 23, 23, 23);
+
+    Widget buildItem({
+      required int index,
+      required Widget icon,
+      bool hasBadge = false,
+      int badgeCount = 0,
     }) {
-      return Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Colors.grey,
-              width: 1,
-            ),
-          ),
-        ),
-        child: SizedBox(
-          height: 125,
-          child: BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: const Color.fromARGB(255, 23, 23, 23),
-            selectedItemColor: const Color.fromARGB(255, 200, 156, 125),
-            unselectedItemColor: Colors.grey,
-            currentIndex: currentIndex,
-            iconSize: 40,
-            onTap: onTap,
-            items: [
-              BottomNavigationBarItem(
-                icon: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.calendar_month_rounded),
-                  ],
-                ),
-                label: "",
-              ),
+      final bool isSelected = currentIndex == index;
 
-              BottomNavigationBarItem(
-                icon: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      owner ? Icons.home_work_rounded : Icons.star_rate_rounded,
-                    ),
-                  ],
-                ),
-                label: "",
-              ),
-
-              BottomNavigationBarItem(
-                icon: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.map_rounded, size: 65),
-                  ],
-                ),
-                label: "",
-              ),
-
-              BottomNavigationBarItem(
-                icon: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Stack(
+      return Expanded(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(40),
+            splashColor: selectedColor.withOpacity(0.25),
+            highlightColor: Colors.transparent,
+            onTap: () => onTap(index),
+            child: SizedBox(
+              height: 90,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 30, left: 11, right: 11),
+                  child: Center(
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        const Icon(Icons.notifications_rounded),
+                        AnimatedScale(
+                          duration: const Duration(milliseconds: 150),
+                          scale: isSelected ? 1.2 : 1.0,
+                          child: IconTheme(
+                            data: IconThemeData(
+                              color: isSelected ? selectedColor : Colors.grey,
+                              size: index == 2 ? 65 : 40,
+                            ),
+                            child: icon,
+                          ),
+                        ),
 
-                        if (unreadNotifications > 0)
+                        if (hasBadge && badgeCount > 0)
                           Positioned(
-                            right: 0,
-                            top: 0,
+                            right: -6,
+                            top: -6,
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
@@ -386,9 +411,7 @@ class InputDecorations {
                                 minHeight: 18,
                               ),
                               child: Text(
-                                unreadNotifications > 99
-                                    ? '99+'
-                                    : unreadNotifications.toString(),
+                                badgeCount > 99 ? '99+' : badgeCount.toString(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -400,33 +423,70 @@ class InputDecorations {
                           ),
                       ],
                     ),
-                  ],
+                  )
                 ),
-                label: "",
               ),
-
-              BottomNavigationBarItem(
-                icon: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.person_rounded),
-                  ],
-                ),
-                label: "",
-              ),
-            ],
+            ),
           ),
         ),
       );
     }
 
-    /// Construye un icono de notificaciones con un badge que muestra el contador.
-    ///
-    /// [unreadCount] es la cantidad de notificaciones sin leer (int).
-    ///
-    /// Retorna un [Widget] con un icono de campana y un badge rojo en la esquina superior derecha
-    /// que muestra el número de notificaciones (máximo 9+).
-    static Widget buildNotificationIconWithBadge(int unreadCount) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey,
+            width: 1,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        height: 125,
+        child: Container(
+          color: backgroundColor,
+          child: Row(
+            children: [
+              buildItem(
+                index: 0,
+                icon: const Icon(Icons.calendar_month_rounded),
+              ),
+              buildItem(
+                index: 1,
+                icon: Icon(
+                  owner
+                      ? Icons.home_work_rounded
+                      : Icons.star_rate_rounded,
+                ),
+              ),
+              buildItem(
+                index: 2,
+                icon: const Icon(Icons.map_rounded),
+              ),
+              buildItem(
+                index: 3,
+                icon: const Icon(Icons.notifications_rounded),
+                hasBadge: true,
+                badgeCount: unreadNotifications,
+              ),
+              buildItem(
+                index: 4,
+                icon: const Icon(Icons.person_rounded),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Construye un icono de notificaciones con un badge que muestra el contador.
+  ///
+  /// [unreadCount] es la cantidad de notificaciones sin leer (int).
+  ///
+  /// Retorna un [Widget] con un icono de campana y un badge rojo en la esquina superior derecha
+  /// que muestra el número de notificaciones (máximo 9+).
+  static Widget buildNotificationIconWithBadge(int unreadCount) {
     return Stack(
       clipBehavior: Clip.none,
       children: [

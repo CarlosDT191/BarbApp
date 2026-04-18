@@ -3,6 +3,7 @@ import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
+import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -22,7 +23,7 @@ class NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<NotificationPage> {
   int _selectedIndex = 0;
-  int role = 0;
+  int? role = 0;
 
   List<dynamic> notifications = [];
   bool isLoading = true;
@@ -160,6 +161,14 @@ class _NotificationPageState extends State<NotificationPage> {
   void initState() {
     super.initState();
     fetchNotifications();
+    loadUserRole();
+  }
+
+  void loadUserRole() async {
+    int? r = await getUserRole();
+    setState(() {
+      role = r;
+    });
   }
 
   Future<String?> getUserToken() async {
@@ -184,7 +193,14 @@ class _NotificationPageState extends State<NotificationPage> {
         );
         break;
       case 1:
-        print("Estrella pulsada: $role");
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
+          );
+        } else {
+          print("Favoritos pulsado");
+        }
         break;
       case 2:
         // PROPIETARIO
@@ -206,7 +222,7 @@ class _NotificationPageState extends State<NotificationPage> {
         print("Notificaciones pulsado");
         break;
       case 4:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProfilePage()),
         );
@@ -221,8 +237,9 @@ class _NotificationPageState extends State<NotificationPage> {
 
       // BARRA INFERIOR
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
+        context: context,
         currentIndex: 3,
-        owner: false,
+        owner: role == 1,
         onTap: _onItemTapped,
         unreadNotifications: unreadCount,
       ),

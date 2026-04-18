@@ -158,7 +158,7 @@ class _CreateEventModalState extends State<CreateEventModal> {
           left: 16,
           right: 16,
           top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 70,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -361,7 +361,7 @@ class _CreateEventModalState extends State<CreateEventModal> {
                         : const Text(
                             'Crear',
                             style: TextStyle(
-                              color: Colors.black,
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

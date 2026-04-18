@@ -9,7 +9,12 @@ const userSchema = new mongoose.Schema({
   auth_provider: { type: String, required: true },
   google_id: { type: String, required: false, default: null },
   password: { type: String, required: false, default: null },
-  role: { type: Number, required: true }
+  role: { type: Number, required: true },
+  businesses: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Business",
+    default: []
+  }]
 });
 
 module.exports = mongoose.model("User", userSchema);

@@ -144,6 +144,7 @@ class _HomePageState extends State<HomePage> {
 
         // BARRA INFERIOR CON LOS ICONOS
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
+          context: context,
           currentIndex: 2,
           owner: false,
           onTap: _onItemTapped,

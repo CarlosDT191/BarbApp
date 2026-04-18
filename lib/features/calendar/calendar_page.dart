@@ -3,6 +3,7 @@ import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
+import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:flutter_application_1/features/calendar/pages/day_detail_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_application_1/services/user_service.dart';
@@ -20,8 +21,8 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  int role = 0;
   int unread= 0;
+  int? role= 0;
 
   Map<DateTime, List<dynamic>> reservations = {};
   final ReservationService _reservationService = ReservationService();
@@ -44,6 +45,14 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     fetchReservations();
     initNotifications();
+    loadUserRole();
+  }
+
+  void loadUserRole() async {
+    int? r = await getUserRole();
+    setState(() {
+      role = r;
+    });
   }
 
   /// Obtiene todas las reservas del usuario del servidor.
@@ -98,7 +107,14 @@ class _CalendarPageState extends State<CalendarPage> {
         print("Calendario pulsado");
         break;
       case 1:
-        print("Estrella pulsada: $role");
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
+          );
+        } else {
+          print("Favoritos pulsado");
+        }
         break;
       case 2:
         // PROPIETARIO
@@ -123,7 +139,7 @@ class _CalendarPageState extends State<CalendarPage> {
         );
         break;
       case 4:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProfilePage()),
         );
@@ -152,8 +168,9 @@ class _CalendarPageState extends State<CalendarPage> {
 
       // BARRA INFERIOR
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
+        context: context,
         currentIndex: 0,
-        owner: false,
+        owner: role == 1,
         onTap: _onItemTapped,
         unreadNotifications: unread
       ),
