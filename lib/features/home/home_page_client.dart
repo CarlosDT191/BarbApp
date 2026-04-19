@@ -23,9 +23,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 2;
   int unread = 0;
-  static const int _maxNearbyResults = 60;
+  static const int _maxNearbyResults = 60; // Máximo límite de locales para la API de Google Places.
   static const int _nearbySearchPageLimit = 3;
-  static const int _nearbySearchRadiusMeters = 3500;
+  static const int _nearbySearchRadiusMeters = 500; // Radio de búsqueda reducido a 500 metros para encontrar más cercanos.
   static const String _mapStatePrefsKey = 'home_page_client_map_state_v1';
   static const double _defaultMapZoom = 14;
   static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
@@ -45,8 +45,8 @@ class _HomePageState extends State<HomePage> {
   GoogleMapController? _mapController;
   _HairBusiness? _selectedBusinessForRoute;
   bool _isLoadingNearbyBusinesses = false;
-  double _searchCircleRadiusMeters =
-      _nearbySearchRadiusMeters.toDouble() + 1500;
+  // RADIO DEL CÍRCULO
+  double _searchCircleRadiusMeters = _nearbySearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
     target: LatLng(37.8882, -4.7794),
     zoom: _defaultMapZoom,
@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> {
     return Circle(
       circleId: const CircleId('search-radius-circle'),
       center: center,
-      radius: _searchCircleRadiusMeters,
+      radius: 1000.0,
       strokeColor: const Color.fromARGB(255, 200, 156, 125),
       strokeWidth: 2,
       fillColor: const Color.fromARGB(255, 200, 156, 125).withOpacity(0.12),
