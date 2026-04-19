@@ -27,6 +27,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   static const int _maxNearbyResults = 60;
   static const int _nearbySearchPageLimit = 3;
   static const int _nearbySearchRadiusMeters = 3500;
+  static const String _mapStatePrefsKey = 'home_page_owner_map_state_v1';
+  static const double _defaultMapZoom = 14;
+  static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
+  static const List<String> _placeTypes = ['barber_shop', 'hair_care'];
 
   // Hues personalizables para pines: verde apagado, rojo apagado y neutro.
   static const double _pinHueOpen = 110;
@@ -34,16 +38,247 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   static const double _pinHueUnknown = 35;
 
   LatLng _searchCenter = const LatLng(37.8882, -4.7794);
+  LatLng _currentMapTarget = const LatLng(37.8882, -4.7794);
+  double _currentZoom = 14.0;
   Set<Marker> _hairSalonMarkers = {};
+  Set<Circle> _searchAreaCircles = {};
   final Map<String, _HairBusiness> _hairBusinessesById = {};
   GoogleMapController? _mapController;
   _HairBusiness? _selectedBusinessForRoute;
+  bool _isLoadingNearbyBusinesses = false;
+  double _searchCircleRadiusMeters = _nearbySearchRadiusMeters.toDouble();
+  CameraPosition _lastCameraPosition = const CameraPosition(
+    target: LatLng(37.8882, -4.7794),
+    zoom: _defaultMapZoom,
+  );
   final BitmapDescriptor _openPinIcon =
       BitmapDescriptor.defaultMarkerWithHue(_pinHueOpen);
   final BitmapDescriptor _closedPinIcon =
       BitmapDescriptor.defaultMarkerWithHue(_pinHueClosed);
   final BitmapDescriptor _unknownPinIcon =
       BitmapDescriptor.defaultMarkerWithHue(_pinHueUnknown);
+
+  Circle _buildSearchCircle(LatLng center) {
+    return Circle(
+      circleId: const CircleId('search-radius-circle'),
+      center: center,
+      radius: _searchCircleRadiusMeters,
+      strokeColor: const Color.fromARGB(255, 52, 110, 199),
+      strokeWidth: 2,
+      fillColor: const Color.fromARGB(255, 52, 110, 199).withOpacity(0.12),
+    );
+  }
+
+  Set<Marker> _buildMarkersFromBusinesses(Iterable<_HairBusiness> businesses) {
+    return businesses
+        .map(
+          (business) => Marker(
+            markerId: MarkerId(business.id),
+            position: business.location,
+            icon: _markerIconForBusiness(business),
+            onTap: () {
+              _selectedBusinessForRoute = business;
+              _mapController?.hideMarkerInfoWindow(MarkerId(business.id));
+              _showSalonInfoSheet(business.id);
+            },
+          ),
+        )
+        .toSet();
+  }
+
+  Map<String, double> _latLngToMap(LatLng value) {
+    return {
+      'lat': value.latitude,
+      'lng': value.longitude,
+    };
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
+  }
+
+  bool? _asBool(dynamic value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is String) {
+      if (value.toLowerCase() == 'true') {
+        return true;
+      }
+      if (value.toLowerCase() == 'false') {
+        return false;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _businessToJson(_HairBusiness business) {
+    return {
+      'id': business.id,
+      'name': business.name,
+      'address': business.address,
+      'lat': business.location.latitude,
+      'lng': business.location.longitude,
+      'openNow': business.openNow,
+      'rating': business.rating,
+      'openingHours': business.openingHours,
+      'phone': business.phone,
+    };
+  }
+
+  Future<void> _persistMapState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final state = {
+        'searchCenter': _latLngToMap(_searchCenter),
+        'currentMapTarget': _latLngToMap(_currentMapTarget),
+        'camera': {
+          'lat': _lastCameraPosition.target.latitude,
+          'lng': _lastCameraPosition.target.longitude,
+          'zoom': _lastCameraPosition.zoom,
+          'bearing': _lastCameraPosition.bearing,
+          'tilt': _lastCameraPosition.tilt,
+        },
+        'searchCircleRadiusMeters': _searchCircleRadiusMeters,
+        'businesses': _hairBusinessesById.values
+            .map(_businessToJson)
+            .toList(growable: false),
+      };
+
+      await prefs.setString(_mapStatePrefsKey, jsonEncode(state));
+    } catch (_) {
+      // Ignoramos errores de cache para no bloquear la UI.
+    }
+  }
+
+  Future<bool> _restoreMapState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawState = prefs.getString(_mapStatePrefsKey);
+      if (rawState == null || rawState.isEmpty) {
+        return false;
+      }
+
+      final decoded = jsonDecode(rawState);
+      if (decoded is! Map<String, dynamic>) {
+        return false;
+      }
+
+      final searchCenterData = decoded['searchCenter'];
+      final currentTargetData = decoded['currentMapTarget'];
+      final cameraData = decoded['camera'];
+      if (searchCenterData is! Map<String, dynamic> ||
+          currentTargetData is! Map<String, dynamic> ||
+          cameraData is! Map<String, dynamic>) {
+        return false;
+      }
+
+      final searchLat = _asDouble(searchCenterData['lat']);
+      final searchLng = _asDouble(searchCenterData['lng']);
+      final targetLat = _asDouble(currentTargetData['lat']);
+      final targetLng = _asDouble(currentTargetData['lng']);
+      final cameraLat = _asDouble(cameraData['lat']);
+      final cameraLng = _asDouble(cameraData['lng']);
+      final cameraZoom = _asDouble(cameraData['zoom']);
+      final cameraBearing = _asDouble(cameraData['bearing']) ?? 0;
+      final cameraTilt = _asDouble(cameraData['tilt']) ?? 0;
+
+      if (searchLat == null ||
+          searchLng == null ||
+          targetLat == null ||
+          targetLng == null ||
+          cameraLat == null ||
+          cameraLng == null ||
+          cameraZoom == null) {
+        return false;
+      }
+
+      final restoredSearchCenter = LatLng(searchLat, searchLng);
+      final restoredCurrentTarget = LatLng(targetLat, targetLng);
+      final restoredCameraPosition = CameraPosition(
+        target: LatLng(cameraLat, cameraLng),
+        zoom: cameraZoom,
+        bearing: cameraBearing,
+        tilt: cameraTilt,
+      );
+
+      final restoredBusinesses = <String, _HairBusiness>{};
+      final businessesRaw = decoded['businesses'];
+      if (businessesRaw is List) {
+        for (final rawBusiness in businessesRaw) {
+          if (rawBusiness is! Map<String, dynamic>) {
+            continue;
+          }
+
+          final id = rawBusiness['id']?.toString();
+          final name = rawBusiness['name']?.toString();
+          final address = rawBusiness['address']?.toString();
+          final lat = _asDouble(rawBusiness['lat']);
+          final lng = _asDouble(rawBusiness['lng']);
+
+          if (id == null ||
+              name == null ||
+              address == null ||
+              lat == null ||
+              lng == null) {
+            continue;
+          }
+
+          final openingHoursRaw = rawBusiness['openingHours'];
+          final openingHours = openingHoursRaw is List
+              ? openingHoursRaw.map((value) => value.toString()).toList()
+              : null;
+
+          restoredBusinesses[id] = _HairBusiness(
+            id: id,
+            name: name,
+            address: address,
+            location: LatLng(lat, lng),
+            openNow: _asBool(rawBusiness['openNow']),
+            rating: _asDouble(rawBusiness['rating']),
+            openingHours: openingHours,
+            phone: rawBusiness['phone']?.toString(),
+          );
+        }
+      }
+
+      final restoredRadius = _asDouble(decoded['searchCircleRadiusMeters']) ??
+          _searchCircleRadiusMeters;
+
+      if (!mounted) {
+        return true;
+      }
+
+      setState(() {
+        _searchCenter = restoredSearchCenter;
+        _currentMapTarget = restoredCurrentTarget;
+        _lastCameraPosition = restoredCameraPosition;
+        _searchCircleRadiusMeters = restoredRadius;
+
+        _hairBusinessesById
+          ..clear()
+          ..addAll(restoredBusinesses);
+
+        _hairSalonMarkers =
+            _buildMarkersFromBusinesses(restoredBusinesses.values);
+        _searchAreaCircles = {_buildSearchCircle(restoredSearchCenter)};
+      });
+
+      _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(_lastCameraPosition),
+      );
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   BitmapDescriptor _markerIconForBusiness(_HairBusiness business) {
     if (business.openNow == true) {
@@ -56,6 +291,11 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   }
 
   Future<void> _initializeNearbySearch() async {
+    final restored = await _restoreMapState();
+    if (restored) {
+      return;
+    }
+
     await _determineSearchCenter();
     await _loadHairBusinesses();
   }
@@ -66,18 +306,27 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       CameraUpdate.newCameraPosition(
         CameraPosition(
           target: _searchCenter,
-          zoom: 15,
+          zoom: _currentZoom,
         ),
       ),
     );
+  }
+
+  Future<void> _refreshBusinessesAroundCurrentView() async {
+    setState(() {
+      _searchCenter = _currentMapTarget;
+      _selectedBusinessForRoute = null;
+    });
+
+    await _loadHairBusinesses();
   }
 
   void _resetMapOrientation() {
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target: _searchCenter,
-          zoom: 15,
+          target: _currentMapTarget,
+          zoom: _currentZoom,
           bearing: 0,
           tilt: 0,
         ),
@@ -89,12 +338,19 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     required IconData icon,
     required VoidCallback onPressed,
     required String tooltip,
+    required bool inverted,
   }) {
+    Color primaryColor = Color.fromARGB(255, 23, 23, 23);
+    Color secondaryColor = Colors.white;
+    if(inverted) {
+      primaryColor = Colors.white;
+      secondaryColor = Color.fromARGB(255, 23, 23, 23);
+    }
     return Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: secondaryColor,// COLOR DE FONDO DEL BOTON
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
@@ -106,7 +362,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       ),
       child: IconButton(
         tooltip: tooltip,
-        icon: Icon(icon, color: Color.fromARGB(255, 23, 23, 23)),
+        icon: Icon(icon, color: primaryColor), // COLOR DEL ICONO
         onPressed: onPressed,
       ),
     );
@@ -196,8 +452,16 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       final userCenter = LatLng(position.latitude, position.longitude);
       setState(() {
         _searchCenter = userCenter;
+        _currentMapTarget = userCenter;
+        _lastCameraPosition = CameraPosition(
+          target: userCenter,
+          zoom: _currentZoom,
+          bearing: 0,
+          tilt: 0,
+        );
       });
       _mapController?.animateCamera(CameraUpdate.newLatLng(userCenter));
+      await _persistMapState();
     } catch (_) {
       // Si falla el GPS mantenemos el centro por defecto.
     }
@@ -209,67 +473,79 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       return;
     }
 
-    final places = await _fetchNearbyPlaces(apiKey: apiKey);
-    final businessesById = <String, _HairBusiness>{};
+    final searchOrigin = _searchCenter;
+    if (mounted) {
+      setState(() {
+        _isLoadingNearbyBusinesses = true;
+        _searchAreaCircles = {_buildSearchCircle(searchOrigin)};
+      });
+    }
 
-    for (final place in places) {
-      final placeId = place['place_id'] as String?;
-      final geometry = place['geometry'] as Map<String, dynamic>?;
-      final location = geometry?['location'] as Map<String, dynamic>?;
-      final lat = location?['lat'];
-      final lng = location?['lng'];
+    try {
+      final places = await _fetchNearbyPlaces(apiKey: apiKey);
+      final businessesById = <String, _HairBusiness>{};
 
-      if (placeId == null || lat is! num || lng is! num) {
-        continue;
+      for (final place in places) {
+        final placeId = place['place_id'] as String?;
+        final geometry = place['geometry'] as Map<String, dynamic>?;
+        final location = geometry?['location'] as Map<String, dynamic>?;
+        final lat = location?['lat'];
+        final lng = location?['lng'];
+
+        if (placeId == null || lat is! num || lng is! num) {
+          continue;
+        }
+
+        final openingData = place['opening_hours'] as Map<String, dynamic>?;
+
+        businessesById[placeId] = _HairBusiness(
+          id: placeId,
+          name: place['name']?.toString() ?? 'Peluqueria',
+          address: place['vicinity']?.toString() ?? 'Direccion no disponible',
+          location: LatLng(lat.toDouble(), lng.toDouble()),
+          openNow: openingData?['open_now'] as bool?,
+          rating: (place['rating'] as num?)?.toDouble(),
+        );
       }
 
-      final openingData = place['opening_hours'] as Map<String, dynamic>?;
+      if (!mounted) {
+        return;
+      }
 
-      businessesById[placeId] = _HairBusiness(
-        id: placeId,
-        name: place['name']?.toString() ?? 'Peluqueria',
-        address: place['vicinity']?.toString() ?? 'Direccion no disponible',
-        location: LatLng(lat.toDouble(), lng.toDouble()),
-        openNow: openingData?['open_now'] as bool?,
-        rating: (place['rating'] as num?)?.toDouble(),
-      );
+      final businesses = businessesById.values.take(_maxNearbyResults).toList();
+
+      setState(() {
+        _hairBusinessesById
+          ..clear()
+          ..addAll(businessesById);
+
+        _hairSalonMarkers = _buildMarkersFromBusinesses(businesses);
+        _searchAreaCircles = {_buildSearchCircle(searchOrigin)};
+      });
+
+      await _persistMapState();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingNearbyBusinesses = false;
+        });
+      }
     }
-
-    if (!mounted) {
-      return;
-    }
-
-    final businesses = businessesById.values.take(_maxNearbyResults).toList();
-
-    setState(() {
-      _hairBusinessesById
-        ..clear()
-        ..addAll(businessesById);
-
-      _hairSalonMarkers = businesses
-          .map(
-            (business) => Marker(
-              markerId: MarkerId(business.id),
-              position: business.location,
-              infoWindow: InfoWindow(title: business.name),
-              icon: _markerIconForBusiness(business),
-              onTap: () {
-                _selectedBusinessForRoute = business;
-                _showSalonInfoSheet(business.id);
-              },
-            ),
-          )
-          .toSet();
-    });
   }
 
-  Uri _buildNearbySearchUri(String apiKey) {
+  Uri _buildNearbySearchUri({
+    required String apiKey,
+    required String keyword,
+    required String type,
+  }) {
+    final encodedKeyword = Uri.encodeQueryComponent(keyword);
+
     return Uri.parse(
       'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
       '?location=${_searchCenter.latitude},${_searchCenter.longitude}'
       '&radius=$_nearbySearchRadiusMeters'
-      '&type=hair_care'
-      '&keyword=peluqueria'
+      '&type=$type'
+      '&keyword=$encodedKeyword'
       '&language=es'
       '&key=$apiKey',
     );
@@ -326,39 +602,65 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     required String apiKey,
   }) async {
     final collected = <Map<String, dynamic>>[];
-    String? nextPageToken;
-    int fetchedPages = 0;
+    final seenPlaceIds = <String>{};
 
-    while (fetchedPages < _nearbySearchPageLimit && collected.length < _maxNearbyResults) {
-      final page = nextPageToken == null
-          ? await _requestNearbyPage(_buildNearbySearchUri(apiKey))
-          : await _requestNearbyPageWithToken(
-              apiKey: apiKey,
-              pageToken: nextPageToken,
-            );
+    for (final keyword in _businessKeywords) {
+      for(final type in _placeTypes) {
+        String? nextPageToken;
+        int fetchedPages = 0;
 
-      if (page == null) {
-        break;
-      }
+        while (fetchedPages < _nearbySearchPageLimit &&
+            collected.length < _maxNearbyResults) {
+          final page = nextPageToken == null
+              ? await _requestNearbyPage(
+                  _buildNearbySearchUri(apiKey: apiKey, keyword: keyword, type: type),
+                )
+              : await _requestNearbyPageWithToken(
+                  apiKey: apiKey,
+                  pageToken: nextPageToken,
+                );
 
-      final status = page['status']?.toString() ?? '';
-      if (status == 'ZERO_RESULTS') {
-        break;
-      }
-      if (status != 'OK') {
-        break;
-      }
+          if (page == null) {
+            break;
+          }
 
-      final pageResults =
-          (page['results'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<String, dynamic>>();
+          final status = page['status']?.toString() ?? '';
+          if (status == 'ZERO_RESULTS') {
+            break;
+          }
+          if (status != 'OK') {
+            break;
+          }
 
-      collected.addAll(pageResults);
-      nextPageToken = page['next_page_token']?.toString();
-      fetchedPages++;
+          final pageResults =
+              (page['results'] as List<dynamic>? ?? const <dynamic>[])
+                  .whereType<Map<String, dynamic>>();
 
-      if (nextPageToken == null) {
-        break;
+          for (final result in pageResults) {
+            final placeId = result['place_id']?.toString();
+            if (placeId == null || seenPlaceIds.contains(placeId)) {
+              continue;
+            }
+
+            seenPlaceIds.add(placeId);
+            collected.add(result);
+
+            if (collected.length >= _maxNearbyResults) {
+              break;
+            }
+          }
+
+          nextPageToken = page['next_page_token']?.toString();
+          fetchedPages++;
+
+          if (nextPageToken == null || collected.length >= _maxNearbyResults) {
+            break;
+          }
+        }
+
+        if (collected.length >= _maxNearbyResults) {
+          break;
+        }
       }
     }
 
@@ -542,6 +844,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   ///
   /// Navega a diferentes páginas según el índice seleccionado.
   void _onItemTapped(int index) {
+    _persistMapState();
+
     setState(() {
       _selectedIndex = index; // Actualiza el icono seleccionado
     });
@@ -635,18 +939,66 @@ class _HomePageOwnerState extends State<HomePageOwner> {
             GoogleMap(
               onMapCreated: (controller) {
                 _mapController = controller;
-                _mapController?.animateCamera(CameraUpdate.newLatLng(_searchCenter));
+                _mapController?.animateCamera(
+                  CameraUpdate.newCameraPosition(_lastCameraPosition),
+                );
               },
-              initialCameraPosition: CameraPosition(
-                target: _searchCenter,
-                zoom: 14,
-              ),
+              onCameraMove: (position) {
+                _currentMapTarget = position.target;
+                _currentZoom = position.zoom;
+                _lastCameraPosition = position;
+              },
+              onCameraIdle: () {
+                _persistMapState();
+              },
+              initialCameraPosition: _lastCameraPosition,
               markers: _hairSalonMarkers,
+              circles: _searchAreaCircles,
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               compassEnabled: false,
               zoomControlsEnabled: false,
             ),
+
+            if (_isLoadingNearbyBusinesses)
+              Positioned(
+                top: 112,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color.fromARGB(255, 23, 23, 23)),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Cargando locales...',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
 
             // 👉 BARRA DE BÚSQUEDA FLOTANTE
             Positioned(
@@ -708,29 +1060,43 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
             Positioned(
               left: 16,
-              bottom: 20,
-              child: _buildMapControlButton(
-                icon: Icons.directions_rounded,
-                tooltip: 'Abrir ruta en Google Maps',
-                onPressed: _openGoogleMapsRoute,
-              ),
-            ),
-
-            Positioned(
-              right: 16,
-              bottom: 20,
+              bottom: 15,
               child: Column(
                 children: [
                   _buildMapControlButton(
                     icon: Icons.my_location,
                     tooltip: 'Centrar en mi ubicacion',
                     onPressed: _centerMapOnUserLocation,
+                    inverted: false,
                   ),
                   const SizedBox(height: 10),
                   _buildMapControlButton(
                     icon: Icons.explore,
                     tooltip: 'Orientar mapa al norte',
                     onPressed: _resetMapOrientation,
+                    inverted: false,
+                  ),
+                ],
+              ),
+            ),
+
+            Positioned(
+              right: 16,
+              bottom: 15,
+              child: Column(
+                children: [
+                  _buildMapControlButton(
+                    icon: Icons.sync_rounded,
+                    tooltip: 'Recalcular negocios según localización actual del mapa',
+                    onPressed: _refreshBusinessesAroundCurrentView,
+                    inverted: true,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildMapControlButton(
+                    icon: Icons.directions_rounded,
+                    tooltip: 'Abrir ruta en Google Maps',
+                    onPressed: _openGoogleMapsRoute,
+                    inverted: false,
                   ),
                 ],
               ),
