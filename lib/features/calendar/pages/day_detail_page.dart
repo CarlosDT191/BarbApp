@@ -249,7 +249,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreateEventModal(_displayedDate),
         backgroundColor: const Color.fromARGB(255, 200, 156, 125),
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.white,
         tooltip: 'Nueva reserva',
         child: const Icon(Icons.add),
       ),

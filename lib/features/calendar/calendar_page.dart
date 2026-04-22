@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
+import 'package:flutter_application_1/features/favorites/favorites.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
@@ -21,8 +22,8 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  int unread= 0;
-  int? role= 0;
+  int unread = 0;
+  int? role = 0;
 
   Map<DateTime, List<dynamic>> reservations = {};
   final ReservationService _reservationService = ReservationService();
@@ -62,7 +63,7 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> fetchReservations() async {
     try {
       final grouped = await _reservationService.getReservationsGroupedByDay();
-      
+
       // Convertir a Map<DateTime, List<dynamic>> para compatibilidad
       Map<DateTime, List<dynamic>> loaded = {};
       grouped.forEach((date, reservations) {
@@ -74,7 +75,10 @@ class _CalendarPageState extends State<CalendarPage> {
       });
     } catch (e) {
       if (mounted) {
-        InputDecorations.showTopSnackBarError(context, "Error al cargar reservas: $e");
+        InputDecorations.showTopSnackBarError(
+          context,
+          "Error al cargar reservas: $e",
+        );
       }
     }
   }
@@ -108,7 +112,10 @@ class _CalendarPageState extends State<CalendarPage> {
             MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
           );
         } else {
-          print("Favoritos pulsado");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const FavoritesPage()),
+          );
         }
         break;
       case 2:
@@ -118,7 +125,7 @@ class _CalendarPageState extends State<CalendarPage> {
             context,
             MaterialPageRoute(builder: (context) => const HomePageOwner()),
           );
-        } 
+        }
         // CLIENTE
         else {
           Navigator.pushReplacement(
@@ -156,44 +163,59 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       // BARRA INFERIOR
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
         context: context,
         currentIndex: 0,
         owner: role == 1,
         onTap: _onItemTapped,
-        unreadNotifications: unread
+        unreadNotifications: unread,
       ),
 
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          
-          SizedBox(height: 90,),
+          SizedBox(height: 90),
 
-          Text('Mis reservas', style: TextStyle( fontSize: 33, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
-          Text('Revisa tus reservas ya creadas o solicita alguna nueva', style: TextStyle( fontSize: 14, color: Color.fromARGB(255, 200, 156, 125))),
+          Text(
+            'Mis reservas',
+            style: TextStyle(
+              fontSize: 33,
+              color: Color.fromARGB(255, 200, 156, 125),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            'Revisa tus reservas ya creadas o solicita alguna nueva',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color.fromARGB(255, 200, 156, 125),
+            ),
+          ),
 
-          SizedBox(height: 70,),
+          SizedBox(height: 70),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Color.fromARGB(255, 30, 30, 30), // ligeramente distinto del fondo
+                color: Color.fromARGB(
+                  255,
+                  30,
+                  30,
+                  30,
+                ), // ligeramente distinto del fondo
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black26,
                     blurRadius: 10,
                     offset: Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
               child: TableCalendar(
@@ -219,9 +241,8 @@ class _CalendarPageState extends State<CalendarPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => DayDetailPage(
-                        initialDate: selectedDay,
-                      ),
+                      builder: (context) =>
+                          DayDetailPage(initialDate: selectedDay),
                     ),
                   );
                 },
@@ -235,8 +256,14 @@ class _CalendarPageState extends State<CalendarPage> {
                   titleCentered: true,
                   titleTextStyle: TextStyle(color: textColor, fontSize: 18),
                   formatButtonVisible: false,
-                  leftChevronIcon: Icon(Icons.chevron_left, color: primaryColor),
-                  rightChevronIcon: Icon(Icons.chevron_right, color: primaryColor),
+                  leftChevronIcon: Icon(
+                    Icons.chevron_left,
+                    color: primaryColor,
+                  ),
+                  rightChevronIcon: Icon(
+                    Icons.chevron_right,
+                    color: primaryColor,
+                  ),
                 ),
 
                 // 🎨 DÍAS DE LA SEMANA (L M X J V S D)
@@ -267,7 +294,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
                   outsideTextStyle: TextStyle(color: Colors.grey),
                 ),
-                )
+              ),
             ),
           ),
         ],

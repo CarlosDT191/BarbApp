@@ -64,9 +64,9 @@ class EventBlock extends StatelessWidget {
               Text(
                 '${reservation.time}',
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 2),
@@ -75,8 +75,8 @@ class EventBlock extends StatelessWidget {
                 child: Text(
                   reservation.localName,
                   style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black87,
+                    fontSize: 14,
+                    color: Colors.white,
                     overflow: TextOverflow.ellipsis,
                   ),
                   maxLines: 2,

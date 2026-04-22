@@ -4,6 +4,7 @@ import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/change_profile_page.dart';
 import 'package:flutter_application_1/features/profile/change_password_page.dart';
+import 'package:flutter_application_1/features/favorites/favorites.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
@@ -19,7 +20,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-
   String? firstname;
   String? lastname;
   String? email;
@@ -79,7 +79,10 @@ class _ProfilePageState extends State<ProfilePage> {
             MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
           );
         } else {
-          print("Favoritos pulsado");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const FavoritesPage()),
+          );
         }
         break;
       case 2:
@@ -89,7 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
             context,
             MaterialPageRoute(builder: (context) => const HomePageOwner()),
           );
-        } 
+        }
         // CLIENTE
         else {
           Navigator.pushReplacement(
@@ -127,7 +130,10 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         isLoading = false;
       });
-      InputDecorations.showTopSnackBarError(context, "Error al cargar datos: $e");
+      InputDecorations.showTopSnackBarError(
+        context,
+        "Error al cargar datos: $e",
+      );
     }
   }
 
@@ -139,11 +145,7 @@ class _ProfilePageState extends State<ProfilePage> {
     await prefs.clear();
 
     if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        "/login",
-        (route) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
       InputDecorations.showTopSnackBarInfo(context, "Sesión cerrada");
     }
   }
@@ -160,16 +162,18 @@ class _ProfilePageState extends State<ProfilePage> {
       await prefs.clear();
 
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
+        Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+        InputDecorations.showTopSnackBarSuccess(
           context,
-          "/login",
-          (route) => false,
+          "Cuenta eliminada exitosamente",
         );
-        InputDecorations.showTopSnackBarSuccess(context, "Cuenta eliminada exitosamente");
       }
     } catch (e) {
       if (mounted) {
-        InputDecorations.showTopSnackBarError(context, "Error al eliminar cuenta: $e");
+        InputDecorations.showTopSnackBarError(
+          context,
+          "Error al eliminar cuenta: $e",
+        );
       }
     }
   }
@@ -181,15 +185,22 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Color.fromARGB(255, 23, 23, 23),
-        title: const Text("Cerrar sesión", style: const TextStyle(color: Colors.white)),
-        content: const Text("¿Estás seguro de que quieres cerrar sesión?", style: const TextStyle(color: Colors.white)),
+        title: const Text(
+          "Cerrar sesión",
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          "¿Estás seguro de que quieres cerrar sesión?",
+          style: const TextStyle(color: Colors.white),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text(
+              "Cancelar",
+              style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125)),
             ),
-            child: const Text("Cancelar", style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125))),
           ),
           ElevatedButton(
             onPressed: () {
@@ -198,9 +209,17 @@ class _ProfilePageState extends State<ProfilePage> {
             },
             style: ElevatedButton.styleFrom(
               foregroundColor: Colors.white,
-              backgroundColor: Color.fromARGB(255, 30, 30, 30), // color de fondo
+              backgroundColor: Color.fromARGB(
+                255,
+                30,
+                30,
+                30,
+              ), // color de fondo
             ),
-            child: const Text("Cerrar sesión", style: const TextStyle(color: Colors.red)),
+            child: const Text(
+              "Cerrar sesión",
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -214,15 +233,23 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Color.fromARGB(255, 23, 23, 23),
-        title: const Text("Eliminar cuenta", style: const TextStyle(color: Colors.white)),
-        content: const Text("¿Estás seguro de que quieres eliminar tu cuenta? Toda tu información será eliminada permanentemente.", style: const TextStyle(color: Colors.white), textAlign: TextAlign.justify),
+        title: const Text(
+          "Eliminar cuenta",
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          "¿Estás seguro de que quieres eliminar tu cuenta? Toda tu información será eliminada permanentemente.",
+          style: const TextStyle(color: Colors.white),
+          textAlign: TextAlign.justify,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text(
+              "Cancelar",
+              style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125)),
             ),
-            child: const Text("Cancelar", style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125))),
           ),
           ElevatedButton(
             onPressed: () {
@@ -230,9 +257,17 @@ class _ProfilePageState extends State<ProfilePage> {
             },
             style: ElevatedButton.styleFrom(
               foregroundColor: Colors.white,
-              backgroundColor: Color.fromARGB(255, 30, 30, 30), // color de fondo
+              backgroundColor: Color.fromARGB(
+                255,
+                30,
+                30,
+                30,
+              ), // color de fondo
             ),
-            child: const Text("Eliminar cuenta", style: const TextStyle(color: Colors.red)),
+            child: const Text(
+              "Eliminar cuenta",
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -259,21 +294,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-
     final primaryColor = Color.fromARGB(255, 200, 156, 125);
 
     if (isLoading) {
       return Scaffold(
         backgroundColor: Color.fromARGB(255, 23, 23, 23),
         body: const Center(
-          child: CircularProgressIndicator(color: Color.fromARGB(255, 200, 156, 125)),
+          child: CircularProgressIndicator(
+            color: Color.fromARGB(255, 200, 156, 125),
+          ),
         ),
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
           context: context,
           currentIndex: 4,
           owner: role == 1,
           onTap: _onItemTapped,
-          unreadNotifications: unread
+          unreadNotifications: unread,
         ),
       );
     }
@@ -283,7 +319,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
       body: Column(
         children: [
-
           const SizedBox(height: 90),
 
           // 👤 Avatar
@@ -304,10 +339,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 10),
 
           // 📧 Email
-          Text(
-            email ?? "",
-            style: const TextStyle(color: Colors.white54),
-          ),
+          Text(email ?? "", style: const TextStyle(color: Colors.white54)),
 
           const SizedBox(height: 40),
 
@@ -324,7 +356,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: Colors.black26,
                     blurRadius: 10,
                     offset: Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -334,7 +366,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildOption(Icons.edit_rounded, "Editar perfil", () async {
                     final result = await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ChangeProfilePage()),
+                      MaterialPageRoute(
+                        builder: (context) => ChangeProfilePage(),
+                      ),
                     );
 
                     if (result == true) {
@@ -344,15 +378,22 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildOption(Icons.lock_rounded, "Cambiar contraseña", () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ChangePasswordPage()),
+                      MaterialPageRoute(
+                        builder: (context) => ChangePasswordPage(),
+                      ),
                     );
                   }),
                   _buildOption(Icons.logout, "Cerrar sesión", () {
                     _showLogoutConfirmation();
                   }),
-                  _buildOption(Icons.delete_forever_rounded, "Eliminar cuenta", () {
-                    _showDeleteConfirmation();
-                  }, mainColor: Colors.red),
+                  _buildOption(
+                    Icons.delete_forever_rounded,
+                    "Eliminar cuenta",
+                    () {
+                      _showDeleteConfirmation();
+                    },
+                    mainColor: Colors.red,
+                  ),
                 ],
               ),
             ),
@@ -365,13 +406,18 @@ class _ProfilePageState extends State<ProfilePage> {
         currentIndex: 4,
         owner: role == 1,
         onTap: _onItemTapped,
-        unreadNotifications: unread
+        unreadNotifications: unread,
       ),
     );
   }
 
-    Widget _buildOption(IconData icon, String text, VoidCallback onTap, {Color mainColor = Colors.white,}) {
-      return Material(
+  Widget _buildOption(
+    IconData icon,
+    String text,
+    VoidCallback onTap, {
+    Color mainColor = Colors.white,
+  }) {
+    return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -389,11 +435,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              Icon(
-                Icons.arrow_forward_ios,
-                color: mainColor,
-                size: 16,
-              ),
+              Icon(Icons.arrow_forward_ios, color: mainColor, size: 16),
             ],
           ),
         ),

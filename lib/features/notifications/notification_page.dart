@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
+import 'package:flutter_application_1/features/favorites/favorites.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
@@ -47,7 +48,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
   /// Obtiene todas las notificaciones del usuario desde el backend.
   ///
-  /// Realiza una solicitud HTTP al servidor y actualiza el estado 
+  /// Realiza una solicitud HTTP al servidor y actualiza el estado
   /// con la lista completa de notificaciones del usuario autenticado.
   Future<void> fetchNotifications() async {
     final token = await getUserToken();
@@ -55,9 +56,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     final response = await http.get(
       Uri.parse("$apiBaseUrl/notifications"),
-      headers: {
-        "Authorization": "Bearer $token"
-      },
+      headers: {"Authorization": "Bearer $token"},
     );
 
     final data = jsonDecode(response.body);
@@ -79,9 +78,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     await http.patch(
       Uri.parse("$apiBaseUrl/notifications/$id/read"),
-      headers: {
-        "Authorization": "Bearer $token"
-      },
+      headers: {"Authorization": "Bearer $token"},
     );
 
     fetchNotifications();
@@ -124,10 +121,7 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Row(
           children: [
             SizedBox(width: 3),
-            Icon(
-              _getIcon(notif["type"]),
-              color: primaryColor,
-            ),
+            Icon(_getIcon(notif["type"]), color: primaryColor),
             SizedBox(width: 18),
 
             Expanded(
@@ -138,14 +132,14 @@ class _NotificationPageState extends State<NotificationPage> {
                     notif["message"],
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight:
-                          isRead ? FontWeight.normal : FontWeight.bold,
+                      fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
                     ),
                   ),
                   SizedBox(height: 5),
                   Text(
-                    DateFormat('dd MMM yyyy - HH:mm')
-                        .format(DateTime.parse(notif["createdAt"])),
+                    DateFormat(
+                      'dd MMM yyyy - HH:mm',
+                    ).format(DateTime.parse(notif["createdAt"])),
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
@@ -199,7 +193,10 @@ class _NotificationPageState extends State<NotificationPage> {
             MaterialPageRoute(builder: (context) => const OwnerBusinessPage()),
           );
         } else {
-          print("Favoritos pulsado");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const FavoritesPage()),
+          );
         }
         break;
       case 2:
@@ -209,7 +206,7 @@ class _NotificationPageState extends State<NotificationPage> {
             context,
             MaterialPageRoute(builder: (context) => const HomePageOwner()),
           );
-        } 
+        }
         // CLIENTE
         else {
           Navigator.pushReplacement(
@@ -230,11 +227,9 @@ class _NotificationPageState extends State<NotificationPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       // BARRA INFERIOR
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
         context: context,
@@ -247,32 +242,48 @@ class _NotificationPageState extends State<NotificationPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          
-          SizedBox(height: 90,),
+          SizedBox(height: 90),
 
-          Text('Notificaciones', style: TextStyle( fontSize: 33, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
-          Text('Aquí puedes ver tus notificaciones', style: TextStyle( fontSize: 14, color: Color.fromARGB(255, 200, 156, 125))),
+          Text(
+            'Notificaciones',
+            style: TextStyle(
+              fontSize: 33,
+              color: Color.fromARGB(255, 200, 156, 125),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            'Aquí puedes ver tus notificaciones',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color.fromARGB(255, 200, 156, 125),
+            ),
+          ),
 
-          SizedBox(height: 20,),
+          SizedBox(height: 20),
 
           Expanded(
             child: isLoading
-                ? Center(child: CircularProgressIndicator(color: Color.fromARGB(255, 200, 156, 125)))
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: Color.fromARGB(255, 200, 156, 125),
+                    ),
+                  )
                 : notifications.isEmpty
-                    ? Center(
-                        child: Text(
-                          "No tienes notificaciones",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: notifications.length,
-                        itemBuilder: (context, index) {
-                          final notif = notifications[index];
-                          return _buildNotificationItem(notif);
-                        },
-                      ),
-          )
+                ? Center(
+                    child: Text(
+                      "No tienes notificaciones",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final notif = notifications[index];
+                      return _buildNotificationItem(notif);
+                    },
+                  ),
+          ),
         ],
       ),
     );

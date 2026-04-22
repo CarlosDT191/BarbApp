@@ -3,10 +3,13 @@ import 'package:flutter_application_1/services/user_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
+import 'package:flutter_application_1/features/favorites/favorites.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/services/business_service.dart';
+import 'package:flutter_application_1/services/favorite_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
@@ -21,11 +24,24 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
+  static const Color _registeredSheetBackgroundColor = Color.fromARGB(
+    255,
+    23,
+    23,
+    23,
+  );
+  static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
+
   int _selectedIndex = 2;
   int unread = 0;
-  static const int _maxNearbyResults = 60; // Máximo límite de locales para la API de Google Places.
+  int _nearbyFoundCount = 0;
+  bool _hasCompletedNearbySearch = false;
+  static const int _maxNearbyResults =
+      60; // Máximo límite de locales para la API de Google Places.
   static const int _nearbySearchPageLimit = 3;
-  static const int _nearbySearchRadiusMeters = 500; // Radio de búsqueda reducido a 500 metros para encontrar más cercanos.
+  static const int _nearbySearchRadiusMeters =
+      500; // Radio de búsqueda reducido a 500 metros para encontrar más cercanos.
   static const String _mapStatePrefsKey = 'home_page_client_map_state_v1';
   static const double _defaultMapZoom = 14;
   static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
@@ -42,6 +58,9 @@ class _HomePageState extends State<HomePage> {
   Set<Marker> _hairSalonMarkers = {};
   Set<Circle> _searchAreaCircles = {};
   final Map<String, _HairBusiness> _hairBusinessesById = {};
+  final Map<String, Map<String, dynamic>> _registeredBusinessesByPlaceId = {};
+  final Map<String, PageController> _photoControllersByPlaceId = {};
+  final Set<String> _favoriteBusinessIds = <String>{};
   GoogleMapController? _mapController;
   _HairBusiness? _selectedBusinessForRoute;
   bool _isLoadingNearbyBusinesses = false;
@@ -51,10 +70,12 @@ class _HomePageState extends State<HomePage> {
     target: LatLng(37.8882, -4.7794),
     zoom: _defaultMapZoom,
   );
-  final BitmapDescriptor _openPinIcon =
-      BitmapDescriptor.defaultMarkerWithHue(_pinHueOpen);
-  final BitmapDescriptor _closedPinIcon =
-      BitmapDescriptor.defaultMarkerWithHue(_pinHueClosed);
+  final BitmapDescriptor _openPinIcon = BitmapDescriptor.defaultMarkerWithHue(
+    _pinHueOpen,
+  );
+  final BitmapDescriptor _closedPinIcon = BitmapDescriptor.defaultMarkerWithHue(
+    _pinHueClosed,
+  );
   final BitmapDescriptor _unknownPinIcon =
       BitmapDescriptor.defaultMarkerWithHue(_pinHueUnknown);
 
@@ -86,11 +107,145 @@ class _HomePageState extends State<HomePage> {
         .toSet();
   }
 
+  @override
+  void dispose() {
+    for (final controller in _photoControllersByPlaceId.values) {
+      controller.dispose();
+    }
+    _photoControllersByPlaceId.clear();
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  PageController _getPhotoPageController(String placeId) {
+    return _photoControllersByPlaceId.putIfAbsent(
+      placeId,
+      () => PageController(viewportFraction: 0.93),
+    );
+  }
+
+  String _formatReviewCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    }
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
+  }
+
+  Uri? _buildBusinessPhotoUri(String photoReference, {int maxWidth = 1100}) {
+    final apiKey = dotenv.env['google_maps_api_key'];
+    if (apiKey == null || apiKey.isEmpty || photoReference.trim().isEmpty) {
+      return null;
+    }
+
+    return Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/photo',
+    ).replace(
+      queryParameters: {
+        'maxwidth': '$maxWidth',
+        'photoreference': photoReference,
+        'key': apiKey,
+      },
+    );
+  }
+
+  Future<void> _syncRegisteredBusinesses(Iterable<String> placeIds) async {
+    try {
+      final registeredByPlaceId =
+          await BusinessService.getRegisteredBusinessesByPlaceIds(
+            placeIds.toList(growable: false),
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _registeredBusinessesByPlaceId
+          ..clear()
+          ..addAll(registeredByPlaceId);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _registeredBusinessesByPlaceId.clear();
+      });
+    }
+  }
+
+  Future<void> _loadFavoriteBusinessIds() async {
+    try {
+      final favoriteIds = await FavoriteService.getFavoriteBusinessIds();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _favoriteBusinessIds
+          ..clear()
+          ..addAll(favoriteIds);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _favoriteBusinessIds.clear();
+      });
+    }
+  }
+
+  Future<void> _toggleFavoriteBusiness(String businessId) async {
+    final placeId = businessId.trim();
+    if (placeId.isEmpty) {
+      return;
+    }
+
+    final wasFavorite = _favoriteBusinessIds.contains(placeId);
+
+    setState(() {
+      if (wasFavorite) {
+        _favoriteBusinessIds.remove(placeId);
+      } else {
+        _favoriteBusinessIds.add(placeId);
+      }
+    });
+
+    try {
+      if (wasFavorite) {
+        await FavoriteService.removeFavoriteBusiness(placeId);
+      } else {
+        await FavoriteService.addFavoriteBusiness(placeId);
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        if (wasFavorite) {
+          _favoriteBusinessIds.add(placeId);
+        } else {
+          _favoriteBusinessIds.remove(placeId);
+        }
+      });
+
+      InputDecorations.showTopSnackBarError(
+        context,
+        'No se pudo actualizar favoritos.',
+      );
+    }
+  }
+
   Map<String, double> _latLngToMap(LatLng value) {
-    return {
-      'lat': value.latitude,
-      'lng': value.longitude,
-    };
+    return {'lat': value.latitude, 'lng': value.longitude};
   }
 
   double? _asDouble(dynamic value) {
@@ -127,8 +282,10 @@ class _HomePageState extends State<HomePage> {
       'lng': business.location.longitude,
       'openNow': business.openNow,
       'rating': business.rating,
+      'reviewCount': business.reviewCount,
       'openingHours': business.openingHours,
       'phone': business.phone,
+      'photoReferences': business.photoReferences,
     };
   }
 
@@ -235,6 +392,16 @@ class _HomePageState extends State<HomePage> {
               ? openingHoursRaw.map((value) => value.toString()).toList()
               : null;
 
+          final photoReferencesRaw = rawBusiness['photoReferences'];
+          final photoReferences = photoReferencesRaw is List
+              ? photoReferencesRaw
+                    .map((value) => value.toString().trim())
+                    .where((value) => value.isNotEmpty)
+                    .toList(growable: false)
+              : null;
+
+          final reviewCount = rawBusiness['reviewCount'];
+
           restoredBusinesses[id] = _HairBusiness(
             id: id,
             name: name,
@@ -242,13 +409,16 @@ class _HomePageState extends State<HomePage> {
             location: LatLng(lat, lng),
             openNow: _asBool(rawBusiness['openNow']),
             rating: _asDouble(rawBusiness['rating']),
+            reviewCount: reviewCount is num ? reviewCount.toInt() : null,
             openingHours: openingHours,
             phone: rawBusiness['phone']?.toString(),
+            photoReferences: photoReferences,
           );
         }
       }
 
-      final restoredRadius = _asDouble(decoded['searchCircleRadiusMeters']) ??
+      final restoredRadius =
+          _asDouble(decoded['searchCircleRadiusMeters']) ??
           _searchCircleRadiusMeters;
 
       if (!mounted) {
@@ -265,14 +435,19 @@ class _HomePageState extends State<HomePage> {
           ..clear()
           ..addAll(restoredBusinesses);
 
-        _hairSalonMarkers =
-            _buildMarkersFromBusinesses(restoredBusinesses.values);
+        _hairSalonMarkers = _buildMarkersFromBusinesses(
+          restoredBusinesses.values,
+        );
+        _nearbyFoundCount = restoredBusinesses.length;
+        _hasCompletedNearbySearch = true;
         _searchAreaCircles = {_buildSearchCircle(restoredSearchCenter)};
       });
 
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(_lastCameraPosition),
       );
+
+      await _syncRegisteredBusinesses(restoredBusinesses.keys);
 
       return true;
     } catch (_) {
@@ -304,10 +479,7 @@ class _HomePageState extends State<HomePage> {
     await _determineSearchCenter();
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: _searchCenter,
-          zoom: _currentZoom,
-        ),
+        CameraPosition(target: _searchCenter, zoom: _currentZoom),
       ),
     );
   }
@@ -342,7 +514,7 @@ class _HomePageState extends State<HomePage> {
   }) {
     Color primaryColor = Color.fromARGB(255, 23, 23, 23);
     Color secondaryColor = Colors.white;
-    if(inverted) {
+    if (inverted) {
       primaryColor = Colors.white;
       secondaryColor = Color.fromARGB(255, 23, 23, 23);
     }
@@ -350,14 +522,10 @@ class _HomePageState extends State<HomePage> {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: secondaryColor,// COLOR DE FONDO DEL BOTON
+        color: secondaryColor, // COLOR DE FONDO DEL BOTON
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
       child: IconButton(
@@ -401,27 +569,29 @@ class _HomePageState extends State<HomePage> {
 
     if (business == null) {
       if (mounted) {
-        InputDecorations.showTopSnackBarError(context, 'No hay locales disponibles para calcular ruta.');
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No hay locales disponibles para calcular ruta.',
+        );
       }
       return;
     }
 
-    final uri = Uri.https(
-      'www.google.com',
-      '/maps/dir/',
-      {
-        'api': '1',
-        'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
-        'destination':
-            '${business.location.latitude},${business.location.longitude}',
-        'travelmode': 'driving',
-      },
-    );
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
+      'destination':
+          '${business.location.latitude},${business.location.longitude}',
+      'travelmode': 'driving',
+    });
 
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && mounted) {
-      InputDecorations.showTopSnackBarError(context, 'No se pudo abrir Google Maps.');
+      InputDecorations.showTopSnackBarError(
+        context,
+        'No se pudo abrir Google Maps.',
+      );
     }
   }
 
@@ -436,7 +606,8 @@ class _HomePageState extends State<HomePage> {
       permission = await Geolocator.requestPermission();
     }
 
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
       return;
     }
 
@@ -477,12 +648,25 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       setState(() {
         _isLoadingNearbyBusinesses = true;
+        _nearbyFoundCount = 0;
+        _hasCompletedNearbySearch = false;
         _searchAreaCircles = {_buildSearchCircle(searchOrigin)};
       });
     }
 
     try {
-      final places = await _fetchNearbyPlaces(apiKey: apiKey);
+      final places = await _fetchNearbyPlaces(
+        apiKey: apiKey,
+        onProgressCount: (count) {
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {
+            _nearbyFoundCount = count;
+          });
+        },
+      );
       final businessesById = <String, _HairBusiness>{};
 
       for (final place in places) {
@@ -497,6 +681,12 @@ class _HomePageState extends State<HomePage> {
         }
 
         final openingData = place['opening_hours'] as Map<String, dynamic>?;
+        final photosRaw = place['photos'] as List<dynamic>?;
+        final photoReferences = photosRaw
+            ?.whereType<Map<String, dynamic>>()
+            .map((photo) => photo['photo_reference']?.toString().trim() ?? '')
+            .where((photoReference) => photoReference.isNotEmpty)
+            .toList(growable: false);
 
         businessesById[placeId] = _HairBusiness(
           id: placeId,
@@ -505,6 +695,10 @@ class _HomePageState extends State<HomePage> {
           location: LatLng(lat.toDouble(), lng.toDouble()),
           openNow: openingData?['open_now'] as bool?,
           rating: (place['rating'] as num?)?.toDouble(),
+          reviewCount: (place['user_ratings_total'] as num?)?.toInt(),
+          photoReferences: photoReferences == null || photoReferences.isEmpty
+              ? null
+              : photoReferences,
         );
       }
 
@@ -520,9 +714,12 @@ class _HomePageState extends State<HomePage> {
           ..addAll(businessesById);
 
         _hairSalonMarkers = _buildMarkersFromBusinesses(businesses);
+        _nearbyFoundCount = businesses.length;
+        _hasCompletedNearbySearch = true;
         _searchAreaCircles = {_buildSearchCircle(searchOrigin)};
       });
 
+      await _syncRegisteredBusinesses(businessesById.keys);
       await _persistMapState();
     } finally {
       if (mounted) {
@@ -600,12 +797,13 @@ class _HomePageState extends State<HomePage> {
 
   Future<List<Map<String, dynamic>>> _fetchNearbyPlaces({
     required String apiKey,
+    void Function(int count)? onProgressCount,
   }) async {
     final collected = <Map<String, dynamic>>[];
     final seenPlaceIds = <String>{};
 
     for (final keyword in _businessKeywords) {
-      for(final type in _placeTypes) {
+      for (final type in _placeTypes) {
         String? nextPageToken;
         int fetchedPages = 0;
 
@@ -613,7 +811,11 @@ class _HomePageState extends State<HomePage> {
             collected.length < _maxNearbyResults) {
           final page = nextPageToken == null
               ? await _requestNearbyPage(
-                  _buildNearbySearchUri(apiKey: apiKey, keyword: keyword, type: type),
+                  _buildNearbySearchUri(
+                    apiKey: apiKey,
+                    keyword: keyword,
+                    type: type,
+                  ),
                 )
               : await _requestNearbyPageWithToken(
                   apiKey: apiKey,
@@ -650,6 +852,8 @@ class _HomePageState extends State<HomePage> {
             }
           }
 
+          onProgressCount?.call(collected.length);
+
           nextPageToken = page['next_page_token']?.toString();
           fetchedPages++;
 
@@ -678,7 +882,7 @@ class _HomePageState extends State<HomePage> {
     final uri = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/details/json'
       '?place_id=$placeId'
-      '&fields=name,formatted_address,opening_hours,current_opening_hours,formatted_phone_number,rating'
+      '&fields=name,formatted_address,opening_hours,current_opening_hours,formatted_phone_number,rating,user_ratings_total,photos'
       '&language=es'
       '&key=$apiKey',
     );
@@ -694,12 +898,23 @@ class _HomePageState extends State<HomePage> {
       return current;
     }
 
-    final openingHours = ((result['current_opening_hours'] as Map<String, dynamic>?)?['weekday_text'] as List<dynamic>?)
+    final openingHours =
+        ((result['current_opening_hours']
+                    as Map<String, dynamic>?)?['weekday_text']
+                as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
-        ((result['opening_hours'] as Map<String, dynamic>?)?['weekday_text'] as List<dynamic>?)
+        ((result['opening_hours'] as Map<String, dynamic>?)?['weekday_text']
+                as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList();
+
+    final photosRaw = result['photos'] as List<dynamic>?;
+    final photoReferences = photosRaw
+        ?.whereType<Map<String, dynamic>>()
+        .map((photo) => photo['photo_reference']?.toString().trim() ?? '')
+        .where((photoReference) => photoReference.isNotEmpty)
+        .toList(growable: false);
 
     return _HairBusiness(
       id: current.id,
@@ -708,8 +923,14 @@ class _HomePageState extends State<HomePage> {
       location: current.location,
       openNow: current.openNow,
       rating: (result['rating'] as num?)?.toDouble() ?? current.rating,
+      reviewCount:
+          (result['user_ratings_total'] as num?)?.toInt() ??
+          current.reviewCount,
       openingHours: openingHours,
       phone: result['formatted_phone_number']?.toString(),
+      photoReferences: photoReferences == null || photoReferences.isEmpty
+          ? current.photoReferences
+          : photoReferences,
     );
   }
 
@@ -717,90 +938,261 @@ class _HomePageState extends State<HomePage> {
     _selectedBusinessForRoute =
         _hairBusinessesById[placeId] ?? _selectedBusinessForRoute;
 
+    final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
+    final isRegistered = registeredBusiness != null;
+
     showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return FutureBuilder<_HairBusiness>(
           future: _fetchHairBusinessDetails(placeId),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
+            if (snapshot.connectionState != ConnectionState.done &&
+                !snapshot.hasData) {
               return const SizedBox(
                 height: 170,
                 child: Center(child: CircularProgressIndicator()),
               );
             }
 
+            if (!snapshot.hasData) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                child: const Text(
+                  'No se pudo cargar el detalle del local.',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              );
+            }
+
             final business = snapshot.data!;
-            final firstHoursLine = (business.openingHours != null && business.openingHours!.isNotEmpty)
+            final firstHoursLine =
+                (business.openingHours != null &&
+                    business.openingHours!.isNotEmpty)
                 ? business.openingHours!.first
                 : 'Horario no disponible';
 
+            final titleColor = isRegistered
+                ? _primaryColor
+                : const Color.fromARGB(255, 23, 23, 23);
+            final secondaryTextColor = isRegistered
+                ? Colors.white70
+                : const Color.fromARGB(255, 78, 78, 78);
+            final iconColor = isRegistered
+                ? _primaryColor
+                : const Color.fromARGB(255, 65, 65, 65);
+            final containerColor = isRegistered
+                ? _registeredSheetBackgroundColor
+                : Colors.white;
+            final infoCardColor = isRegistered
+                ? _registeredCardColor
+                : const Color.fromARGB(255, 246, 246, 246);
+            final photos = business.photoReferences ?? const <String>[];
+
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      business.name,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(business.address)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.access_time, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(firstHoursLine)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.storefront_outlined, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          business.openNow == null
-                              ? 'Estado: no disponible'
-                              : (business.openNow! ? 'Abierto ahora' : 'Cerrado ahora'),
+              top: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: isRegistered
+                                ? Colors.white30
+                                : const Color.fromARGB(255, 205, 205, 205),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
                         ),
-                      ],
-                    ),
-                    if (business.rating != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.star_rate_rounded, size: 18, color: Colors.amber),
-                          const SizedBox(width: 8),
-                          Text('Valoracion: ${business.rating!.toStringAsFixed(1)}'),
-                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      if (photos.isNotEmpty)
+                        _buildPhotoCarousel(
+                          placeId: placeId,
+                          photoReferences: photos,
+                          isRegistered: isRegistered,
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          business.name,
+                                          style: TextStyle(
+                                            fontSize: 23,
+                                            fontWeight: FontWeight.w800,
+                                            color: titleColor,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isRegistered)
+                                        const Padding(
+                                          padding: EdgeInsets.only(
+                                            left: 8,
+                                            top: 2,
+                                          ),
+                                          child: Icon(
+                                            Icons.verified_rounded,
+                                            color: _primaryColor,
+                                            size: 28,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip:
+                                      _favoriteBusinessIds.contains(business.id)
+                                      ? 'Quitar de favoritos'
+                                      : 'Guardar en favoritos',
+                                  onPressed: () =>
+                                      _toggleFavoriteBusiness(business.id),
+                                  icon: Icon(
+                                    _favoriteBusinessIds.contains(business.id)
+                                        ? Icons.star_rounded
+                                        : Icons.star_outline_rounded,
+                                    size: 29,
+                                    color:
+                                        _favoriteBusinessIds.contains(
+                                          business.id,
+                                        )
+                                        ? _primaryColor
+                                        : secondaryTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (isRegistered) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Local registrado en BarbApp',
+                                style: TextStyle(
+                                  color: secondaryTextColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 14),
+                            if (business.rating != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: infoCardColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Row(
+                                      children: _buildRatingStars(
+                                        business.rating!,
+                                        size: 23,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      business.rating!.toStringAsFixed(1),
+                                      style: TextStyle(
+                                        color: titleColor,
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        business.reviewCount == null
+                                            ? 'Valoracion basada en usuarios'
+                                            : '${_formatReviewCount(business.reviewCount!)} reseñas',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: infoCardColor,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                children: [
+                                  _buildDetailRow(
+                                    icon: Icons.location_on_outlined,
+                                    iconColor: iconColor,
+                                    textColor: secondaryTextColor,
+                                    text: business.address,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDetailRow(
+                                    icon: Icons.access_time,
+                                    iconColor: iconColor,
+                                    textColor: secondaryTextColor,
+                                    text: firstHoursLine,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDetailRow(
+                                    icon: Icons.storefront_outlined,
+                                    iconColor: iconColor,
+                                    textColor: secondaryTextColor,
+                                    text: business.openNow == null
+                                        ? 'Estado: no disponible'
+                                        : (business.openNow!
+                                              ? 'Abierto ahora'
+                                              : 'Cerrado ahora'),
+                                  ),
+                                  if (business.phone != null) ...[
+                                    const SizedBox(height: 10),
+                                    _buildDetailRow(
+                                      icon: Icons.phone_outlined,
+                                      iconColor: iconColor,
+                                      textColor: secondaryTextColor,
+                                      text: business.phone!,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                    if (business.phone != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.phone_outlined, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(business.phone!)),
-                        ],
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             );
@@ -808,6 +1200,127 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  Widget _buildPhotoCarousel({
+    required String placeId,
+    required List<String> photoReferences,
+    required bool isRegistered,
+  }) {
+    final totalPhotos = photoReferences.length > 10
+        ? 10
+        : photoReferences.length;
+    final pageController = _getPhotoPageController(placeId);
+    final fallbackBackground = isRegistered
+        ? _registeredCardColor
+        : const Color.fromARGB(255, 238, 238, 238);
+
+    return SizedBox(
+      height: 210,
+      child: PageView.builder(
+        controller: pageController,
+        itemCount: totalPhotos,
+        itemBuilder: (context, index) {
+          final imageUri = _buildBusinessPhotoUri(photoReferences[index]);
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: index == 0 ? 16 : 6,
+              right: index == totalPhotos - 1 ? 16 : 6,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                color: fallbackBackground,
+                child: imageUri == null
+                    ? Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: isRegistered ? Colors.white54 : Colors.black38,
+                          size: 32,
+                        ),
+                      )
+                    : Image.network(
+                        imageUri.toString(),
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) {
+                            return child;
+                          }
+
+                          return Center(
+                            child: CircularProgressIndicator(
+                              color: isRegistered
+                                  ? _primaryColor
+                                  : Colors.black45,
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) {
+                          return Center(
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: isRegistered
+                                  ? Colors.white54
+                                  : Colors.black38,
+                              size: 32,
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String text,
+    required Color iconColor,
+    required Color textColor,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 19, color: iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildRatingStars(double rating, {double size = 22}) {
+    final clamped = rating.clamp(0, 5);
+    final fullStars = clamped.floor();
+    final hasHalfStar = (clamped - fullStars) >= 0.5;
+
+    return List<Widget>.generate(5, (index) {
+      if (index < fullStars) {
+        return Icon(Icons.star_rounded, size: size, color: Colors.amber);
+      }
+
+      if (index == fullStars && hasHalfStar) {
+        return Icon(Icons.star_half_rounded, size: size, color: Colors.amber);
+      }
+
+      return Icon(
+        Icons.star_border_rounded,
+        size: size,
+        color: const Color.fromARGB(255, 191, 191, 191),
+      );
+    });
   }
 
   /// Cierra la sesión del usuario autenticado.
@@ -824,7 +1337,6 @@ class _HomePageState extends State<HomePage> {
 
     Navigator.pushReplacementNamed(context, "/login");
   }
-
 
   /// Obtiene el token JWT almacenado del usuario.
   ///
@@ -851,14 +1363,11 @@ class _HomePageState extends State<HomePage> {
   /// Retorna un `Map<String, dynamic>` con los datos del usuario
   /// (email, nombre, apellido, rol).
   Future<Map<String, dynamic>> getUserData() async {
-
     final token = await getUserToken();
     final apiBaseUrl = getApiBaseUrl();
     final response = await http.get(
       Uri.parse("$apiBaseUrl/users/me"),
-      headers: {
-        "Authorization": "Bearer $token"
-      },
+      headers: {"Authorization": "Bearer $token"},
     );
 
     return jsonDecode(response.body);
@@ -885,7 +1394,10 @@ class _HomePageState extends State<HomePage> {
         );
         break;
       case 1:
-        print("Estrella pulsado");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const FavoritesPage()),
+        );
         break;
       case 2:
         print("Mapa pulsado");
@@ -919,6 +1431,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     initNotifications();
     _initializeNearbySearch();
+    _loadFavoriteBusinessIds();
   }
 
   void initNotifications() async {
@@ -933,186 +1446,241 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // BARRA INFERIOR CON LOS ICONOS
+      bottomNavigationBar: InputDecorations.mainBottomNavBar(
+        context: context,
+        currentIndex: 2,
+        owner: false,
+        onTap: _onItemTapped,
+        unreadNotifications: unread,
+      ),
 
-        // BARRA INFERIOR CON LOS ICONOS
-        bottomNavigationBar: InputDecorations.mainBottomNavBar(
-          context: context,
-          currentIndex: 2,
-          owner: false,
-          onTap: _onItemTapped,
-          unreadNotifications: unread
-        ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: (controller) {
+              _mapController = controller;
+              _mapController?.animateCamera(
+                CameraUpdate.newCameraPosition(_lastCameraPosition),
+              );
+            },
+            onCameraMove: (position) {
+              _currentMapTarget = position.target;
+              _currentZoom = position.zoom;
+              _lastCameraPosition = position;
+            },
+            onCameraIdle: () {
+              _persistMapState();
+            },
+            initialCameraPosition: _lastCameraPosition,
+            markers: _hairSalonMarkers,
+            circles: _searchAreaCircles,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            compassEnabled: false,
+            zoomControlsEnabled: false,
+          ),
 
-        body: Stack(
-          children: [
-
-            GoogleMap(
-              onMapCreated: (controller) {
-                _mapController = controller;
-                _mapController?.animateCamera(
-                  CameraUpdate.newCameraPosition(_lastCameraPosition),
-                );
-              },
-              onCameraMove: (position) {
-                _currentMapTarget = position.target;
-                _currentZoom = position.zoom;
-                _lastCameraPosition = position;
-              },
-              onCameraIdle: () {
-                _persistMapState();
-              },
-              initialCameraPosition: _lastCameraPosition,
-              markers: _hairSalonMarkers,
-              circles: _searchAreaCircles,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              compassEnabled: false,
-              zoomControlsEnabled: false,
-            ),
-
-            if (_isLoadingNearbyBusinesses)
-              Positioned(
-                top: 112,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
+          if (_isLoadingNearbyBusinesses)
+            Positioned(
+              top: 112,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color.fromARGB(255, 23, 23, 23),
                           ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color.fromARGB(255, 23, 23, 23)),
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Cargando locales...',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          _nearbyFoundCount == 1
+                              ? 'Buscando locales... 1 encontrado'
+                              : 'Buscando locales... $_nearbyFoundCount encontrados',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
+            ),
 
-            // 👉 BARRA DE BÚSQUEDA FLOTANTE
+          if (!_isLoadingNearbyBusinesses && _hasCompletedNearbySearch)
             Positioned(
-              top: 50,
-              left: 16,
-              right: 16,
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    )
-                  ],
-                ),
-                child: Row(
-                  children: [
-
-                    SizedBox(width: 15),
-
-                    Icon(Icons.search, color: Colors.grey),
-
-                    SizedBox(width: 8),
-
-                    // 👉 INPUT
-                    Expanded(
-                      child: TextField(
-                        style: TextStyle(
-                          color: Colors.black, // 👈 color del texto que escribe el usuario
-                          fontSize: 16,
+              top: 112,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(245, 255, 255, 255),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
                         ),
-                        decoration: InputDecoration(
-                          hintText: "Buscar locales",
-                          hintStyle: TextStyle(
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.storefront_rounded,
+                          size: 16,
+                          color: Color.fromARGB(255, 23, 23, 23),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _nearbyFoundCount == 1
+                              ? '1 negocio encontrado'
+                              : '$_nearbyFoundCount negocios encontrados',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color.fromARGB(255, 23, 23, 23),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 👉 BARRA DE BÚSQUEDA FLOTANTE
+          Positioned(
+            top: 50,
+            left: 16,
+            right: 16,
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  SizedBox(width: 15),
+
+                  Icon(Icons.search, color: Colors.grey),
+
+                  SizedBox(width: 8),
+
+                  // 👉 INPUT
+                  Expanded(
+                    child: TextField(
+                      style: TextStyle(
+                        color: Colors
+                            .black, // 👈 color del texto que escribe el usuario
+                        fontSize: 16,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "Buscar locales",
+                        hintStyle: TextStyle(
                           color: Colors.grey, // 👈 color del placeholder
                         ),
-                          border: InputBorder.none,
-                        ),
+                        border: InputBorder.none,
                       ),
                     ),
+                  ),
 
-                    // 👉 ICONO DE FILTROS
-                    IconButton(
-                      icon: Icon(Icons.tune, color: Colors.grey),
-                      onPressed: () {
-                        print("Filtros pulsado");
-                      },
-                    ),
+                  // 👉 ICONO DE FILTROS
+                  IconButton(
+                    icon: Icon(Icons.tune, color: Colors.grey),
+                    onPressed: () {
+                      print("Filtros pulsado");
+                    },
+                  ),
 
-                    SizedBox(width: 1),
-                  ],
+                  SizedBox(width: 1),
+                ],
+              ),
+            ),
+          ),
+
+          Positioned(
+            left: 16,
+            bottom: 15,
+            child: Column(
+              children: [
+                _buildMapControlButton(
+                  icon: Icons.my_location,
+                  tooltip: 'Centrar en mi ubicacion',
+                  onPressed: _centerMapOnUserLocation,
+                  inverted: false,
                 ),
-              ),
+                const SizedBox(height: 10),
+                _buildMapControlButton(
+                  icon: Icons.explore,
+                  tooltip: 'Orientar mapa al norte',
+                  onPressed: _resetMapOrientation,
+                  inverted: false,
+                ),
+              ],
             ),
+          ),
 
-            Positioned(
-              left: 16,
-              bottom: 15,
-              child: Column(
-                children: [
-                  _buildMapControlButton(
-                    icon: Icons.my_location,
-                    tooltip: 'Centrar en mi ubicacion',
-                    onPressed: _centerMapOnUserLocation,
-                    inverted: false,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildMapControlButton(
-                    icon: Icons.explore,
-                    tooltip: 'Orientar mapa al norte',
-                    onPressed: _resetMapOrientation,
-                    inverted: false,
-                  ),
-                ],
-              ),
+          Positioned(
+            right: 16,
+            bottom: 15,
+            child: Column(
+              children: [
+                _buildMapControlButton(
+                  icon: Icons.sync_rounded,
+                  tooltip:
+                      'Recalcular negocios según localización actual del mapa',
+                  onPressed: _refreshBusinessesAroundCurrentView,
+                  inverted: true,
+                ),
+                const SizedBox(height: 10),
+                _buildMapControlButton(
+                  icon: Icons.directions_rounded,
+                  tooltip: 'Abrir ruta en Google Maps',
+                  onPressed: _openGoogleMapsRoute,
+                  inverted: false,
+                ),
+              ],
             ),
-
-            Positioned(
-              right: 16,
-              bottom: 15,
-              child: Column(
-                children: [
-                  _buildMapControlButton(
-                    icon: Icons.sync_rounded,
-                    tooltip: 'Recalcular negocios según localización actual del mapa',
-                    onPressed: _refreshBusinessesAroundCurrentView,
-                    inverted: true,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildMapControlButton(
-                    icon: Icons.directions_rounded,
-                    tooltip: 'Abrir ruta en Google Maps',
-                    onPressed: _openGoogleMapsRoute,
-                    inverted: false,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1125,8 +1693,10 @@ class _HairBusiness {
     required this.location,
     this.openNow,
     this.rating,
+    this.reviewCount,
     this.openingHours,
     this.phone,
+    this.photoReferences,
   });
 
   final String id;
@@ -1135,6 +1705,8 @@ class _HairBusiness {
   final LatLng location;
   final bool? openNow;
   final double? rating;
+  final int? reviewCount;
   final List<String>? openingHours;
   final String? phone;
+  final List<String>? photoReferences;
 }
