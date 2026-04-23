@@ -178,8 +178,7 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
             )
           : null,
 
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
           const SizedBox(height: 70),
 
@@ -193,161 +192,169 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
             textAlign: TextAlign.center,
           ),
 
-          const SizedBox(height: 50),
+          const SizedBox(height: 20),
 
-          if (_businesses.isEmpty) ...[
-            const SizedBox(height: 90),
-            Center(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.storefront_rounded,
-                      size: 62,
-                      color: primaryColor,
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Aun no tienes negocios creados',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 21,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Configura tu primer negocio para definir ofertas, horario y numero de empleados.',
-                      style: TextStyle(color: Colors.white70, fontSize: 15),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 35),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const SizedBox(height: 30),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 25,
-                        vertical: 16,
+                if (_businesses.isEmpty) ...[
+                  const SizedBox(height: 90),
+                  Center(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      child: InputDecorations.loadingButton(
-                        isSent: false,
-                        isEnabled: true,
-                        text: "Empezar configuracion",
-                        onPressed: _openSetupFlow,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.storefront_rounded,
+                            size: 62,
+                            color: primaryColor,
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Aun no tienes negocios creados',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Configura tu primer negocio para definir ofertas, horario y numero de empleados.',
+                            style: TextStyle(color: Colors.white70, fontSize: 15),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 35),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 25,
+                              vertical: 16,
+                            ),
+                            child: InputDecorations.loadingButton(
+                              isSent: false,
+                              isEnabled: true,
+                              text: "Empezar configuracion",
+                              onPressed: _openSetupFlow,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ] else
-            ..._businesses.map((business) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      business.name,
-                      style: const TextStyle(
-                        color: primaryColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                  ),
+                ] else
+                  ..._businesses.map((business) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.white10),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Empleados: ${business.employeeCount}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    if (business.googlePlace != null) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Dirección del local vinculado',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            business.name,
+                            style: const TextStyle(
+                              color: primaryColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Empleados: ${business.employeeCount}',
+                          style: const TextStyle(color: Colors.white),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '- ${business.googlePlace!.name}',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                      Text(
-                        '- ${business.googlePlace!.address}',
-                        style: const TextStyle(color: Colors.white54),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Ofertas',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...business.offers.map((offer) {
-                      final durationLabel = offer.durationMinutes > 0
-                          ? ' - ${offer.durationMinutes} min'
-                          : '';
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '- ${offer.name}: ${offer.price.toStringAsFixed(2)} EUR$durationLabel',
-                          style: const TextStyle(color: Colors.white70),
+                        if (business.googlePlace != null) ...[
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Dirección del local vinculado',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '- ${business.googlePlace!.name}',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          Text(
+                            '- ${business.googlePlace!.address}',
+                            style: const TextStyle(color: Colors.white54),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Ofertas',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      );
-                    }),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Horario',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...business.schedule.map((day) {
-                      final splitShiftText =
-                          day.isSplitShift &&
-                              day.secondOpenTime.isNotEmpty &&
-                              day.secondCloseTime.isNotEmpty
-                          ? ' / ${day.secondOpenTime} - ${day.secondCloseTime}'
-                          : '';
+                        const SizedBox(height: 8),
+                        ...business.offers.map((offer) {
+                          final durationLabel = offer.durationMinutes > 0
+                              ? ' - ${offer.durationMinutes} min'
+                              : '';
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          day.isOpen
-                              ? '- ${day.day}: ${day.openTime} - ${day.closeTime}$splitShiftText'
-                              : '- ${day.day}: Cerrado',
-                          style: const TextStyle(color: Colors.white70),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '- ${offer.name}: ${offer.price.toStringAsFixed(2)} EUR$durationLabel',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Horario',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      );
-                    }),
-                  ],
-                ),
-              );
-            }).toList(),
-        ],
-      ),
+                        const SizedBox(height: 8),
+                        ...business.schedule.map((day) {
+                          final splitShiftText =
+                              day.isSplitShift &&
+                                  day.secondOpenTime.isNotEmpty &&
+                                  day.secondCloseTime.isNotEmpty
+                              ? ' / ${day.secondOpenTime} - ${day.secondCloseTime}'
+                              : '';
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              day.isOpen
+                                  ? '- ${day.day}: ${day.openTime} - ${day.closeTime}$splitShiftText'
+                                  : '- ${day.day}: Cerrado',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  );
+                }).toList(),
+            ],
+          ),
+        ),
+      ],
+    ),
     );
   }
 }
@@ -451,23 +458,41 @@ class _OwnerBusinessSetupFlowPageState
   }
 
   Future<TimeOfDay?> _showBusinessTimePicker(TimeOfDay initialTime) async {
-    final selectedTime = await showTimePicker(
+    return await showTimePicker(
       context: context,
       initialTime: initialTime,
+      cancelText: 'Cancelar',
+      confirmText: 'Confirmar',
+
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.dark(
               primary: _primaryColor,
               surface: _cardColor,
+              onSurface: Colors.white,
+            ),
+            timePickerTheme: TimePickerThemeData(
+              backgroundColor: _cardColor,
+
+              confirmButtonStyle: TextButton.styleFrom(
+                foregroundColor: _primaryColor,
+                backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+
+              cancelButtonStyle: TextButton.styleFrom(
+                foregroundColor: Colors.white70,
+              ),
             ),
           ),
           child: child!,
         );
       },
     );
-
-    return selectedTime;
   }
 
   Future<void> _pickTime(String day, bool isOpenTime) async {
@@ -594,7 +619,7 @@ class _OwnerBusinessSetupFlowPageState
       if (mappedResults.isEmpty && mounted) {
         InputDecorations.showTopSnackBarWarning(
           context,
-          "No se encontraron peluquerias/barberias para esa busqueda.",
+          "No se encontraron peluquerias/barberias para esa búsqueda.",
         );
       }
     } catch (e) {
@@ -1106,12 +1131,13 @@ class _OwnerBusinessSetupFlowPageState
       subtitle: 'Agrega servicios junto a su precio y duracion.',
       child: Column(
         children: [
+          /// 🔒 PARTE FIJA (NO SCROLL)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _useSameDurationForAllOffers,
             activeColor: _primaryColor,
             title: const Text(
-              'Misma duracion para todos los servicios',
+              'Misma duración para todos los servicios',
               style: TextStyle(color: Colors.white),
             ),
             onChanged: (value) {
@@ -1126,6 +1152,9 @@ class _OwnerBusinessSetupFlowPageState
               });
             },
           ),
+
+          const SizedBox(height: 14),
+
           if (_useSameDurationForAllOffers) ...[
             TextField(
               controller: _sameDurationController,
@@ -1137,11 +1166,12 @@ class _OwnerBusinessSetupFlowPageState
               },
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                labelText: 'Duracion unica (minutos)',
+                labelText: 'Duración única (en minutos)',
                 suffixText: 'min',
                 labelStyle: TextStyle(color: Colors.white70),
                 border: OutlineInputBorder(borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
+                enabledBorder:
+                    OutlineInputBorder(borderSide: BorderSide.none),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
                     color: Color.fromARGB(255, 200, 156, 125),
@@ -1152,142 +1182,141 @@ class _OwnerBusinessSetupFlowPageState
             ),
             const SizedBox(height: 12),
           ],
-          ..._offers.asMap().entries.map((entry) {
-            final index = entry.key;
-            final offer = entry.value;
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 38, 38, 38),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: offer.nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre del servicio',
-                      labelStyle: TextStyle(color: Colors.white70),
+          /// 🔁 PARTE SCROLLEABLE
+          Expanded(
+            child: ListView(
+              children: [
+                ..._offers.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final offer = entry.value;
+                  return _buildOfferItem(offer, index);
+                }),
 
-                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                const SizedBox(height: 8),
 
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide.none,
-                      ),
-
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: const Color.fromARGB(255, 200, 156, 125),
-                          width: 2,
-                        ),
-                      ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        final offer = _OfferDraft();
+                        if (_useSameDurationForAllOffers) {
+                          offer.durationController.text =
+                              _sameDurationController.text.trim();
+                        }
+                        _offers.add(offer);
+                      });
+                    },
+                    icon: const Icon(
+                      Icons.add_circle_outline,
+                      color: _primaryColor,
+                    ),
+                    label: const Text(
+                      'Agregar oferta',
+                      style: TextStyle(color: _primaryColor),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: offer.priceController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Precio',
-                      suffixText: 'EUR',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide.none,
-                      ),
-
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: const Color.fromARGB(255, 200, 156, 125),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: offer.durationController,
-                    keyboardType: TextInputType.number,
-                    enabled: !_useSameDurationForAllOffers,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Duracion del servicio',
-                      suffixText: 'min',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      border: OutlineInputBorder(borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Color.fromARGB(255, 200, 156, 125),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_offers.length > 1)
-                    Align(
-                      alignment: Alignment.centerRight,
-
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            final removed = _offers.removeAt(index);
-                            removed.dispose();
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: Color.fromARGB(
-                            255,
-                            30,
-                            30,
-                            30,
-                          ), // color de fondo
-                        ),
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                        ),
-                        label: const Text(
-                          'Quitar',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  final offer = _OfferDraft();
-                  if (_useSameDurationForAllOffers) {
-                    offer.durationController.text = _sameDurationController.text
-                        .trim();
-                  }
-                  _offers.add(offer);
-                });
-              },
-              icon: const Icon(Icons.add_circle_outline, color: _primaryColor),
-              label: const Text(
-                'Agregar oferta',
-                style: TextStyle(color: _primaryColor),
+  Widget _buildOfferItem(_OfferDraft offer, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 38, 38, 38),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: offer.nameController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Nombre del servicio',
+              labelStyle: TextStyle(color: Colors.white70),
+              border: OutlineInputBorder(borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: Color.fromARGB(255, 200, 156, 125),
+                  width: 2,
+                ),
               ),
             ),
           ),
+          const SizedBox(height: 8),
+
+          TextField(
+            controller: offer.priceController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Precio',
+              suffixText: 'EUR',
+              labelStyle: TextStyle(color: Colors.white70),
+              border: OutlineInputBorder(borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: Color.fromARGB(255, 200, 156, 125),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          TextField(
+            controller: offer.durationController,
+            keyboardType: TextInputType.number,
+            enabled: !_useSameDurationForAllOffers,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Duracion del servicio',
+              suffixText: 'min',
+              labelStyle: TextStyle(color: Colors.white70),
+              border: OutlineInputBorder(borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: Color.fromARGB(255, 200, 156, 125),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          if (_offers.length > 1)
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    final removed = _offers.removeAt(index);
+                    removed.dispose();
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+                ),
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                label: const Text(
+                  'Quitar',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1327,8 +1356,8 @@ class _OwnerBusinessSetupFlowPageState
               ),
               label: Text(
                 _useScheduleByDays
-                    ? 'Horario por dias: activo'
-                    : 'Horario por dias: desactivado',
+                    ? 'Modificar el horario generalmente'
+                    : 'Modificar el horario por días',
               ),
             ),
           ),
@@ -1347,7 +1376,7 @@ class _OwnerBusinessSetupFlowPageState
     return ListView(
       children: [
         const Text(
-          'Dias laborables',
+          'Días laborables',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
@@ -1362,7 +1391,7 @@ class _OwnerBusinessSetupFlowPageState
               selectedColor: _primaryColor,
               backgroundColor: const Color.fromARGB(255, 38, 38, 38),
               labelStyle: TextStyle(
-                color: selected ? Colors.black : Colors.white,
+                color: Colors.white,
                 fontWeight: FontWeight.w700,
               ),
               label: Text(day),
@@ -1405,19 +1434,22 @@ class _OwnerBusinessSetupFlowPageState
                   ),
                 ],
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _defaultIsSplitShift,
-                activeColor: _primaryColor,
-                title: const Text(
-                  'Horario partido',
-                  style: TextStyle(color: Colors.white),
+              Padding(
+                padding:  const EdgeInsets.symmetric(horizontal: 55), 
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _defaultIsSplitShift,
+                  activeColor: _primaryColor,
+                  title: const Text(
+                    'Horario partido',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _defaultIsSplitShift = value;
+                    });
+                  },
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    _defaultIsSplitShift = value;
-                  });
-                },
               ),
               if (_defaultIsSplitShift)
                 Row(
@@ -1426,7 +1458,7 @@ class _OwnerBusinessSetupFlowPageState
                       child: TextButton(
                         onPressed: () => _pickGeneralSplitTime(true),
                         child: Text(
-                          '2a apertura ${_formatTime(_defaultSecondOpenTime)}',
+                          '2ª apertura ${_formatTime(_defaultSecondOpenTime)}',
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ),
@@ -1435,7 +1467,7 @@ class _OwnerBusinessSetupFlowPageState
                       child: TextButton(
                         onPressed: () => _pickGeneralSplitTime(false),
                         child: Text(
-                          '2o cierre ${_formatTime(_defaultSecondCloseTime)}',
+                          '2º cierre ${_formatTime(_defaultSecondCloseTime)}',
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ),
@@ -1461,27 +1493,30 @@ class _OwnerBusinessSetupFlowPageState
           ),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      day,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+              Padding(
+                padding:  const EdgeInsets.symmetric(horizontal: 80),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        day,
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
                     ),
-                  ),
-                  Switch(
-                    value: _isOpen[day]!,
-                    activeColor: _primaryColor,
-                    onChanged: (value) {
-                      setState(() {
-                        _isOpen[day] = value;
-                        if (!value) {
-                          _isSplitShift[day] = false;
-                        }
-                      });
-                    },
-                  ),
-                ],
+                    Switch(
+                      value: _isOpen[day]!,
+                      activeColor: _primaryColor,
+                      onChanged: (value) {
+                        setState(() {
+                          _isOpen[day] = value;
+                          if (!value) {
+                            _isSplitShift[day] = false;
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
               if (_isOpen[day]!) ...[
                 Row(
@@ -1506,19 +1541,22 @@ class _OwnerBusinessSetupFlowPageState
                     ),
                   ],
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _isSplitShift[day]!,
-                  activeColor: _primaryColor,
-                  title: const Text(
-                    'Horario partido',
-                    style: TextStyle(color: Colors.white),
+                Padding(
+                  padding:  const EdgeInsets.symmetric(horizontal: 55), 
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _isSplitShift[day]!,
+                    activeColor: _primaryColor,
+                    title: const Text(
+                      'Horario partido',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _isSplitShift[day] = value;
+                      });
+                    },
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      _isSplitShift[day] = value;
-                    });
-                  },
                 ),
                 if (_isSplitShift[day]!)
                   Row(

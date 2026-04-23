@@ -14,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 import 'dart:convert';
 
 class HomePage extends StatefulWidget {
@@ -61,9 +62,14 @@ class _HomePageState extends State<HomePage> {
   final Map<String, Map<String, dynamic>> _registeredBusinessesByPlaceId = {};
   final Map<String, PageController> _photoControllersByPlaceId = {};
   final Set<String> _favoriteBusinessIds = <String>{};
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final List<_AutocompletePlaceSuggestion> _searchSuggestions = [];
+  Timer? _searchDebounce;
   GoogleMapController? _mapController;
   _HairBusiness? _selectedBusinessForRoute;
   bool _isLoadingNearbyBusinesses = false;
+  bool _isLoadingSearchSuggestions = false;
   // RADIO DEL CÍRCULO
   double _searchCircleRadiusMeters = _nearbySearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
@@ -109,6 +115,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+
     for (final controller in _photoControllersByPlaceId.values) {
       controller.dispose();
     }
@@ -176,6 +186,447 @@ class _HomePageState extends State<HomePage> {
         _registeredBusinessesByPlaceId.clear();
       });
     }
+  }
+
+  bool get _isSearchOverlayVisible {
+    if (!_searchFocusNode.hasFocus) {
+      return false;
+    }
+
+    return _isLoadingSearchSuggestions ||
+        _searchSuggestions.isNotEmpty ||
+        _searchController.text.trim().isNotEmpty;
+  }
+
+  Uri _buildPlacesAutocompleteUri({
+    required String apiKey,
+    required String query,
+  }) {
+    return Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+    ).replace(
+      queryParameters: {
+        'input': query,
+        'types': 'establishment',
+        'language': 'es',
+        'location':
+            '${_currentMapTarget.latitude},${_currentMapTarget.longitude}',
+        'radius': '40000',
+        'key': apiKey,
+      },
+    );
+  }
+
+  bool _isHairSalonPrediction(Map<String, dynamic> rawPrediction) {
+    final types =
+        (rawPrediction['types'] as List<dynamic>? ?? const <dynamic>[])
+            .map((type) => type.toString())
+            .toSet();
+
+    if (types.contains('hair_care') || types.contains('barber_shop')) {
+      return true;
+    }
+
+    final description = (rawPrediction['description']?.toString() ?? '')
+        .toLowerCase();
+
+    return description.contains('barber') ||
+        description.contains('peluquer') ||
+        description.contains('hair');
+  }
+
+  void _clearSearchSuggestions({bool clearText = false}) {
+    _searchDebounce?.cancel();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingSearchSuggestions = false;
+      _searchSuggestions.clear();
+      if (clearText) {
+        _searchController.clear();
+      }
+    });
+  }
+
+  void _onSearchQueryChanged(String rawQuery) {
+    final query = rawQuery.trim();
+    _searchDebounce?.cancel();
+
+    if (query.length < 2) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoadingSearchSuggestions = false;
+        _searchSuggestions.clear();
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _fetchAutocompleteSuggestions(query);
+    });
+  }
+
+  Future<void> _fetchAutocompleteSuggestions(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+      return;
+    }
+
+    final apiKey = dotenv.env['google_maps_api_key'];
+    if (apiKey == null || apiKey.isEmpty) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingSearchSuggestions = true;
+    });
+
+    try {
+      final uri = _buildPlacesAutocompleteUri(
+        apiKey: apiKey,
+        query: normalizedQuery,
+      );
+
+      final response = await http.get(uri);
+      if (response.statusCode != 200) {
+        throw Exception('Error al buscar sugerencias');
+      }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = decoded['status']?.toString() ?? 'UNKNOWN_ERROR';
+
+      if (status != 'OK' && status != 'ZERO_RESULTS') {
+        throw Exception('Google Autocomplete retorno estado $status');
+      }
+
+      final predictionsRaw =
+          (decoded['predictions'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .toList(growable: false);
+
+      final filteredPredictions = predictionsRaw
+          .where(_isHairSalonPrediction)
+          .toList(growable: false);
+
+      final predictionSource = filteredPredictions.isNotEmpty
+          ? filteredPredictions
+          : predictionsRaw;
+
+      final suggestions = predictionSource
+          .take(5)
+          .map((rawPrediction) {
+            final placeId = rawPrediction['place_id']?.toString().trim() ?? '';
+            if (placeId.isEmpty) {
+              return null;
+            }
+
+            final structured = rawPrediction['structured_formatting'];
+            final structuredMap = structured is Map<String, dynamic>
+                ? structured
+                : null;
+
+            final mainText =
+                structuredMap?['main_text']?.toString().trim() ??
+                rawPrediction['description']?.toString().trim() ??
+                '';
+            final secondaryText =
+                structuredMap?['secondary_text']?.toString().trim() ??
+                rawPrediction['description']?.toString().trim() ??
+                '';
+
+            if (mainText.isEmpty) {
+              return null;
+            }
+
+            return _AutocompletePlaceSuggestion(
+              placeId: placeId,
+              mainText: mainText,
+              secondaryText: secondaryText,
+            );
+          })
+          .whereType<_AutocompletePlaceSuggestion>()
+          .toList(growable: false);
+
+      if (!mounted || _searchController.text.trim() != normalizedQuery) {
+        return;
+      }
+
+      setState(() {
+        _searchSuggestions
+          ..clear()
+          ..addAll(suggestions);
+        _isLoadingSearchSuggestions = false;
+      });
+    } catch (_) {
+      if (!mounted || _searchController.text.trim() != normalizedQuery) {
+        return;
+      }
+
+      setState(() {
+        _searchSuggestions.clear();
+        _isLoadingSearchSuggestions = false;
+      });
+    }
+  }
+
+  Future<_HairBusiness?> _fetchBusinessByPlaceId({
+    required String placeId,
+    required String fallbackName,
+    required String fallbackAddress,
+  }) async {
+    final apiKey = dotenv.env['google_maps_api_key'];
+    if (apiKey == null || apiKey.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/details/json'
+      '?place_id=$placeId'
+      '&fields=name,formatted_address,geometry,opening_hours,current_opening_hours,formatted_phone_number,rating,user_ratings_total,photos'
+      '&language=es'
+      '&key=$apiKey',
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final result = body['result'] as Map<String, dynamic>?;
+      if (result == null) {
+        return null;
+      }
+
+      final geometry = result['geometry'] as Map<String, dynamic>?;
+      final location = geometry?['location'] as Map<String, dynamic>?;
+      final lat = _asDouble(location?['lat']);
+      final lng = _asDouble(location?['lng']);
+
+      if (lat == null || lng == null) {
+        return null;
+      }
+
+      final openingHours =
+          ((result['current_opening_hours']
+                      as Map<String, dynamic>?)?['weekday_text']
+                  as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          ((result['opening_hours'] as Map<String, dynamic>?)?['weekday_text']
+                  as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList();
+
+      final photosRaw = result['photos'] as List<dynamic>?;
+      final photoReferences = photosRaw
+          ?.whereType<Map<String, dynamic>>()
+          .map((photo) => photo['photo_reference']?.toString().trim() ?? '')
+          .where((photoReference) => photoReference.isNotEmpty)
+          .toList(growable: false);
+
+      final currentOpeningMap =
+          result['current_opening_hours'] as Map<String, dynamic>?;
+      final openingMap = result['opening_hours'] as Map<String, dynamic>?;
+
+      return _HairBusiness(
+        id: placeId,
+        name: result['name']?.toString().trim().isNotEmpty == true
+            ? result['name'].toString().trim()
+            : fallbackName,
+        address:
+            result['formatted_address']?.toString().trim().isNotEmpty == true
+            ? result['formatted_address'].toString().trim()
+            : fallbackAddress,
+        location: LatLng(lat, lng),
+        openNow:
+            currentOpeningMap?['open_now'] as bool? ??
+            openingMap?['open_now'] as bool?,
+        rating: (result['rating'] as num?)?.toDouble(),
+        reviewCount: (result['user_ratings_total'] as num?)?.toInt(),
+        openingHours: openingHours,
+        phone: result['formatted_phone_number']?.toString(),
+        photoReferences: photoReferences == null || photoReferences.isEmpty
+            ? null
+            : photoReferences,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _onSearchSuggestionSelected(
+    _AutocompletePlaceSuggestion suggestion,
+  ) async {
+    _searchFocusNode.unfocus();
+    _searchDebounce?.cancel();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingSearchSuggestions = false;
+      _searchSuggestions.clear();
+    });
+
+    var business = _hairBusinessesById[suggestion.placeId];
+    if (business == null) {
+      business = await _fetchBusinessByPlaceId(
+        placeId: suggestion.placeId,
+        fallbackName: suggestion.mainText,
+        fallbackAddress: suggestion.secondaryText,
+      );
+
+      if (business == null) {
+        if (!mounted) {
+          return;
+        }
+
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo cargar este local.',
+        );
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _hairBusinessesById[suggestion.placeId] = business!;
+        _hairSalonMarkers = _buildMarkersFromBusinesses(
+          _hairBusinessesById.values,
+        );
+      });
+
+      await _syncRegisteredBusinesses(_hairBusinessesById.keys);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final targetZoom = _currentZoom < 16 ? 16.0 : _currentZoom;
+
+    setState(() {
+      _searchController.clear();
+      _selectedBusinessForRoute = business;
+      _currentMapTarget = business!.location;
+      _lastCameraPosition = CameraPosition(
+        target: business!.location,
+        zoom: targetZoom,
+      );
+    });
+
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: business.location, zoom: targetZoom),
+      ),
+    );
+
+    await _persistMapState();
+
+    if (!mounted) {
+      return;
+    }
+
+    _showSalonInfoSheet(business.id);
+  }
+
+  Widget _buildSearchSuggestionsPanel() {
+    final query = _searchController.text.trim();
+    final hasMinChars = query.length >= 2;
+
+    return Positioned(
+      top: 106,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 280),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: _isLoadingSearchSuggestions
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              : !hasMinChars
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Text(
+                    'Escribe al menos 2 caracteres para buscar.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                )
+              : _searchSuggestions.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Text(
+                    'No se encontraron locales para esa busqueda.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shrinkWrap: true,
+                  itemCount: _searchSuggestions.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final suggestion = _searchSuggestions[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.storefront_rounded),
+                      title: Text(
+                        suggestion.mainText,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        suggestion.secondaryText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        _onSearchSuggestionSelected(suggestion);
+                      },
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadFavoriteBusinessIds() async {
@@ -978,21 +1429,11 @@ class _HomePageState extends State<HomePage> {
                 ? business.openingHours!.first
                 : 'Horario no disponible';
 
-            final titleColor = isRegistered
-                ? _primaryColor
-                : const Color.fromARGB(255, 23, 23, 23);
-            final secondaryTextColor = isRegistered
-                ? Colors.white70
-                : const Color.fromARGB(255, 78, 78, 78);
-            final iconColor = isRegistered
-                ? _primaryColor
-                : const Color.fromARGB(255, 65, 65, 65);
-            final containerColor = isRegistered
-                ? _registeredSheetBackgroundColor
-                : Colors.white;
-            final infoCardColor = isRegistered
-                ? _registeredCardColor
-                : const Color.fromARGB(255, 246, 246, 246);
+            final titleColor = isRegistered ? _primaryColor : Colors.white;
+            final secondaryTextColor = Colors.white70;
+            final iconColor = isRegistered ? _primaryColor : Colors.white;
+            final containerColor = _registeredSheetBackgroundColor;
+            final infoCardColor = _registeredCardColor;
             final photos = business.photoReferences ?? const <String>[];
 
             return SafeArea(
@@ -1003,6 +1444,13 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(24),
                   ),
+                  border: isRegistered
+                      ? Border(
+                          top: BorderSide(color: _primaryColor, width: 3),
+                          left: BorderSide(color: _primaryColor, width: 3),
+                          right: BorderSide(color: _primaryColor, width: 3),
+                        )
+                      : null,
                 ),
                 child: SingleChildScrollView(
                   child: Column(
@@ -1034,7 +1482,7 @@ class _HomePageState extends State<HomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Row(
@@ -1074,9 +1522,9 @@ class _HomePageState extends State<HomePage> {
                                       _toggleFavoriteBusiness(business.id),
                                   icon: Icon(
                                     _favoriteBusinessIds.contains(business.id)
-                                        ? Icons.star_rounded
-                                        : Icons.star_outline_rounded,
-                                    size: 29,
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_outline_rounded,
+                                    size: 35,
                                     color:
                                         _favoriteBusinessIds.contains(
                                           business.id,
@@ -1429,6 +1877,19 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    _searchFocusNode.addListener(() {
+      if (!mounted) {
+        return;
+      }
+
+      if (!_searchFocusNode.hasFocus) {
+        _clearSearchSuggestions();
+      } else {
+        setState(() {});
+      }
+    });
+
     initNotifications();
     _initializeNearbySearch();
     _loadFavoriteBusinessIds();
@@ -1481,7 +1942,7 @@ class _HomePageState extends State<HomePage> {
             zoomControlsEnabled: false,
           ),
 
-          if (_isLoadingNearbyBusinesses)
+          if (_isLoadingNearbyBusinesses && !_isSearchOverlayVisible)
             Positioned(
               top: 112,
               left: 0,
@@ -1529,7 +1990,9 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-          if (!_isLoadingNearbyBusinesses && _hasCompletedNearbySearch)
+          if (!_isLoadingNearbyBusinesses &&
+              _hasCompletedNearbySearch &&
+              !_isSearchOverlayVisible)
             Positioned(
               top: 112,
               left: 0,
@@ -1606,6 +2069,21 @@ class _HomePageState extends State<HomePage> {
                   // 👉 INPUT
                   Expanded(
                     child: TextField(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (value) {
+                        setState(() {});
+                        _onSearchQueryChanged(value);
+                      },
+                      onSubmitted: (_) {
+                        if (_searchSuggestions.isNotEmpty) {
+                          _onSearchSuggestionSelected(_searchSuggestions.first);
+                          return;
+                        }
+
+                        _searchFocusNode.unfocus();
+                      },
                       style: TextStyle(
                         color: Colors
                             .black, // 👈 color del texto que escribe el usuario
@@ -1616,15 +2094,33 @@ class _HomePageState extends State<HomePage> {
                         hintStyle: TextStyle(
                           color: Colors.grey, // 👈 color del placeholder
                         ),
+                        isDense: true,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
 
                   // 👉 ICONO DE FILTROS
                   IconButton(
-                    icon: Icon(Icons.tune, color: Colors.grey),
+                    icon: Icon(
+                      _searchController.text.trim().isEmpty
+                          ? Icons.tune
+                          : Icons.close_rounded,
+                      color: Colors.grey,
+                    ),
                     onPressed: () {
+                      if (_searchController.text.trim().isNotEmpty) {
+                        _clearSearchSuggestions(clearText: true);
+                        _searchFocusNode.unfocus();
+                        setState(() {});
+                        return;
+                      }
+
                       print("Filtros pulsado");
                     },
                   ),
@@ -1635,11 +2131,31 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
+          if (_isSearchOverlayVisible) _buildSearchSuggestionsPanel(),
+
           Positioned(
             left: 16,
             bottom: 15,
             child: Column(
               children: [
+                const SizedBox(height: 10),
+                _buildMapControlButton(
+                  icon: Icons.sync_rounded,
+                  tooltip:
+                      'Recalcular negocios según localización actual del mapa',
+                  onPressed: _refreshBusinessesAroundCurrentView,
+                  inverted: true,
+                ),
+              ],
+            ),
+          ),
+
+          Positioned(
+            right: 16,
+            bottom: 15,
+            child: Column(
+              children: [      
+                const SizedBox(height: 10),
                 _buildMapControlButton(
                   icon: Icons.my_location,
                   tooltip: 'Centrar en mi ubicacion',
@@ -1651,29 +2167,6 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.explore,
                   tooltip: 'Orientar mapa al norte',
                   onPressed: _resetMapOrientation,
-                  inverted: false,
-                ),
-              ],
-            ),
-          ),
-
-          Positioned(
-            right: 16,
-            bottom: 15,
-            child: Column(
-              children: [
-                _buildMapControlButton(
-                  icon: Icons.sync_rounded,
-                  tooltip:
-                      'Recalcular negocios según localización actual del mapa',
-                  onPressed: _refreshBusinessesAroundCurrentView,
-                  inverted: true,
-                ),
-                const SizedBox(height: 10),
-                _buildMapControlButton(
-                  icon: Icons.directions_rounded,
-                  tooltip: 'Abrir ruta en Google Maps',
-                  onPressed: _openGoogleMapsRoute,
                   inverted: false,
                 ),
               ],
@@ -1709,4 +2202,16 @@ class _HairBusiness {
   final List<String>? openingHours;
   final String? phone;
   final List<String>? photoReferences;
+}
+
+class _AutocompletePlaceSuggestion {
+  const _AutocompletePlaceSuggestion({
+    required this.placeId,
+    required this.mainText,
+    required this.secondaryText,
+  });
+
+  final String placeId;
+  final String mainText;
+  final String secondaryText;
 }

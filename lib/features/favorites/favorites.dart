@@ -332,21 +332,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 ? business.openingHours!.first
                 : 'Horario no disponible';
 
-            final titleColor = isRegistered
-                ? _primaryColor
-                : const Color.fromARGB(255, 23, 23, 23);
-            final secondaryTextColor = isRegistered
-                ? Colors.white70
-                : const Color.fromARGB(255, 78, 78, 78);
-            final iconColor = isRegistered
-                ? _primaryColor
-                : const Color.fromARGB(255, 65, 65, 65);
-            final containerColor = isRegistered
-                ? _backgroundColor
-                : Colors.white;
-            final infoCardColor = isRegistered
-                ? _cardColor
-                : const Color.fromARGB(255, 246, 246, 246);
+            final titleColor = isRegistered ? _primaryColor : Colors.white;
+            final secondaryTextColor = Colors.white70;
+            final iconColor = isRegistered ? _primaryColor : Colors.white;
+            final containerColor = _backgroundColor;
+            final infoCardColor = _cardColor;
             final photos = business.photoReferences ?? const <String>[];
 
             return SafeArea(
@@ -357,6 +347,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(24),
                   ),
+                  border: isRegistered ? Border(
+                    top: BorderSide(color: _primaryColor, width: 3),
+                    left: BorderSide(color: _primaryColor, width: 3),
+                    right: BorderSide(color: _primaryColor, width: 3),
+                  ) : null,
                 ),
                 child: SingleChildScrollView(
                   child: Column(
@@ -388,7 +383,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Row(
@@ -435,9 +430,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                   },
                                   icon: Icon(
                                     _favoriteBusinessIds.contains(business.id)
-                                        ? Icons.star_rounded
-                                        : Icons.star_outline_rounded,
-                                    size: 29,
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_outline_rounded,
+                                    size: 35,
                                     color:
                                         _favoriteBusinessIds.contains(
                                           business.id,
@@ -753,7 +748,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               tooltip: 'Quitar de favoritos',
               onPressed: () => _toggleFavoriteBusiness(place.id),
               icon: const Icon(
-                Icons.star_rounded,
+                Icons.favorite_rounded,
                 color: _primaryColor,
                 size: 28,
               ),
