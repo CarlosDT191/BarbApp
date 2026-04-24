@@ -15,6 +15,8 @@ import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:geolocator/geolocator.dart';
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
@@ -291,6 +293,65 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
   }
 
+  _HairBusiness? _resolveBusinessForRoute() {
+    if (_selectedBusinessForRoute != null) {
+      return _selectedBusinessForRoute;
+    }
+    if (_hairBusinessesById.isEmpty) {
+      return null;
+    }
+
+    _HairBusiness? nearest;
+    double nearestDistance = double.infinity;
+
+    for (final business in _hairBusinessesById.values) {
+      final distance = Geolocator.distanceBetween(
+        _searchCenter.latitude,
+        _searchCenter.longitude,
+        business.location.latitude,
+        business.location.longitude,
+      );
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = business;
+      }
+    }
+
+    return nearest;
+  }
+
+  Future<void> _openGoogleMapsRoute() async {
+    final business = _resolveBusinessForRoute();
+
+    if (business == null) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No hay locales disponibles para calcular ruta.',
+        );
+      }
+      return;
+    }
+
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
+      'destination':
+          '${business.location.latitude},${business.location.longitude}',
+      'travelmode': 'driving',
+    });
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!launched && mounted) {
+      InputDecorations.showTopSnackBarError(
+        context,
+        'No se pudo abrir Google Maps.',
+      );
+    }
+  }
+
   void _showSalonInfoSheet(String placeId) {
     final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
     final isRegistered = registeredBusiness != null;
@@ -543,6 +604,80 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                   ],
                                 ],
                               ),
+                            ),
+
+                          const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        _selectedBusinessForRoute = business;
+                                        await _openGoogleMapsRoute(
+                                          targetBusiness: business,
+                                        );
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        side: const BorderSide(
+                                          color: Colors.white54,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.directions_rounded,
+                                        size: 20,
+                                      ),
+                                      label: const Text(
+                                        'Calcular ruta',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (isRegistered) ...[
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: ElevatedButton.icon(
+                                        onPressed: null,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _primaryColor,
+                                          foregroundColor: Colors.white,
+                                          disabledBackgroundColor:
+                                              _primaryColor,
+                                          disabledForegroundColor: Colors.white,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.calendar_month_rounded,
+                                          size: 20,
+                                        ),
+                                        label: const Text(
+                                          'Reservar',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),

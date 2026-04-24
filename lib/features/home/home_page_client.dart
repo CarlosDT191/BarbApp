@@ -1636,6 +1636,79 @@ class _HomePageState extends State<HomePage> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        _selectedBusinessForRoute = business;
+                                        await _openGoogleMapsRoute(
+                                          targetBusiness: business,
+                                        );
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        side: const BorderSide(
+                                          color: Colors.white54,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.directions_rounded,
+                                        size: 20,
+                                      ),
+                                      label: const Text(
+                                        'Calcular ruta',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (isRegistered) ...[
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: ElevatedButton.icon(
+                                        onPressed: null,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _primaryColor,
+                                          foregroundColor: Colors.white,
+                                          disabledBackgroundColor:
+                                              _primaryColor,
+                                          disabledForegroundColor: Colors.white,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.calendar_month_rounded,
+                                          size: 20,
+                                        ),
+                                        label: const Text(
+                                          'Reservar',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
                         ),
                       ),

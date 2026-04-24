@@ -274,12 +274,16 @@ exports.createReservation = async (req, res) => {
       local_name
     });
 
-    
-    // CREAR NOTIFICACIÓN
+    const formattedDate = new Date(date).toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
     await Notification.create({
       user: userId,
       type: "reservation",
-      message: `Reserva confirmada en ${local_name} el ${date} a las ${time}`,
+      message: `Reserva confirmada en ${local_name} el ${formattedDate} a las ${time}`,
       relatedId: reservation._id
     });
     

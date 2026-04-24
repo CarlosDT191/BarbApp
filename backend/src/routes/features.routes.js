@@ -4,6 +4,11 @@ const router = express.Router();
 const featuresController = require("../controllers/features.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 
+/*
+* ===========================
+*         RESERVAS
+* ===========================
+*/
 // Obtener reservas del usuario
 router.get("/reservations/me", authMiddleware, featuresController.getMyReservations);
 
@@ -13,17 +18,13 @@ router.post("/reservations", authMiddleware, featuresController.createReservatio
 // Eliminar reserva por reservationId
 router.delete("/reservations/:reservationId", authMiddleware, featuresController.deleteReservation);
 
+/*
+* ===========================
+*         NEGOCIOS
+* ===========================
+*/
 // Obtener negocios del usuario
 router.get("/businesses/me", authMiddleware, featuresController.getMyBusinesses);
-
-// Obtener favoritos del usuario
-router.get("/favorites", authMiddleware, featuresController.getMyFavorites);
-
-// Crear favorito de un local/negocio
-router.post("/favorites", authMiddleware, featuresController.createFavorite);
-
-// Eliminar favorito por businessId/placeId
-router.delete("/favorites/:businessId", authMiddleware, featuresController.deleteFavorite);
 
 // Buscar locales reales en Google Places para enlazar un negocio
 router.get("/businesses/google-places/search", authMiddleware, featuresController.searchGooglePlacesForBusinessLink);
@@ -37,6 +38,25 @@ router.post("/businesses", authMiddleware, featuresController.createBusiness);
 // Guardar datos generados de la consulta de creación de negocio
 router.post("/businesses/creation-data", authMiddleware, featuresController.createBusinessCreationData);
 
+/*
+* ===========================
+*        FAVORITOS
+* ===========================
+*/
+// Obtener favoritos del usuario
+router.get("/favorites", authMiddleware, featuresController.getMyFavorites);
+
+// Crear favorito de un local/negocio
+router.post("/favorites", authMiddleware, featuresController.createFavorite);
+
+// Eliminar favorito por businessId/placeId
+router.delete("/favorites/:businessId", authMiddleware, featuresController.deleteFavorite);
+
+/*
+* ===========================
+*      NOTIFICACIONES
+* ===========================
+*/
 // DONDE DEBEN DE IR LAS NOTIFICACIONES
 router.get("/notifications", authMiddleware, featuresController.getMyNotifications);
 
