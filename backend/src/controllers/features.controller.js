@@ -109,15 +109,17 @@ const normalizeBusinessOfferPayload = (rawOffer) => {
   }
 
   const name = toTrimmedString(rawOffer.name);
+  const serviceType = toTrimmedString(rawOffer.serviceType);
   const price = Number(rawOffer.price);
   const durationMinutes = Number(rawOffer.durationMinutes);
 
-  if (!name || !Number.isFinite(price) || price < 0 || !Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+  if (!name || !serviceType || !Number.isFinite(price) || price < 0 || !Number.isInteger(durationMinutes) || durationMinutes <= 0) {
     return null;
   }
 
   return {
     name,
+    serviceType,
     price,
     durationMinutes,
   };
@@ -267,14 +269,17 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
+    const fixedDate = new Date(date);
+    fixedDate.setDate(fixedDate.getDate() + 1);
+
     const reservation = await Reservation.create({
       user: userId,
-      date,
+      date: fixedDate,
       time,
       local_name
     });
 
-    const formattedDate = new Date(date).toLocaleDateString('es-ES', {
+    const formattedDate = new Date(fixedDate).toLocaleDateString('es-ES', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -424,6 +429,157 @@ exports.getMyBusinesses = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Actualiza un negocio del usuario autenticado
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param string req.params.businessId ID del negocio
+ * @param Object req.body Datos editables del negocio
+ * @return json {object} Negocio actualizado
+ */
+exports.updateMyBusiness = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const businessId = toTrimmedString(req.params.businessId);
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId es obligatorio" });
+    }
+
+    const {
+      name,
+      offers,
+      schedule,
+      scheduleMode,
+      employeeCount,
+    } = req.body;
+
+    const normalizedName = toTrimmedString(name);
+    const normalizedOffersWithValidation = Array.isArray(offers)
+      ? offers.map(normalizeBusinessOfferPayload)
+      : null;
+    const normalizedScheduleWithValidation = Array.isArray(schedule)
+      ? schedule.map(normalizeBusinessScheduleDayPayload)
+      : null;
+    const hasInvalidOffer = normalizedOffersWithValidation !== null &&
+      normalizedOffersWithValidation.some((offer) => offer === null);
+    const hasInvalidSchedule = normalizedScheduleWithValidation !== null &&
+      normalizedScheduleWithValidation.some((day) => day === null);
+    const normalizedOffers = normalizedOffersWithValidation
+      ? normalizedOffersWithValidation.filter(Boolean)
+      : null;
+    const normalizedSchedule = normalizedScheduleWithValidation
+      ? normalizedScheduleWithValidation.filter(Boolean)
+      : null;
+    const normalizedScheduleMode = normalizeBusinessScheduleMode(scheduleMode);
+    const normalizedEmployeeCount = Number(employeeCount);
+
+    if (
+      hasInvalidOffer ||
+      hasInvalidSchedule ||
+      normalizedOffers === null ||
+      normalizedOffers.length === 0 ||
+      normalizedSchedule === null ||
+      normalizedSchedule.length === 0 ||
+      !normalizedSchedule.some((day) => day.isOpen) ||
+      !Number.isInteger(normalizedEmployeeCount) ||
+      normalizedEmployeeCount < 0
+    ) {
+      return res.status(400).json({ error: "Campos obligatorios" });
+    }
+
+    const business = await Business.findOne({ _id: businessId, owner: userId });
+    if (!business) {
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    if (normalizedName) {
+      business.name = normalizedName;
+    }
+
+    business.offers = normalizedOffers;
+    business.schedule = normalizedSchedule;
+    business.scheduleMode = normalizedScheduleMode;
+    business.employeeCount = normalizedEmployeeCount;
+
+    await business.save();
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 200`);
+
+    return res.json(business);
+  } catch (err) {
+    if (err?.name === "CastError") {
+      return res.status(400).json({ error: "businessId invalido" });
+    }
+
+    console.error(err);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Elimina un negocio del usuario autenticado
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param string req.params.businessId ID del negocio
+ * @return json {removed: boolean} Indica si se eliminó el negocio
+ */
+exports.deleteMyBusiness = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const businessId = toTrimmedString(req.params.businessId);
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId es obligatorio" });
+    }
+
+    const deletedBusiness = await Business.findOneAndDelete({ _id: businessId, owner: userId });
+    if (!deletedBusiness) {
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    const linkedPlaceId = toTrimmedString(deletedBusiness.googlePlace?.placeId);
+
+    const cleanupTasks = [
+      User.findByIdAndUpdate(userId, {
+        $pull: { businesses: deletedBusiness._id },
+      }),
+      BusinessCreationRequest.deleteMany({ business: deletedBusiness._id }),
+    ];
+
+    if (linkedPlaceId) {
+      cleanupTasks.push(Favorite.deleteMany({ businessId: linkedPlaceId }));
+    }
+
+    await Promise.all(cleanupTasks);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 200`);
+
+    return res.json({ removed: true });
+  } catch (err) {
+    if (err?.name === "CastError") {
+      return res.status(400).json({ error: "businessId invalido" });
+    }
+
+    console.error(err);
+    return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 

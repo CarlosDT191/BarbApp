@@ -244,7 +244,11 @@ class _CalendarPageState extends State<CalendarPage> {
                       builder: (context) =>
                           DayDetailPage(initialDate: selectedDay),
                     ),
-                  );
+                  ).then((_) {
+                    // 🔁 Se ejecuta cuando vuelves
+                    initNotifications();
+                    fetchReservations();
+                  });
                 },
 
                 eventLoader: (day) {

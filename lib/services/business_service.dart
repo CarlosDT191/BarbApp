@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
@@ -119,6 +120,39 @@ class BusinessService {
     return byPlaceId;
   }
 
+  static Future<bool> getRegisteredBusinessesByPlaceId(String placeId) async {
+    final token = await _getRequiredToken();
+    final normalizedPlaceId = placeId.trim();
+
+    if (normalizedPlaceId.isEmpty) {
+      return false;
+    }
+
+    final uri = Uri.parse(
+      '$_apiBaseUrl/businesses/registered-by-place-ids',
+    ).replace(queryParameters: {'placeIds': normalizedPlaceId});
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error al consultar locales registrados: ${response.body}',
+      );
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final registered =
+        decoded['registered'] as List<dynamic>? ?? const <dynamic>[];
+
+    return registered.isNotEmpty;
+  }
+
   static Future<Map<String, dynamic>> createBusiness({
     required Map<String, dynamic> payload,
   }) async {
@@ -138,6 +172,44 @@ class BusinessService {
     }
 
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateBusiness({
+    required String businessId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final token = await _getRequiredToken();
+
+    final response = await http.put(
+      Uri.parse('$_apiBaseUrl/businesses/$businessId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al actualizar negocio: ${response.body}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<void> deleteBusiness({required String businessId}) async {
+    final token = await _getRequiredToken();
+
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/businesses/$businessId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al eliminar negocio: ${response.body}');
+    }
   }
 
   static Future<Map<String, dynamic>> saveBusinessCreationData({

@@ -26,12 +26,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
-  static const Color _registeredSheetBackgroundColor = Color.fromARGB(
-    255,
-    23,
-    23,
-    23,
-  );
+  static const Color _registeredSheetBackgroundColor = Color.fromARGB(255, 23, 23, 23);
   static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
 
   int _selectedIndex = 2;
@@ -52,6 +47,9 @@ class _HomePageState extends State<HomePage> {
   static const double _pinHueOpen = 110; // VERDE ES 120, apagado es 110
   static const double _pinHueClosed = 20; // ROJO ES 0, apagado es 20
   static const double _pinHueUnknown = 300;
+
+  static const double _pinHueRegistered = 50; // AMARILLO ES 60, apagado es 50
+  static const double _pinHueUnregistered = 160; // CIAN ES 180, apagado es 170
 
   LatLng _searchCenter = const LatLng(37.8882, -4.7794);
   LatLng _currentMapTarget = const LatLng(37.8882, -4.7794);
@@ -690,7 +688,7 @@ class _HomePageState extends State<HomePage> {
 
       InputDecorations.showTopSnackBarError(
         context,
-        'No se pudo actualizar favoritos.',
+        'No se pudo actualizar locales guardados.',
       );
     }
   }
@@ -1015,8 +1013,8 @@ class _HomePageState extends State<HomePage> {
     return nearest;
   }
 
-  Future<void> _openGoogleMapsRoute() async {
-    final business = _resolveBusinessForRoute();
+  Future<void> _openGoogleMapsRoute({_HairBusiness? targetBusiness}) async {
+    final business = targetBusiness ?? _resolveBusinessForRoute();
 
     if (business == null) {
       if (mounted) {
@@ -1389,333 +1387,353 @@ class _HomePageState extends State<HomePage> {
     _selectedBusinessForRoute =
         _hairBusinessesById[placeId] ?? _selectedBusinessForRoute;
 
-    final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
-    final isRegistered = registeredBusiness != null;
-
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return FutureBuilder<_HairBusiness>(
-          future: _fetchHairBusinessDetails(placeId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done &&
-                !snapshot.hasData) {
-              return const SizedBox(
-                height: 170,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final registeredBusiness =
+                _registeredBusinessesByPlaceId[placeId];
+            final isRegistered = registeredBusiness != null;
 
-            if (!snapshot.hasData) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                child: const Text(
-                  'No se pudo cargar el detalle del local.',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              );
-            }
+            return FutureBuilder<_HairBusiness>(
+              future: _fetchHairBusinessDetails(placeId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done &&
+                    !snapshot.hasData) {
+                  return const SizedBox(
+                    height: 170,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-            final business = snapshot.data!;
-            final firstHoursLine =
-                (business.openingHours != null &&
-                    business.openingHours!.isNotEmpty)
-                ? business.openingHours!.first
-                : 'Horario no disponible';
+                if (!snapshot.hasData) {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                    child: const Text(
+                      'No se pudo cargar el detalle del local.',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  );
+                }
 
-            final titleColor = isRegistered ? _primaryColor : Colors.white;
-            final secondaryTextColor = Colors.white70;
-            final iconColor = isRegistered ? _primaryColor : Colors.white;
-            final containerColor = _registeredSheetBackgroundColor;
-            final infoCardColor = _registeredCardColor;
-            final photos = business.photoReferences ?? const <String>[];
+                final business = snapshot.data!;
+                final isFavorite =
+                    _favoriteBusinessIds.contains(business.id);
 
-            return SafeArea(
-              top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  border: isRegistered
-                      ? Border(
-                          top: BorderSide(color: _primaryColor, width: 3),
-                          left: BorderSide(color: _primaryColor, width: 3),
-                          right: BorderSide(color: _primaryColor, width: 3),
-                        )
-                      : null,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10),
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: isRegistered
-                                ? Colors.white30
-                                : const Color.fromARGB(255, 205, 205, 205),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                        ),
+                final firstHoursLine =
+                    (business.openingHours != null &&
+                            business.openingHours!.isNotEmpty)
+                        ? business.openingHours!.first
+                        : 'Horario no disponible';
+
+                final titleColor = isRegistered ? _primaryColor : Colors.white;
+                final secondaryTextColor = Colors.white70;
+                final iconColor = isRegistered ? _primaryColor : Colors.white;
+                final containerColor = _registeredSheetBackgroundColor;
+                final infoCardColor = _registeredCardColor;
+                final stateColor = business.openNow == null ? Color.fromARGB(255, 205, 205, 205) : (business.openNow! ? Colors.green : Colors.red);
+
+
+                final photos= business.photoReferences ?? const <String>[];
+
+                return SafeArea(
+                  top: false,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
                       ),
-                      const SizedBox(height: 14),
-                      if (photos.isNotEmpty)
-                        _buildPhotoCarousel(
-                          placeId: placeId,
-                          photoReferences: photos,
-                          isRegistered: isRegistered,
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          business.name,
-                                          style: TextStyle(
-                                            fontSize: 23,
-                                            fontWeight: FontWeight.w800,
-                                            color: titleColor,
-                                          ),
-                                        ),
-                                      ),
-                                      if (isRegistered)
-                                        const Padding(
-                                          padding: EdgeInsets.only(
-                                            left: 8,
-                                            top: 2,
-                                          ),
-                                          child: Icon(
-                                            Icons.verified_rounded,
-                                            color: _primaryColor,
-                                            size: 28,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip:
-                                      _favoriteBusinessIds.contains(business.id)
-                                      ? 'Quitar de favoritos'
-                                      : 'Guardar en favoritos',
-                                  onPressed: () =>
-                                      _toggleFavoriteBusiness(business.id),
-                                  icon: Icon(
-                                    _favoriteBusinessIds.contains(business.id)
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_outline_rounded,
-                                    size: 35,
-                                    color:
-                                        _favoriteBusinessIds.contains(
-                                          business.id,
-                                        )
-                                        ? _primaryColor
-                                        : secondaryTextColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (isRegistered) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                'Local registrado en BarbApp',
-                                style: TextStyle(
-                                  color: secondaryTextColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 14),
-                            if (business.rating != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: infoCardColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Row(
-                                      children: _buildRatingStars(
-                                        business.rating!,
-                                        size: 23,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      business.rating!.toStringAsFixed(1),
-                                      style: TextStyle(
-                                        color: titleColor,
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        business.reviewCount == null
-                                            ? 'Valoracion basada en usuarios'
-                                            : '${_formatReviewCount(business.reviewCount!)} reseñas',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: secondaryTextColor,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(14),
+                      border: isRegistered
+                          ? Border(
+                              top: BorderSide(color: _primaryColor, width: 3),
+                              left: BorderSide(color: _primaryColor, width: 3),
+                              right: BorderSide(color: _primaryColor, width: 3),
+                            )
+                          : null,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Center(
+                            child: Container(
+                              width: 44,
+                              height: 5,
                               decoration: BoxDecoration(
-                                color: infoCardColor,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildDetailRow(
-                                    icon: Icons.location_on_outlined,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: business.address,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    icon: Icons.access_time,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: firstHoursLine,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    icon: Icons.storefront_outlined,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: business.openNow == null
-                                        ? 'Estado: no disponible'
-                                        : (business.openNow!
-                                              ? 'Abierto ahora'
-                                              : 'Cerrado ahora'),
-                                  ),
-                                  if (business.phone != null) ...[
-                                    const SizedBox(height: 10),
-                                    _buildDetailRow(
-                                      icon: Icons.phone_outlined,
-                                      iconColor: iconColor,
-                                      textColor: secondaryTextColor,
-                                      text: business.phone!,
-                                    ),
-                                  ],
-                                ],
+                                color: isRegistered
+                                    ? _primaryColor
+                                    : const Color.fromARGB(255, 205, 205, 205),
+                                borderRadius:
+                                    BorderRadius.circular(100),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            Row(
+                          ),
+                          const SizedBox(height: 14),
+
+                          if (photos.isNotEmpty)
+                            _buildPhotoCarousel(
+                              placeId: placeId,
+                              photoReferences: photos,
+                              isRegistered: isRegistered,
+                            ),
+
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 48,
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        _selectedBusinessForRoute = business;
-                                        await _openGoogleMapsRoute(
-                                          targetBusiness: business,
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.white,
-                                        side: const BorderSide(
-                                          color: Colors.white54,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              business.name,
+                                              style: TextStyle(
+                                                fontSize: 23,
+                                                fontWeight:
+                                                    FontWeight.w800,
+                                                color: titleColor,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.directions_rounded,
-                                        size: 20,
-                                      ),
-                                      label: const Text(
-                                        'Calcular ruta',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                          if (isRegistered)
+                                            const Padding(
+                                              padding:
+                                                  EdgeInsets.only(
+                                                      left: 8,
+                                                      top: 2),
+                                              child: Icon(
+                                                Icons
+                                                    .verified_rounded,
+                                                color:
+                                                    _primaryColor,
+                                                size: 28,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                  ),
+                                    IconButton(
+                                      tooltip: isFavorite
+                                          ? 'Quitar de locales guardados'
+                                          : 'Añadir en locales guardados',
+                                      onPressed: () {
+                                        _toggleFavoriteBusiness(business.id);
+
+                                        /// Fuerza rebuild del modal
+                                        setModalState(() {});
+                                      },
+                                      icon: Icon(
+                                        isFavorite
+                                            ? Icons.bookmark_rounded
+                                            : Icons.bookmark_outline_rounded,
+                                        size: 35,
+                                        color: isFavorite ? _primaryColor : secondaryTextColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 if (isRegistered) ...[
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 48,
-                                      child: ElevatedButton.icon(
-                                        onPressed: null,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _primaryColor,
-                                          foregroundColor: Colors.white,
-                                          disabledBackgroundColor:
-                                              _primaryColor,
-                                          disabledForegroundColor: Colors.white,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              14,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Local registrado en BarbApp',
+                                    style: TextStyle(
+                                      color: secondaryTextColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+
+                                const SizedBox(height: 14),
+
+                                if (business.rating != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: infoCardColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Row(
+                                          children: _buildRatingStars(business.rating!, size: 23,),
+                                        ),
+                                        const SizedBox(width: 30),
+                                        Text(
+                                          business.rating!.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            color: titleColor,
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            business.reviewCount == null
+                                                ? 'Valoracion basada en usuarios'
+                                                : '${_formatReviewCount(business.reviewCount!)} reseñas',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),
-                                        icon: const Icon(
-                                          Icons.calendar_month_rounded,
-                                          size: 20,
+                                      ],
+                                    ),
+                                  ),
+
+                                const SizedBox(height: 14),
+
+                                Container(
+                                  padding:
+                                      const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: infoCardColor,
+                                    borderRadius:
+                                        BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _buildDetailRow(
+                                        icon: Icons
+                                            .location_on_outlined,
+                                        iconColor: iconColor,
+                                        textColor: secondaryTextColor,
+                                        text: business.address,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildDetailRow(
+                                        icon: Icons
+                                            .access_time,
+                                        iconColor: iconColor,
+                                        textColor: secondaryTextColor,
+                                        text: firstHoursLine,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildDetailRow(
+                                        icon: Icons.storefront_outlined,
+                                        iconColor: stateColor,
+                                        textColor: stateColor,
+                                        text: business.openNow == null
+                                            ? 'Estado: no disponible'
+                                            : (business.openNow!
+                                                  ? 'Abierto ahora'
+                                                  : 'Cerrado ahora'),
+                                      ),
+                                      if (business.phone != null) ...[
+                                        const SizedBox(height: 10),
+                                        _buildDetailRow(
+                                          icon: Icons.phone_outlined,
+                                          iconColor: iconColor,
+                                          textColor: secondaryTextColor,
+                                          text: business.phone!,
                                         ),
-                                        label: const Text(
-                                          'Reservar',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 48,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () async {
+                                            _selectedBusinessForRoute = business;
+                                            await _openGoogleMapsRoute(
+                                              targetBusiness: business,
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.white,
+                                            side: const BorderSide(
+                                              color: Colors.white54,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(
+                                                14,
+                                              ),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.directions_rounded,
+                                            size: 20,
+                                          ),
+                                          label: const Text(
+                                            'Calcular ruta',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    if (isRegistered) ...[
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 48,
+                                          child: ElevatedButton.icon(
+                                            onPressed: null,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: _primaryColor,
+                                              foregroundColor: Colors.white,
+                                              disabledBackgroundColor:
+                                                  _primaryColor,
+                                              disabledForegroundColor: Colors.white,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(
+                                                  14,
+                                                ),
+                                              ),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.calendar_month_rounded,
+                                              size: 20,
+                                            ),
+                                            label: const Text(
+                                              'Reservar',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );

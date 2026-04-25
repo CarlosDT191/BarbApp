@@ -453,7 +453,7 @@ class InputDecorations {
                 icon: Icon(
                   owner
                       ? Icons.home_work_rounded
-                      : Icons.favorite_rounded,
+                      : Icons.bookmark_rounded,
                 ),
               ),
               buildItem(

@@ -52,6 +52,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   static const double _pinHueClosed = 20; // ROJO ES 0, apagado es 20
   static const double _pinHueUnknown = 300;
 
+    static const double _pinHueRegistered = 60; // AMARILLO ES 60, apagado es 50
+  static const double _pinHueUnregistered = 180; // CIAN ES 180, apagado es 170
+
   LatLng _searchCenter = const LatLng(37.8882, -4.7794);
   LatLng _currentMapTarget = const LatLng(37.8882, -4.7794);
   double _currentZoom = 14.0;
@@ -1386,6 +1389,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
             final containerColor = _registeredSheetBackgroundColor;
             final infoCardColor = _registeredCardColor;
 
+            final stateColor = business.openNow == null ? Color.fromARGB(255, 205, 205, 205) : (business.openNow! ? Colors.green : Colors.red);
+
             final photos = business.photoReferences ?? const <String>[];
 
             return SafeArea(
@@ -1415,7 +1420,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                           height: 5,
                           decoration: BoxDecoration(
                             color: isRegistered
-                                ? Colors.white30
+                                ? _primaryColor
                                 : const Color.fromARGB(255, 205, 205, 205),
                             borderRadius: BorderRadius.circular(100),
                           ),
@@ -1458,7 +1463,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                               ],
                             ),
                             if (isRegistered) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 2),
                               Text(
                                 'Local registrado en BarbApp',
                                 style: TextStyle(
@@ -1487,7 +1492,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                         size: 23,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 30),
                                     Text(
                                       business.rating!.toStringAsFixed(1),
                                       style: TextStyle(
@@ -1538,8 +1543,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
                                     icon: Icons.storefront_outlined,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
+                                    iconColor: stateColor,
+                                    textColor: stateColor,
                                     text: business.openNow == null
                                         ? 'Estado: no disponible'
                                         : (business.openNow!

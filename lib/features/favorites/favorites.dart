@@ -17,6 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
@@ -107,7 +108,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     if (apiKey == null || apiKey.isEmpty) {
       return _FavoritePlace(
         id: placeId,
-        name: 'Local favorito',
+        name: 'Local guardado',
         address: 'Direccion no disponible',
       );
     }
@@ -152,7 +153,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
       return _FavoritePlace(
         id: placeId,
-        name: result['name']?.toString() ?? 'Local favorito',
+        name: result['name']?.toString() ?? 'Local guardado',
         address:
             result['formatted_address']?.toString() ??
             'Direccion no disponible',
@@ -239,7 +240,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
       InputDecorations.showTopSnackBarError(
         context,
-        'No se pudo cargar favoritos: $e',
+        'No se pudo cargar locales guardados: $e',
       );
     }
   }
@@ -288,61 +289,29 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
       InputDecorations.showTopSnackBarError(
         context,
-        'No se pudo actualizar favoritos.',
+        'No se pudo actualizar locales guardados.',
       );
     }
   }
 
-  _HairBusiness? _resolveBusinessForRoute() {
-    if (_selectedBusinessForRoute != null) {
-      return _selectedBusinessForRoute;
-    }
-    if (_hairBusinessesById.isEmpty) {
-      return null;
-    }
-
-    _HairBusiness? nearest;
-    double nearestDistance = double.infinity;
-
-    for (final business in _hairBusinessesById.values) {
-      final distance = Geolocator.distanceBetween(
-        _searchCenter.latitude,
-        _searchCenter.longitude,
-        business.location.latitude,
-        business.location.longitude,
-      );
-
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearest = business;
-      }
-    }
-
-    return nearest;
-  }
-
-  Future<void> _openGoogleMapsRoute() async {
-    final business = _resolveBusinessForRoute();
-
-    if (business == null) {
-      if (mounted) {
-        InputDecorations.showTopSnackBarError(
-          context,
-          'No hay locales disponibles para calcular ruta.',
-        );
-      }
-      return;
-    }
+  Future<void> _openGoogleMapsRoute(String placeId) async {
+  try {
+    // Obtener ubicación actual del usuario
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
 
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
-      'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
-      'destination':
-          '${business.location.latitude},${business.location.longitude}',
+      'origin': '${position.latitude},${position.longitude}',
+      'destination': 'place_id:$placeId',
       'travelmode': 'driving',
     });
 
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
 
     if (!launched && mounted) {
       InputDecorations.showTopSnackBarError(
@@ -350,7 +319,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
         'No se pudo abrir Google Maps.',
       );
     }
+  } catch (e) {
+    if (mounted) {
+      InputDecorations.showTopSnackBarError(
+        context,
+        'Error obteniendo ubicación: $e',
+      );
+    }
   }
+}
 
   void _showSalonInfoSheet(String placeId) {
     final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
@@ -478,8 +455,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                 IconButton(
                                   tooltip:
                                       _favoriteBusinessIds.contains(business.id)
-                                      ? 'Quitar de favoritos'
-                                      : 'Guardar en favoritos',
+                                      ? 'Quitar de locales guardados'
+                                      : 'Guardar en locales guardados',
                                   onPressed: () async {
                                     await _toggleFavoriteBusiness(business.id);
                                     if (mounted &&
@@ -491,8 +468,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                   },
                                   icon: Icon(
                                     _favoriteBusinessIds.contains(business.id)
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_outline_rounded,
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_outline_rounded,
                                     size: 35,
                                     color:
                                         _favoriteBusinessIds.contains(
@@ -614,10 +591,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                     height: 48,
                                     child: OutlinedButton.icon(
                                       onPressed: () async {
-                                        _selectedBusinessForRoute = business;
-                                        await _openGoogleMapsRoute(
-                                          targetBusiness: business,
-                                        );
+                                        await _openGoogleMapsRoute(business.id);
                                       },
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Colors.white,
@@ -880,10 +854,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
               ),
             ),
             IconButton(
-              tooltip: 'Quitar de favoritos',
+              tooltip: 'Quitar de locales guardados',
               onPressed: () => _toggleFavoriteBusiness(place.id),
               icon: const Icon(
-                Icons.favorite_rounded,
+                Icons.bookmark_rounded,
                 color: _primaryColor,
                 size: 28,
               ),
@@ -990,7 +964,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
         children: [
           const SizedBox(height: 90),
           const Text(
-            'Favoritos',
+            'Negocios guardados',
             style: TextStyle(
               fontSize: 33,
               color: _primaryColor,
@@ -998,7 +972,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
             ),
           ),
           const Text(
-            'Locales guardados por ti',
+            'Locales de peluquería y/o barbería guardados por ti',
             style: TextStyle(fontSize: 14, color: _primaryColor),
           ),
           const SizedBox(height: 20),
@@ -1010,7 +984,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 : _favoritePlaces.isEmpty
                 ? const Center(
                     child: Text(
-                      'No tienes locales favoritos guardados',
+                      'No tienes locales guardados',
                       style: TextStyle(color: Colors.white70),
                     ),
                   )

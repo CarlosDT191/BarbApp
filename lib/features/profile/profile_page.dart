@@ -229,44 +229,79 @@ class _ProfilePageState extends State<ProfilePage> {
   /// Pestaña que se muestra para confirmar la eliminación de la cuenta.
   ///
   void _showDeleteConfirmation() {
+    final TextEditingController _controller = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Color.fromARGB(255, 23, 23, 23),
+        backgroundColor: const Color.fromARGB(255, 23, 23, 23),
         title: const Text(
           "Eliminar cuenta",
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white),
         ),
-        content: const Text(
-          "¿Estás seguro de que quieres eliminar tu cuenta? Toda tu información será eliminada permanentemente.",
-          style: const TextStyle(color: Colors.white),
-          textAlign: TextAlign.justify,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "¿Estás seguro de que quieres eliminar tu cuenta? Toda tu información será eliminada permanentemente.",
+              style: TextStyle(color: Colors.white),
+              textAlign: TextAlign.justify,
+            ),
+            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Escribe 'eliminar' para confirmar",
+                hintStyle: TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: const Color.fromARGB(255, 38, 38, 38),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                  enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context),
             child: const Text(
               "Cancelar",
-              style: const TextStyle(color: Color.fromARGB(255, 200, 156, 125)),
+              style: TextStyle(color: Color.fromARGB(255, 200, 156, 125)),
             ),
           ),
           ElevatedButton(
             onPressed: () {
-              deleteAccount();
+              if (_controller.text.trim().toLowerCase() == "eliminar") {
+                Navigator.pop(context);
+                deleteAccount();
+              } else {
+                // Opcional: feedback si no coincide
+                InputDecorations.showTopSnackBarError(
+                  context,
+                  'Debes escribir "eliminar" para confirmar la eliminación permanente de la cuenta.',
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               foregroundColor: Colors.white,
-              backgroundColor: Color.fromARGB(
-                255,
-                30,
-                30,
-                30,
-              ), // color de fondo
+              backgroundColor: const Color.fromARGB(255, 30, 30, 30),
             ),
             child: const Text(
               "Eliminar cuenta",
-              style: const TextStyle(color: Colors.red),
+              style: TextStyle(color: Colors.red),
             ),
           ),
         ],

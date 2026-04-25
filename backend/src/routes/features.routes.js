@@ -35,6 +35,12 @@ router.get("/businesses/registered-by-place-ids", authMiddleware, featuresContro
 // Crear negocio
 router.post("/businesses", authMiddleware, featuresController.createBusiness);
 
+// Editar negocio propio
+router.put("/businesses/:businessId", authMiddleware, featuresController.updateMyBusiness);
+
+// Eliminar negocio propio
+router.delete("/businesses/:businessId", authMiddleware, featuresController.deleteMyBusiness);
+
 // Guardar datos generados de la consulta de creación de negocio
 router.post("/businesses/creation-data", authMiddleware, featuresController.createBusinessCreationData);
 

@@ -6,6 +6,11 @@ const businessOfferSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  serviceType: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   price: {
     type: Number,
     required: true,
