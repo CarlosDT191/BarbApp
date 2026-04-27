@@ -103,6 +103,138 @@ const parseTimeToMinutes = (rawTime) => {
   return (hour * 60) + minute;
 };
 
+const WEEKDAY_LABELS = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miercoles",
+  "Jueves",
+  "Viernes",
+  "Sabado",
+];
+
+const parseDateParts = (rawDate) => {
+  const raw = toTrimmedString(rawDate);
+  if (!raw) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [yearRaw, monthRaw, dayRaw] = raw.split("-");
+    const year = Number(yearRaw);
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+      return null;
+    }
+
+    return { year, month, day };
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return {
+    year: parsed.getUTCFullYear(),
+    month: parsed.getUTCMonth() + 1,
+    day: parsed.getUTCDate(),
+  };
+};
+
+const normalizeReservationDate = (rawDate) => {
+  const parts = parseDateParts(rawDate);
+  if (!parts) {
+    return null;
+  }
+
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+};
+
+const getReservationDayRange = (normalizedDate) => {
+  const start = new Date(Date.UTC(
+    normalizedDate.getUTCFullYear(),
+    normalizedDate.getUTCMonth(),
+    normalizedDate.getUTCDate(),
+  ));
+  const end = new Date(Date.UTC(
+    normalizedDate.getUTCFullYear(),
+    normalizedDate.getUTCMonth(),
+    normalizedDate.getUTCDate() + 1,
+  ));
+
+  return { start, end };
+};
+
+const formatMinutesToTime = (minutes) => {
+  const clamped = Number(minutes);
+  if (!Number.isFinite(clamped) || clamped < 0) {
+    return "00:00";
+  }
+
+  const normalized = clamped % (24 * 60);
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+};
+
+const resolveScheduleForDate = (schedule, normalizedDate) => {
+  if (!Array.isArray(schedule)) {
+    return null;
+  }
+
+  const dayLabel = WEEKDAY_LABELS[normalizedDate.getUTCDay()];
+  if (!dayLabel) {
+    return null;
+  }
+
+  const target = dayLabel.toLowerCase();
+  return schedule.find((day) => toTrimmedString(day?.day).toLowerCase() === target) || null;
+};
+
+const buildSlotsForRange = (startMinutes, endMinutes, durationMinutes) => {
+  if (!Number.isInteger(startMinutes) || !Number.isInteger(endMinutes)) {
+    return [];
+  }
+
+  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+    return [];
+  }
+
+  const slots = [];
+  for (let time = startMinutes; time + durationMinutes <= endMinutes; time += durationMinutes) {
+    slots.push(time);
+  }
+
+  return slots;
+};
+
+const buildSlotTimesForSchedule = (scheduleDay, durationMinutes) => {
+  if (!scheduleDay || scheduleDay.isOpen !== true) {
+    return [];
+  }
+
+  const openMinutes = parseTimeToMinutes(scheduleDay.openTime);
+  const closeMinutes = parseTimeToMinutes(scheduleDay.closeTime);
+  if (openMinutes === null || closeMinutes === null || closeMinutes <= openMinutes) {
+    return [];
+  }
+
+  const slots = [...buildSlotsForRange(openMinutes, closeMinutes, durationMinutes)];
+
+  if (scheduleDay.isSplitShift) {
+    const secondOpenMinutes = parseTimeToMinutes(scheduleDay.secondOpenTime);
+    const secondCloseMinutes = parseTimeToMinutes(scheduleDay.secondCloseTime);
+    if (secondOpenMinutes !== null && secondCloseMinutes !== null && secondCloseMinutes > secondOpenMinutes) {
+      slots.push(...buildSlotsForRange(secondOpenMinutes, secondCloseMinutes, durationMinutes));
+    }
+  }
+
+  return slots;
+};
+
 const normalizeBusinessOfferPayload = (rawOffer) => {
   if (!rawOffer || typeof rawOffer !== "object") {
     return null;
@@ -224,9 +356,11 @@ exports.getMyReservations = async (req, res) => {
     const date = formatDate();
 
     const userId = req.user.userId;
+    const userRole = Number(req.user.role);
+    const filter = userRole === 1 ? { owner: userId } : { user: userId };
 
-    const reservations = await Reservation.find({ user: userId })
-      .sort({ date: 1 });
+    const reservations = await Reservation.find(filter)
+      .sort({ date: 1, time: 1 });
 
     res.json(reservations);
 
@@ -252,7 +386,8 @@ exports.getMyReservations = async (req, res) => {
  * @param string req.user.userId ID del usuario autenticado (del token)
  * @param Object req.body.date Fecha de la reserva (YYYY-MM-DD)
  * @param string req.body.time Hora de la reserva (HH:mm)
- * @param string req.body.local_name Nombre del local/establecimiento para la reserva
+ * @param string req.body.businessId ID del negocio
+ * @param number req.body.offerIndex Indice del servicio seleccionado
  * @return json {object} Objeto con los datos de la reserva creada
  */
 // 🔹 Crear reserva (opcional pero recomendable)
@@ -270,24 +405,113 @@ exports.createReservation = async (req, res) => {
 
     const userId = req.user.userId;
 
-    const { date, time, local_name } = req.body;
+    const { date, time, businessId, offerIndex } = req.body;
 
-    if (!date || !time || !local_name) {
+    const normalizedBusinessId = toTrimmedString(businessId);
+    const normalizedTime = toTrimmedString(time);
+    const normalizedDate = normalizeReservationDate(date);
+    const normalizedOfferIndex = Number(offerIndex);
+
+    if (
+      !normalizedBusinessId ||
+      !normalizedTime ||
+      normalizedDate === null ||
+      !Number.isInteger(normalizedOfferIndex) ||
+      normalizedOfferIndex < 0
+    ) {
       console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 400 (Campos obligatorios)`);
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
-    const fixedDate = new Date(date);
-    fixedDate.setDate(fixedDate.getDate() + 1);
+    const timeMinutes = parseTimeToMinutes(normalizedTime);
+    if (timeMinutes === null) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 400 (Hora invalida)`);
+      return res.status(400).json({ error: "Hora invalida" });
+    }
+
+    const business = await Business.findById(normalizedBusinessId).lean();
+    if (!business) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 404 (Negocio no encontrado)`);
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    const offers = Array.isArray(business.offers) ? business.offers : [];
+    const selectedOffer = offers[normalizedOfferIndex];
+    if (!selectedOffer) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 400 (Servicio invalido)`);
+      return res.status(400).json({ error: "Servicio invalido" });
+    }
+
+    const scheduleDay = resolveScheduleForDate(business.schedule, normalizedDate);
+    const slotTimes = buildSlotTimesForSchedule(scheduleDay, selectedOffer.durationMinutes);
+
+    if (slotTimes.length === 0 || !slotTimes.includes(timeMinutes)) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 409 (Hora no disponible)`);
+      return res.status(409).json({ error: "Hora no disponible" });
+    }
+
+    const { start: dayStart, end: dayEnd } = getReservationDayRange(normalizedDate);
+    const existingReservations = await Reservation.find({
+      business: business._id,
+      date: { $gte: dayStart, $lt: dayEnd },
+    }).lean();
+
+    const reservationBlocks = existingReservations.map((reservation) => {
+      const start = parseTimeToMinutes(reservation?.time) ?? 0;
+      const duration = Number(reservation?.durationMinutes)
+        || Number(reservation?.service?.durationMinutes)
+        || 60;
+      return {
+        start,
+        end: start + duration,
+      };
+    });
+
+    const slotEnd = timeMinutes + selectedOffer.durationMinutes;
+    const overlappingCount = reservationBlocks.filter((block) => (
+      block.start < slotEnd && block.end > timeMinutes
+    )).length;
+
+    const capacity = Number.isInteger(business.employeeCount) && business.employeeCount >= 0
+      ? business.employeeCount + 1
+      : 1;
+
+    if (overlappingCount >= capacity) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 409 (Cupo no disponible)`);
+      return res.status(409).json({ error: "Cupo no disponible" });
+    }
+
+    const client = await User.findById(userId, {
+      firstname: 1,
+      lastname: 1,
+      email: 1,
+    }).lean();
+
+    const clientName = client
+      ? `${toTrimmedString(client.firstname)} ${toTrimmedString(client.lastname)}`.trim()
+      : "";
+
+    const serviceSnapshot = {
+      name: toTrimmedString(selectedOffer.name),
+      serviceType: toTrimmedString(selectedOffer.serviceType),
+      price: Number(selectedOffer.price),
+      durationMinutes: Number(selectedOffer.durationMinutes),
+    };
 
     const reservation = await Reservation.create({
       user: userId,
-      date: fixedDate,
-      time,
-      local_name
+      owner: business.owner,
+      business: business._id,
+      date: normalizedDate,
+      time: normalizedTime,
+      durationMinutes: serviceSnapshot.durationMinutes,
+      local_name: toTrimmedString(business.name),
+      service: serviceSnapshot,
+      clientName,
+      clientEmail: toTrimmedString(client?.email),
     });
 
-    const formattedDate = new Date(fixedDate).toLocaleDateString('es-ES', {
+    const formattedDate = normalizedDate.toLocaleDateString('es-ES', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -296,15 +520,15 @@ exports.createReservation = async (req, res) => {
     await Notification.create({
       user: userId,
       type: "reservation",
-      message: `Reserva confirmada en ${local_name} el ${formattedDate} a las ${time}`,
-      relatedId: reservation._id
+      message: `Reserva confirmada en ${serviceSnapshot.name} (${toTrimmedString(business.name)}) el ${formattedDate} a las ${normalizedTime}`,
+      relatedId: reservation._id,
     });
     
-    res.json(reservation);
+    res.status(201).json(reservation);
 
     let formated_date = formatDate();
     
-    console.log(`${ip} - - [ ${formated_date} ] "POST /reservations" 200`);
+    console.log(`${ip} - - [ ${formated_date} ] "POST /reservations" 201`);
 
   } catch (err) {
     console.error(err);
@@ -1118,5 +1342,228 @@ exports.createBusinessCreationData = async (req, res) => {
 
     console.log(`${ip} - - [ ${date} ] "POST /businesses/creation-data" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Lista negocios registrados con busqueda opcional
+ * @param string req.query.q Texto de busqueda
+ * @return json {businesses: object[]}
+ */
+exports.listBusinesses = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    const query = toTrimmedString(req.query.q);
+    const filter = query
+      ? {
+          $or: [
+            { name: { $regex: query, $options: "i" } },
+            { "googlePlace.name": { $regex: query, $options: "i" } },
+            { "googlePlace.address": { $regex: query, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const businesses = await Business.find(filter, {
+      name: 1,
+      googlePlace: 1,
+    })
+      .sort({ name: 1 })
+      .limit(50)
+      .lean();
+
+    const payload = businesses.map((business) => ({
+      businessId: String(business._id),
+      name: toTrimmedString(business.name),
+      placeId: toTrimmedString(business.googlePlace?.placeId),
+      address: toTrimmedString(business.googlePlace?.address),
+    }));
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses" 200`);
+    return res.json({ businesses: payload });
+  } catch (err) {
+    console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "GET /businesses" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Obtiene el detalle de un negocio registrado
+ * @param string req.params.businessId ID del negocio
+ * @return json {object} Detalle del negocio
+ */
+exports.getBusinessDetails = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    const businessId = toTrimmedString(req.params.businessId);
+    if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId" 400 (businessId es obligatorio)`);
+      return res.status(400).json({ error: "businessId es obligatorio" });
+    }
+
+    const business = await Business.findById(businessId).lean();
+    if (!business) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId" 404 (Negocio no encontrado)`);
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId" 200`);
+    return res.json({
+      businessId: String(business._id),
+      name: toTrimmedString(business.name),
+      employeeCount: Number(business.employeeCount) || 0,
+      offers: Array.isArray(business.offers) ? business.offers : [],
+      schedule: Array.isArray(business.schedule) ? business.schedule : [],
+      scheduleMode: toTrimmedString(business.scheduleMode) || "single",
+      googlePlace: business.googlePlace || {},
+    });
+  } catch (err) {
+    console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    if (err?.name === "CastError") {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId" 400 (businessId invalido)`);
+      return res.status(400).json({ error: "businessId invalido" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Obtiene las horas disponibles para un negocio y servicio
+ * @param string req.params.businessId ID del negocio
+ * @param string req.query.date Fecha (YYYY-MM-DD)
+ * @param number req.query.offerIndex Indice del servicio
+ */
+exports.getBusinessAvailability = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    const businessId = toTrimmedString(req.params.businessId);
+    const normalizedDate = normalizeReservationDate(req.query.date);
+    const normalizedOfferIndex = Number(req.query.offerIndex);
+
+    if (!businessId || normalizedDate === null || !Number.isInteger(normalizedOfferIndex) || normalizedOfferIndex < 0) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 400 (Parametros invalidos)`);
+      return res.status(400).json({ error: "Parametros invalidos" });
+    }
+
+    const business = await Business.findById(businessId).lean();
+    if (!business) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 404 (Negocio no encontrado)`);
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    const offers = Array.isArray(business.offers) ? business.offers : [];
+    const selectedOffer = offers[normalizedOfferIndex];
+    if (!selectedOffer) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 400 (Servicio invalido)`);
+      return res.status(400).json({ error: "Servicio invalido" });
+    }
+
+    const scheduleDay = resolveScheduleForDate(business.schedule, normalizedDate);
+    const slotTimes = buildSlotTimesForSchedule(scheduleDay, selectedOffer.durationMinutes);
+
+    const capacity = Number.isInteger(business.employeeCount) && business.employeeCount >= 0
+      ? business.employeeCount + 1
+      : 1;
+
+    const { start: dayStart, end: dayEnd } = getReservationDayRange(normalizedDate);
+    const existingReservations = await Reservation.find({
+      business: business._id,
+      date: { $gte: dayStart, $lt: dayEnd },
+    }).lean();
+
+    const reservationBlocks = existingReservations.map((reservation) => {
+      const start = parseTimeToMinutes(reservation?.time) ?? 0;
+      const duration = Number(reservation?.durationMinutes)
+        || Number(reservation?.service?.durationMinutes)
+        || 60;
+      return {
+        start,
+        end: start + duration,
+      };
+    });
+
+    const slots = slotTimes.map((startMinutes) => {
+      const endMinutes = startMinutes + selectedOffer.durationMinutes;
+      const overlappingCount = reservationBlocks.filter((block) => (
+        block.start < endMinutes && block.end > startMinutes
+      )).length;
+      const remaining = Math.max(0, capacity - overlappingCount);
+
+      return {
+        time: formatMinutesToTime(startMinutes),
+        remaining,
+        capacity,
+      };
+    }).filter((slot) => slot.remaining > 0);
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 200`);
+    return res.json({
+      businessId: String(business._id),
+      date: normalizedDate.toISOString().slice(0, 10),
+      offer: {
+        name: toTrimmedString(selectedOffer.name),
+        serviceType: toTrimmedString(selectedOffer.serviceType),
+        price: Number(selectedOffer.price),
+        durationMinutes: Number(selectedOffer.durationMinutes),
+      },
+      capacity,
+      slots,
+    });
+  } catch (err) {
+    console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    if (err?.name === "CastError") {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 400 (businessId invalido)`);
+      return res.status(400).json({ error: "businessId invalido" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
   }
 };

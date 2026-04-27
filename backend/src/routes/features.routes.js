@@ -32,6 +32,15 @@ router.get("/businesses/google-places/search", authMiddleware, featuresControlle
 // Consultar locales que ya estan registrados en la app por placeId de Google
 router.get("/businesses/registered-by-place-ids", authMiddleware, featuresController.getRegisteredBusinessesByPlaceIds);
 
+// Listar negocios registrados (busqueda opcional)
+router.get("/businesses", authMiddleware, featuresController.listBusinesses);
+
+// Obtener detalle de un negocio registrado
+router.get("/businesses/:businessId", authMiddleware, featuresController.getBusinessDetails);
+
+// Obtener disponibilidad de un negocio por servicio y fecha
+router.get("/businesses/:businessId/availability", authMiddleware, featuresController.getBusinessAvailability);
+
 // Crear negocio
 router.post("/businesses", authMiddleware, featuresController.createBusiness);
 
