@@ -1658,7 +1658,7 @@ class _OwnerBusinessSetupFlowPageState
   Widget _buildEmployeesStep() {
     return _buildCard(
       title: '4. Cantidad de empleados',
-      subtitle: 'Define cuantas personas atienden en el negocio.',
+      subtitle: 'Define cuántos empleados trabajan en tu negocio. Si simplemente trabaja usted, no agregue empleados.',
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

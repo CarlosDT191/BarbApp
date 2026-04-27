@@ -50,7 +50,7 @@ exports.email = async (req, res) => {
       return res.status(400).json({ error: "Formato de correo electrónico inválido" });
     }
 
-    console.log(`${ip} - - [ ${date} ] "POST /auth/email" 200 (Intento de registro con email no registrado)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/email" 200`);
 
     res.json({
       message: "Email no registrado",
@@ -59,7 +59,7 @@ exports.email = async (req, res) => {
   } catch (err) {
 
     console.error(err);
-    console.log(`${ip} - - [ ${date} ] "POST /auth/email" 500 (Error interno del servidor)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/email" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
 
   }
@@ -145,7 +145,7 @@ exports.google = async (req, res) => {
       process.env.JWT_SECRET
     );
 
-    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 200 (Usuario registrado exitosamente)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 200`);
 
     // Devuelve estos campos en el JSON de respuesta
     res.json({
@@ -162,7 +162,7 @@ exports.google = async (req, res) => {
   } catch (err) {
 
     console.error(err);
-    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 500 (Error interno del servidor)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
 
   }
@@ -234,7 +234,7 @@ exports.register = async (req, res) => {
       process.env.JWT_SECRET
     );
 
-    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 200 (Usuario registrado exitosamente)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 200`);
 
     // Devuelve estos campos en el JSON de respuesta
     res.json({
@@ -251,7 +251,7 @@ exports.register = async (req, res) => {
   } catch (err) {
 
     console.error(err);
-    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 500 (Error interno del servidor)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
 
   }
@@ -303,7 +303,7 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET
     );
 
-    console.log(`${ip} - - [ ${date} ] "POST /auth/login" 200 (Inicio de sesión exitoso)`);
+    console.log(`${ip} - - [ ${date} ] "POST /auth/login" 200`);
 
     res.json({
       message: "Inicio de sesión exitoso",
@@ -318,7 +318,14 @@ exports.login = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    console.log(`${ip} - - [ ${date} ] "POST /auth/login" 500 (Error interno del servidor)`);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "POST /auth/login" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -365,7 +372,7 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
-    console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 200 (Perfil actualizado exitosamente)`);
+    console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 200`);
 
     res.json({
       message: "Perfil actualizado exitosamente",
@@ -382,7 +389,7 @@ exports.updateProfile = async (req, res) => {
     // Se extrae solo el IPv4
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
-    console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 500 (Error interno del servidor)`);
+    console.log(`${ip} - - [ ${date} ] "PUT /users/profile" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -453,7 +460,7 @@ exports.changePassword = async (req, res) => {
     user.password = hashedPassword;
     await user.save();
 
-    console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 200 (Contraseña actualizada exitosamente)`);
+    console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 200`);
 
     res.json({
       message: "Contraseña actualizada exitosamente"
@@ -469,7 +476,7 @@ exports.changePassword = async (req, res) => {
     // Se extrae solo el IPv4
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
-    console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 500 (Error interno del servidor)`);
+    console.log(`${ip} - - [ ${date} ] "PATCH /users/password" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -504,7 +511,7 @@ exports.deleteProfile = async (req, res) => {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
-    console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 200 (Usuario eliminado exitosamente)`);
+    console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 200`);
 
     res.json({
       message: "Usuario eliminado exitosamente"
@@ -525,7 +532,7 @@ exports.deleteProfile = async (req, res) => {
 
     const date = formatDate();
 
-    console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 500 (Error interno del servidor)`);
+    console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 500`);
 
     res.status(500).json({ error: "Error interno del servidor" });
   }

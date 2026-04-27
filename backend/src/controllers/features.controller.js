@@ -230,11 +230,18 @@ exports.getMyReservations = async (req, res) => {
 
     res.json(reservations);
 
-    console.log(`${ip} - - [ ${date} ] "POST /reservations/me" 200`);
+    console.log(`${ip} - - [ ${date} ] "GET /reservations/me" 200`);
 
   } catch (err) {
     console.error(err);
-    console.log(`${ip} - - [ ${date} ] "POST /reservations/me" 500 (Error interno del servidor)`);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "GET /reservations/me" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -266,6 +273,7 @@ exports.createReservation = async (req, res) => {
     const { date, time, local_name } = req.body;
 
     if (!date || !time || !local_name) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 400 (Campos obligatorios)`);
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
@@ -300,7 +308,14 @@ exports.createReservation = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 500 (Error interno del servidor)`);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const log_date = formatDate();
+    console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -313,16 +328,6 @@ exports.createReservation = async (req, res) => {
  */
 exports.deleteReservation = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const rawReservationId = typeof req.params.reservationId === "string" ? req.params.reservationId : "";
-    const reservationId = rawReservationId.trim();
-
-    if (!reservationId) {
-      return res.status(400).json({ error: "reservationId es obligatorio" });
-    }
-
-    const deleted = await Reservation.findOneAndDelete({ _id: reservationId, user: userId });
-
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
@@ -332,11 +337,30 @@ exports.deleteReservation = async (req, res) => {
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
+    const userId = req.user.userId;
+    const rawReservationId = typeof req.params.reservationId === "string" ? req.params.reservationId : "";
+    const reservationId = rawReservationId.trim();
+
+    if (!reservationId) {
+      console.log(`${ip} - - [ ${date} ] "DELETE /reservations/:reservationId" 400 (reservationId es obligatorio)`);
+      return res.status(400).json({ error: "reservationId es obligatorio" });
+    }
+
+    const deleted = await Reservation.findOneAndDelete({ _id: reservationId, user: userId });
+
     console.log(`${ip} - - [ ${date} ] "DELETE /reservations/:reservationId" 200`);
 
     return res.json({ removed: Boolean(deleted) });
   } catch (err) {
     console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "DELETE /reservations/:reservationId" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -371,6 +395,14 @@ exports.getMyNotifications = async (req, res) => {
 
   } catch (err) {
     console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "GET /notifications" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -393,6 +425,7 @@ exports.markAsRead = async (req, res) => {
     
     // Se extrae solo el IPv4
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();    
 
     await Notification.findOneAndUpdate(
       { _id: req.params.id, user: userId },
@@ -402,6 +435,14 @@ exports.markAsRead = async (req, res) => {
     console.log(`${ip} - - [ ${date} ] "PATCH /notifications/:id/read" 200`);
 
   } catch (err) {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "PATCH /notifications/:id/read" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -428,6 +469,14 @@ exports.getMyBusinesses = async (req, res) => {
     console.log(`${ip} - - [ ${date} ] "GET /businesses/me" 200`);
   } catch (err) {
     console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/me" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -441,10 +490,19 @@ exports.getMyBusinesses = async (req, res) => {
  */
 exports.updateMyBusiness = async (req, res) => {
   try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
     const userId = req.user.userId;
     const businessId = toTrimmedString(req.params.businessId);
 
     if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 400 (businessId es obligatorio)`);
       return res.status(400).json({ error: "businessId es obligatorio" });
     }
 
@@ -487,11 +545,13 @@ exports.updateMyBusiness = async (req, res) => {
       !Number.isInteger(normalizedEmployeeCount) ||
       normalizedEmployeeCount < 0
     ) {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 400 (Campos obligatorios)`);
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
     const business = await Business.findOne({ _id: businessId, owner: userId });
     if (!business) {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 404 (Negocio no encontrado)`);
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
@@ -506,6 +566,10 @@ exports.updateMyBusiness = async (req, res) => {
 
     await business.save();
 
+    console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 200`);
+
+    return res.json(business);
+  } catch (err) {
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
@@ -514,15 +578,13 @@ exports.updateMyBusiness = async (req, res) => {
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
-    console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 200`);
-
-    return res.json(business);
-  } catch (err) {
     if (err?.name === "CastError") {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 404 (businessId invalido)`);
       return res.status(400).json({ error: "businessId invalido" });
     }
 
     console.error(err);
+    console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -535,15 +597,25 @@ exports.updateMyBusiness = async (req, res) => {
  */
 exports.deleteMyBusiness = async (req, res) => {
   try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+  
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
     const userId = req.user.userId;
     const businessId = toTrimmedString(req.params.businessId);
 
     if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 400 (businessId es obligatorio)`);
       return res.status(400).json({ error: "businessId es obligatorio" });
     }
 
     const deletedBusiness = await Business.findOneAndDelete({ _id: businessId, owner: userId });
     if (!deletedBusiness) {
+      console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 404 (Negocio no encontrado)`);
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
@@ -562,6 +634,10 @@ exports.deleteMyBusiness = async (req, res) => {
 
     await Promise.all(cleanupTasks);
 
+    console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 200`);
+
+    return res.json({ removed: true });
+  } catch (err) {
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
@@ -569,16 +645,14 @@ exports.deleteMyBusiness = async (req, res) => {
 
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
-
-    console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 200`);
-
-    return res.json({ removed: true });
-  } catch (err) {
+  
     if (err?.name === "CastError") {
+      console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 404 (businessId invalido)`);
       return res.status(400).json({ error: "businessId invalido" });
     }
 
     console.error(err);
+    console.log(`${ip} - - [ ${date} ] "DELETE /businesses/:businessId" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -590,13 +664,6 @@ exports.deleteMyBusiness = async (req, res) => {
  */
 exports.getMyFavorites = async (req, res) => {
   try {
-    const userId = req.user.userId;
-
-    const favorites = await Favorite.find(
-      { user: userId },
-      { _id: 1, businessId: 1, createdAt: 1 },
-    ).sort({ createdAt: -1 });
-
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
@@ -606,11 +673,26 @@ exports.getMyFavorites = async (req, res) => {
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
+    const userId = req.user.userId;
+
+    const favorites = await Favorite.find(
+      { user: userId },
+      { _id: 1, businessId: 1, createdAt: 1 },
+    ).sort({ createdAt: -1 });
+
     console.log(`${ip} - - [ ${date} ] "GET /favorites" 200`);
 
     return res.json(favorites);
   } catch (err) {
     console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "GET /favorites" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -623,11 +705,22 @@ exports.getMyFavorites = async (req, res) => {
  */
 exports.createFavorite = async (req, res) => {
   try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
     const userId = req.user.userId;
     const rawBusinessId = typeof req.body.businessId === "string" ? req.body.businessId : "";
     const businessId = rawBusinessId.trim();
 
+
     if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "POST /favorites" 400 (businessId es obligatorio)`);
       return res.status(400).json({ error: "businessId es obligatorio" });
     }
 
@@ -638,19 +731,18 @@ exports.createFavorite = async (req, res) => {
 
     const favorite = await Favorite.create({ user: userId, businessId });
 
+    console.log(`${ip} - - [ ${date} ] "POST /favorites" 201`);
+
+    return res.status(201).json(favorite);
+  } catch (err) {
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
     }
 
-    // Se extrae solo el IPv4
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
-    console.log(`${ip} - - [ ${date} ] "POST /favorites" 201`);
-
-    return res.status(201).json(favorite);
-  } catch (err) {
     if (err && err.code === 11000) {
       const existingFavorite = await Favorite.findOne({
         user: req.user.userId,
@@ -663,6 +755,7 @@ exports.createFavorite = async (req, res) => {
     }
 
     console.error(err);
+    console.log(`${ip} - - [ ${date} ] "POST /favorites" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -675,16 +768,6 @@ exports.createFavorite = async (req, res) => {
  */
 exports.deleteFavorite = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const rawBusinessId = typeof req.params.businessId === "string" ? req.params.businessId : "";
-    const businessId = rawBusinessId.trim();
-
-    if (!businessId) {
-      return res.status(400).json({ error: "businessId es obligatorio" });
-    }
-
-    const deleted = await Favorite.findOneAndDelete({ user: userId, businessId });
-
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (originalIp.includes(',')) {
       originalIp = originalIp.split(',')[0].trim();
@@ -694,11 +777,31 @@ exports.deleteFavorite = async (req, res) => {
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
 
+    const userId = req.user.userId;
+    const rawBusinessId = typeof req.params.businessId === "string" ? req.params.businessId : "";
+    const businessId = rawBusinessId.trim();
+
+    if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "DELETE /favorites" 400 (businessId es obligatorio)`);
+      return res.status(400).json({ error: "businessId es obligatorio" });
+    }
+
+    const deleted = await Favorite.findOneAndDelete({ user: userId, businessId });
+
     console.log(`${ip} - - [ ${date} ] "DELETE /favorites" 200`);
 
     return res.json({ removed: Boolean(deleted) });
   } catch (err) {
     console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "DELETE /favorites" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -711,8 +814,18 @@ exports.deleteFavorite = async (req, res) => {
  */
 exports.searchGooglePlacesForBusinessLink = async (req, res) => {
   try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
     const rawQuery = typeof req.query.query === "string" ? req.query.query.trim() : "";
     if (rawQuery.length < 2) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/google-places/search" 400 (La busqueda debe tener al menos 2 caracteres)`);
       return res.status(400).json({ error: "La busqueda debe tener al menos 2 caracteres" });
     }
 
@@ -721,6 +834,7 @@ exports.searchGooglePlacesForBusinessLink = async (req, res) => {
     const apiKey = getGoogleMapsApiKey();
 
     if (!apiKey) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/google-places/search" 500 (GOOGLE_MAPS_API_KEY no configurada en backend)`);
       return res.status(500).json({ error: "GOOGLE_MAPS_API_KEY no configurada en backend" });
     }
 
@@ -732,6 +846,7 @@ exports.searchGooglePlacesForBusinessLink = async (req, res) => {
 
     const googleResponse = await fetch(url.toString());
     if (!googleResponse.ok) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/google-places/search" 502 (No se pudo consultar Google Places)`);
       return res.status(502).json({ error: "No se pudo consultar Google Places" });
     }
 
@@ -755,20 +870,21 @@ exports.searchGooglePlacesForBusinessLink = async (req, res) => {
       .filter(Boolean)
       .slice(0, 10);
 
-    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    if (originalIp.includes(',')) {
-      originalIp = originalIp.split(',')[0].trim();
-    }
-
-    // Se extrae solo el IPv4
-    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
-    const date = formatDate();
-
     console.log(`${ip} - - [ ${date} ] "GET /businesses/google-places/search" 200`);
 
     return res.json({ places });
   } catch (err) {
     console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/google-places/search" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -780,6 +896,15 @@ exports.searchGooglePlacesForBusinessLink = async (req, res) => {
  */
 exports.getRegisteredBusinessesByPlaceIds = async (req, res) => {
   try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    // Se extrae solo el IPv4
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
     const rawQueryPlaceIds = req.query.placeIds;
     const rawPlaceIds = Array.isArray(rawQueryPlaceIds)
       ? rawQueryPlaceIds.join(",")
@@ -816,20 +941,21 @@ exports.getRegisteredBusinessesByPlaceIds = async (req, res) => {
       })
       .filter(Boolean);
 
-    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    if (originalIp.includes(',')) {
-      originalIp = originalIp.split(',')[0].trim();
-    }
-
-    // Se extrae solo el IPv4
-    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
-    const date = formatDate();
-
     console.log(`${ip} - - [ ${date} ] "GET /businesses/registered-by-place-ids" 200`);
     
     return res.json({ registered });
   } catch (err) {
     console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/registered-by-place-ids" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -892,6 +1018,7 @@ exports.createBusiness = async (req, res) => {
       normalizedEmployeeCount < 0 ||
       normalizedGooglePlace === null
     ) {
+      console.log(`${ip} - - [ ${date} ] "POST /businesses" 400 (Campos obligatorios)`);
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
@@ -901,8 +1028,9 @@ exports.createBusiness = async (req, res) => {
     });
 
     if (existingLinkedBusiness) {
+      console.log(`${ip} - - [ ${date} ] "POST /businesses" 409 (Ya existe un negocio enlazado con este local de Google Maps)`);
       return res.status(409).json({
-        error: "Ya tienes un negocio enlazado con este local de Google Maps",
+        error: "Ya existe un negocio enlazado con este local de Google Maps",
       });
     }
 
@@ -924,6 +1052,16 @@ exports.createBusiness = async (req, res) => {
     console.log(`${ip} - - [ ${date} ] "POST /businesses" 201`);
   } catch (err) {
     console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "POST /businesses" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -947,11 +1085,13 @@ exports.createBusinessCreationData = async (req, res) => {
     const { businessId, requestPayload, generatedData } = req.body;
 
     if (!businessId || !requestPayload || !generatedData) {
+      console.log(`${ip} - - [ ${date} ] "POST /businesses/creation-data" 400 (Campos obligatorios)`);
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
     const existingBusiness = await Business.findOne({ _id: businessId, owner: userId });
     if (!existingBusiness) {
+      console.log(`${ip} - - [ ${date} ] "POST /businesses/creation-data" 404 (Negocio no encontrado)`);
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
@@ -967,6 +1107,16 @@ exports.createBusinessCreationData = async (req, res) => {
     console.log(`${ip} - - [ ${date} ] "POST /businesses/creation-data" 201`);
   } catch (err) {
     console.error(err);
+    
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "POST /businesses/creation-data" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
