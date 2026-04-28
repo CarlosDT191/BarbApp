@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 
 const featuresController = require("../controllers/features.controller");
+const favoritesController = require("../controllers/favorites.controller");
+const notificationsController = require("../controllers/notifications.controller");
+const userController = require("../controllers/user.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 
 /*
@@ -59,13 +62,13 @@ router.post("/businesses/creation-data", authMiddleware, featuresController.crea
 * ===========================
 */
 // Obtener favoritos del usuario
-router.get("/favorites", authMiddleware, featuresController.getMyFavorites);
+router.get("/favorites", authMiddleware, favoritesController.getMyFavorites);
 
 // Crear favorito de un local/negocio
-router.post("/favorites", authMiddleware, featuresController.createFavorite);
+router.post("/favorites", authMiddleware, favoritesController.createFavorite);
 
 // Eliminar favorito por businessId/placeId
-router.delete("/favorites/:businessId", authMiddleware, featuresController.deleteFavorite);
+router.delete("/favorites/:businessId", authMiddleware, favoritesController.deleteFavorite);
 
 /*
 * ===========================
@@ -73,9 +76,26 @@ router.delete("/favorites/:businessId", authMiddleware, featuresController.delet
 * ===========================
 */
 // DONDE DEBEN DE IR LAS NOTIFICACIONES
-router.get("/notifications", authMiddleware, featuresController.getMyNotifications);
+router.get("/notifications", authMiddleware, notificationsController.getMyNotifications);
 
 // Marcar como leída
-router.patch("/notifications/:id/read", authMiddleware, featuresController.markAsRead);
+router.patch("/notifications/:id/read", authMiddleware, notificationsController.markAsRead);
+
+/*
+* ===========================
+*         USUARIOS
+* ===========================
+*/
+// OBTENER MÁS INFORMACIÓN DEL USUARIO
+router.get("/users/me", authMiddleware, userController.obtainData);
+
+// ACTUALIZAR PERFIL
+router.put("/users/profile", authMiddleware, userController.updateProfile);
+
+// CAMBIAR CONTRASEÑA
+router.patch("/users/password", authMiddleware, userController.changePassword);
+
+// ELIMINACIÓN DE CUENTA
+router.delete("/users/profile", authMiddleware, userController.deleteProfile);
 
 module.exports = router;
