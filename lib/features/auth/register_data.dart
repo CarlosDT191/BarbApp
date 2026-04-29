@@ -24,6 +24,7 @@ Future<void> saveUserSessions(String token, int role) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString("token", token);
   await prefs.setInt("role", role);
+  await prefs.setBool("isLoggedIn", true);
 }
 
 class _RegisterPageState extends State<RegisterPage> {

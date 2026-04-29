@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
 import 'package:flutter_application_1/features/calendar/widgets/day_timeline_view.dart';
-import 'package:flutter_application_1/features/calendar/widgets/create_event_modal.dart';
+import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:intl/intl.dart';
 
 class DayDetailPage extends StatefulWidget {
   final DateTime initialDate;
+  final bool ownerView;
 
   const DayDetailPage({
     super.key,
     required this.initialDate,
+    this.ownerView = false,
   });
 
   @override
@@ -25,7 +27,6 @@ class _DayDetailPageState extends State<DayDetailPage> {
   Map<DateTime, List<Reservation>> _cachedReservations = {};
   bool _isLoading = true;
   static const int _initialPage = 10000;
-  int? _selectedHourForCreation;
 
   @override
   void initState() {
@@ -86,58 +87,43 @@ class _DayDetailPageState extends State<DayDetailPage> {
     );
   }
 
-  /// Abre el modal para crear un evento
-  void _openCreateEventModal(DateTime date, [int? suggestedHour]) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color.fromARGB(255, 23, 23, 23),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: CreateEventModal(
-          selectedDate: date,
-          suggestedHour: suggestedHour,
-          onEventCreated: _createReservation,
+  Future<void> _openReservationFlow({
+    DateTime? date,
+    String? time,
+  }) async {
+    final initialDate = date ?? _displayedDate;
+    final createdReservation = await Navigator.push<Reservation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReservationFlowPage(
+          initialDate: initialDate,
+          initialTime: time,
         ),
       ),
     );
-  }
 
-  /// Crea una nueva reserva
-  Future<void> _createReservation(
-    DateTime date,
-    String time,
-    String localName,
-  ) async {
-    try {
-      final newReservation = await _reservationService.createReservation(
-        date: date,
-        time: time,
-        localName: localName,
-      );
-
-      // Actualizar caché local
-      final normalized = DateTime(date.year, date.month, date.day);
-      if (!_cachedReservations.containsKey(normalized)) {
-        _cachedReservations[normalized] = [];
-      }
-      _cachedReservations[normalized]!.add(newReservation);
-      _cachedReservations[normalized]!
-          .sort((a, b) => a.startHour.compareTo(b.startHour));
-
-      setState(() {});
-
-      if (mounted) {
-        InputDecorations.showTopSnackBarSuccess(context, "Reserva creada exitosamente");
-      }
-    } catch (e) {
-      if (mounted) {
-        InputDecorations.showTopSnackBarError(context, "Error al crear la reserva: $e");
-      }
+    if (createdReservation == null || !mounted) {
+      return;
     }
+
+    final normalized = DateTime(
+      createdReservation.date.year,
+      createdReservation.date.month,
+      createdReservation.date.day,
+    );
+
+    if (!_cachedReservations.containsKey(normalized)) {
+      _cachedReservations[normalized] = [];
+    }
+
+    _cachedReservations[normalized]!.add(createdReservation);
+    _cachedReservations[normalized]!.sort((a, b) {
+      final aMinutes = (a.startHour * 60) + a.startMinute;
+      final bMinutes = (b.startHour * 60) + b.startMinute;
+      return aMinutes.compareTo(bMinutes);
+    });
+
+    setState(() {});
   }
 
   /// Elimina una reserva
@@ -237,9 +223,16 @@ class _DayDetailPageState extends State<DayDetailPage> {
           return DayTimelineView(
             date: normalizedDate,
             reservations: dayReservations,
+            isOwnerView: widget.ownerView,
+            eventColor: widget.ownerView
+                ? const Color.fromARGB(255, 215, 145, 50)
+                : const Color.fromARGB(255, 200, 156, 125),
             onHourSelected: (hour) {
-              _selectedHourForCreation = hour;
-              _openCreateEventModal(normalizedDate, hour);
+              final formattedHour = hour.toString().padLeft(2, '0');
+              _openReservationFlow(
+                date: normalizedDate,
+                time: '$formattedHour:00',
+              );
             },
             onDeleteReservation: _deleteReservation,
           );
@@ -247,7 +240,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
       ),
       // Botón flotante para crear evento rápido
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _openCreateEventModal(_displayedDate),
+        onPressed: () => _openReservationFlow(date: _displayedDate),
         backgroundColor: const Color.fromARGB(255, 200, 156, 125),
         foregroundColor: Colors.white,
         tooltip: 'Nueva reserva',

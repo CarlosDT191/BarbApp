@@ -71,7 +71,11 @@ class ReservationService {
       }).toList();
 
       // Ordenar por hora
-      dayReservations.sort((a, b) => a.startHour.compareTo(b.startHour));
+      dayReservations.sort((a, b) {
+        final aMinutes = (a.startHour * 60) + a.startMinute;
+        final bMinutes = (b.startHour * 60) + b.startMinute;
+        return aMinutes.compareTo(bMinutes);
+      });
 
       return dayReservations;
     } catch (e) {
@@ -79,18 +83,20 @@ class ReservationService {
     }
   }
 
-  /// Crea una nueva reservación para el usuario autenticado.
+  /// Crea una nueva reserva para el usuario autenticado.
   ///
-  /// [date] es la fecha deseada para la reservación (`DateTime`).
+  /// [date] es la fecha deseada para la reserva (`DateTime`).
   /// [time] es la hora deseada en formato HH:mm, como "14:30" (`String`).
-  /// [localName] es el nombre del establecimiento para la reservación (`String`).
+  /// [businessId] es el ID del negocio registrado (`String`).
+  /// [offerIndex] es el indice del servicio dentro del negocio (`int`).
   ///
   /// Envía los datos al backend y retorna un objeto `Reservation` con los datos
   /// de la nueva reserva creada.
   Future<Reservation> createReservation({
     required DateTime date,
     required String time, // Formato: "HH:mm"
-    required String localName,
+    required String businessId,
+    required int offerIndex,
   }) async {
     try {
       final token = await _getUserToken();
@@ -98,10 +104,16 @@ class ReservationService {
 
       final apiBaseUrl = getApiBaseUrl();
 
+      final normalizedDate = DateTime(date.year, date.month, date.day)
+          .toIso8601String()
+          .split('T')
+          .first;
+
       final body = jsonEncode({
-        'date': date.toIso8601String(),
+        'date': normalizedDate,
         'time': time,
-        'local_name': localName,
+        'businessId': businessId,
+        'offerIndex': offerIndex,
       });
 
       final response = await http.post(
@@ -115,7 +127,10 @@ class ReservationService {
 
       if (response.statusCode != 201 && response.statusCode != 200) {
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? "Error al crear reservación");
+        final errorMessage = errorData is Map<String, dynamic>
+            ? (errorData['error'] ?? errorData['message'])?.toString()
+            : null;
+        throw Exception(errorMessage ?? "Error al crear reserva");
       }
 
       final jsonData = jsonDecode(response.body);
@@ -125,12 +140,12 @@ class ReservationService {
     }
   }
 
-  /// Elimina una reservación existente del usuario.
+  /// Elimina una reserva existente del usuario.
   ///
-  /// [reservationId] es el ID único de la reservación a eliminar (`String`).
+  /// [reservationId] es el ID único de la reserva a eliminar (`String`).
   ///
   /// Solo puede eliminar sus propias reservas. Realiza una solicitud DELETE al backend
-  /// para eliminar la reservación de forma permanente.
+  /// para eliminar la reserva de forma permanente.
   Future<void> deleteReservation(String reservationId) async {
     try {
       final token = await _getUserToken();
@@ -147,7 +162,7 @@ class ReservationService {
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception("Error al eliminar reservación: ${response.statusCode}");
+        throw Exception("Error al eliminar reserva: ${response.statusCode}");
       }
     } catch (e) {
       throw Exception("Error en deleteReservation: $e");
@@ -179,7 +194,11 @@ class ReservationService {
 
       // Ordenar eventos dentro de cada día
       grouped.forEach((date, reservations) {
-        reservations.sort((a, b) => a.startHour.compareTo(b.startHour));
+        reservations.sort((a, b) {
+          final aMinutes = (a.startHour * 60) + a.startMinute;
+          final bMinutes = (b.startHour * 60) + b.startMinute;
+          return aMinutes.compareTo(bMinutes);
+        });
       });
 
       return grouped;

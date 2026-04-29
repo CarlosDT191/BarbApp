@@ -11,6 +11,7 @@ import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/favorite_service.dart';
+import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
 import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -623,7 +624,35 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                     child: SizedBox(
                                       height: 48,
                                       child: ElevatedButton.icon(
-                                        onPressed: null,
+                                        onPressed: () {
+                                          final businessId = registeredBusiness
+                                                  ?['businessId']
+                                              ?.toString()
+                                              .trim() ??
+                                              '';
+
+                                          if (businessId.isEmpty) {
+                                            InputDecorations
+                                                .showTopSnackBarError(
+                                              context,
+                                              'No se pudo abrir la reserva.',
+                                            );
+                                            return;
+                                          }
+
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ReservationFlowPage(
+                                                initialBusinessId: businessId,
+                                                initialBusinessName:
+                                                    registeredBusiness?['name']
+                                                        ?.toString(),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: _primaryColor,
                                           foregroundColor: Colors.white,

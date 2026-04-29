@@ -517,12 +517,29 @@ exports.createReservation = async (req, res) => {
       year: 'numeric',
     });
 
-    await Notification.create({
-      user: userId,
-      type: "reservation",
-      message: `Reserva confirmada en ${serviceSnapshot.name} (${toTrimmedString(business.name)}) el ${formattedDate} a las ${normalizedTime}`,
-      relatedId: reservation._id,
-    });
+    const businessName = toTrimmedString(business.name);
+    const clientLabel = clientName || "Cliente";
+    const clientMessage = `Reserva confirmada en ${serviceSnapshot.name} (${businessName}) el ${formattedDate} a las ${normalizedTime}`;
+    const ownerMessage = `Nueva reserva de ${clientLabel} en ${serviceSnapshot.name} (${businessName}) el ${formattedDate} a las ${normalizedTime}`;
+    const notifications = [
+      {
+        user: userId,
+        type: "reservation",
+        message: clientMessage,
+        relatedId: reservation._id,
+      },
+    ];
+
+    if (String(business.owner) !== String(userId)) {
+      notifications.push({
+        user: business.owner,
+        type: "reservation",
+        message: ownerMessage,
+        relatedId: reservation._id,
+      });
+    }
+
+    await Notification.create(notifications);
     
     res.status(201).json(reservation);
 
@@ -570,11 +587,61 @@ exports.deleteReservation = async (req, res) => {
       return res.status(400).json({ error: "reservationId es obligatorio" });
     }
 
-    const deleted = await Reservation.findOneAndDelete({ _id: reservationId, user: userId });
+    const reservation = await Reservation.findOne({
+      _id: reservationId,
+      $or: [{ user: userId }, { owner: userId }],
+    });
+
+    if (!reservation) {
+      console.log(`${ip} - - [ ${date} ] "DELETE /reservations/:reservationId" 404 (Reserva no encontrada)`);
+      return res.status(404).json({ error: "Reserva no encontrada" });
+    }
+
+    const isOwnerCancel = String(reservation.owner) === String(userId);
+    const formattedDate = reservation.date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const businessName = toTrimmedString(reservation.local_name) || "el negocio";
+    const serviceName = toTrimmedString(reservation?.service?.name);
+    const serviceLabel = serviceName ? `${serviceName} (${businessName})` : businessName;
+    const timeLabel = toTrimmedString(reservation.time);
+    const clientLabel = toTrimmedString(reservation.clientName) || "Cliente";
+    const detailsLabel = `${serviceLabel} el ${formattedDate} a las ${timeLabel}`;
+
+    const ownerMessage = isOwnerCancel
+      ? `Has cancelado la reserva de ${clientLabel} en ${detailsLabel}`
+      : `La reserva de ${clientLabel} en ${detailsLabel} fue cancelada por el cliente`;
+    const clientMessage = isOwnerCancel
+      ? `Tu reserva en ${detailsLabel} fue cancelada por el propietario`
+      : `Has cancelado tu reserva en ${detailsLabel}`;
+
+    await reservation.deleteOne();
+
+    const cancelNotifications = [
+      {
+        user: reservation.user,
+        type: "cancel",
+        message: clientMessage,
+        relatedId: reservation._id,
+      },
+    ];
+
+    if (String(reservation.owner) !== String(reservation.user)) {
+      cancelNotifications.push({
+        user: reservation.owner,
+        type: "cancel",
+        message: ownerMessage,
+        relatedId: reservation._id,
+      });
+    }
+
+    await Notification.create(cancelNotifications);
 
     console.log(`${ip} - - [ ${date} ] "DELETE /reservations/:reservationId" 200`);
 
-    return res.json({ removed: Boolean(deleted) });
+    return res.json({ removed: true });
   } catch (err) {
     console.error(err);
     let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;

@@ -6,8 +6,8 @@ import 'package:flutter_application_1/features/auth/register_data.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:http/http.dart' as http;
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -23,9 +23,11 @@ class RegisterEmail extends StatefulWidget {
   State<RegisterEmail> createState() => _RegisterEmailState();
 }
 
-Future<void> saveUserSessions(String token) async {
+Future<void> saveUserSessions(String token, int role) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString("token", token);
+  await prefs.setInt("role", role);
+  await prefs.setBool("isLoggedIn", true);
 }
 
 class _RegisterEmailState extends State<RegisterEmail> {
@@ -93,6 +95,14 @@ class _RegisterEmailState extends State<RegisterEmail> {
         lastName = parts.length > 1 ? parts.sublist(1).join(" ") : "";
       }
 
+      if (idToken == null || idToken.isEmpty) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener el token de Google.',
+        );
+        return;
+      }
+
       await sendGoogleUserToBackend(email, firstName, lastName, idToken);
 
     } catch (error) {
@@ -117,20 +127,39 @@ class _RegisterEmailState extends State<RegisterEmail> {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final token = data["token"]?.toString() ?? "";
+      final role = (data["user"]?['role'] as num?)?.toInt();
 
-      await saveUserSessions(data["token"]);
+      if (token.isEmpty || role == null) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Respuesta inválida del servidor.',
+        );
+        return;
+      }
+
+      await saveUserSessions(token, role);
 
       for(int i=0; i<2; ++i){
         Navigator.pop(context);
       }
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+      if (role == 1) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePageOwner()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
     } else {
-      print("Error backend");
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final error = data["error"]?.toString() ?? "Error al registrarse con Google";
+      InputDecorations.showTopSnackBarError(context, error);
     }
   } 
 

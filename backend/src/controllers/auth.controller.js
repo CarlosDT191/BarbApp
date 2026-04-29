@@ -75,7 +75,7 @@ exports.email = async (req, res) => {
  * @param int req.body.role Rol del usuario (0=cliente, 1=propietario, 2=admin)
  * @return json {message: string, token: string, user: object} Token JWT y datos del usuario
  */
-// REGISTRO POR Google
+// REGISTRO / LOGIN POR Google
 exports.google = async (req, res) => {
   try {
     // DATOS DE LOGS
@@ -87,84 +87,104 @@ exports.google = async (req, res) => {
     // Se extrae solo el IPv4
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const date = formatDate();
-    let provider= "google";
 
     const { email, token, firstname, lastname, role } = req.body;
 
-    if (!email || !firstname || !lastname || !token || role === undefined) {
+    if (!email || !token) {
+      console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Email y token son obligatorios)`);
+      return res.status(400).json({ error: "Email y token son obligatorios" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Formato de correo electrónico inválido)`);
+      return res.status(400).json({ error: "Formato de correo electrónico inválido" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      if (!existingUser.google_id) {
+        const normalizedProvider = existingUser.auth_provider === "barbapp" ? "both" : existingUser.auth_provider;
+        existingUser.auth_provider = normalizedProvider;
+        existingUser.google_id = token;
+      }
+
+      if (firstname && !existingUser.firstname) {
+        existingUser.firstname = firstname;
+      }
+
+      if (lastname && !existingUser.lastname) {
+        existingUser.lastname = lastname;
+      }
+
+      await existingUser.save();
+
+      const sessionToken = jwt.sign(
+        { userId: existingUser._id, role: existingUser.role },
+        process.env.JWT_SECRET
+      );
+
+      console.log(`${ip} - - [ ${date} ] "POST /auth/google" 200`);
+      return res.json({
+        message: "Inicio de sesión con Google exitoso",
+        token: sessionToken,
+        user: {
+          email: existingUser.email,
+          firstname: existingUser.firstname,
+          lastname: existingUser.lastname,
+          role: existingUser.role,
+        }
+      });
+    }
+
+    if (!firstname || !lastname || role === undefined) {
       console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Todos los campos son obligatorios)`);
       return res.status(400).json({ error: "Todos los campos son obligatorios" });
     }
 
-    if (![0,1,2].includes(role)) {
+    const normalizedRole = Number(role);
+    if (!Number.isInteger(normalizedRole) || ![0, 1, 2].includes(normalizedRole)) {
       console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Rol inválido)`);
       return res.status(400).json({ error: "Rol inválido" });
-    }
-
-    const existing_email = await User.findOne({ email });
-
-    if (existing_email) {
-      // Lo registra con el token de google id si la cuenta ya existe con la otra configuración
-      if (!existing_email.google_id) {
-        provider= "both";
-
-        // Modifica la fila con el email obtenido
-        existing_email.firstname = firstname ?? existing_email.firstname;
-        existing_email.lastname = lastname ?? existing_email.lastname;
-        existing_email.auth_provider = provider;
-        existing_email.google_id = token;
-
-        await existing_email.save();
-      }
-
-      // Permitir el inicio de sesión?
-      else{
-        console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Este correo ya está registrado)`);
-        return res.status(400).json({ error: "Este correo ya está registrado" });
-      }
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Formato de correo electrónico inválido)`);
-      return res.status(400).json({ error: "Formato de correo electrónico inválido" });
     }
 
     const newUser = await User.create({
       email,
       firstname,
       lastname,
-      auth_provider: provider,
+      auth_provider: "google",
       google_id: token,
-      role
+      role: normalizedRole,
     });
 
-    const session_token = jwt.sign(
+    const sessionToken = jwt.sign(
       { userId: newUser._id, role: newUser.role },
       process.env.JWT_SECRET
     );
 
-    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 200`);
-
-    // Devuelve estos campos en el JSON de respuesta
-    res.json({
+    console.log(`${ip} - - [ ${date} ] "POST /auth/google" 200`);
+    return res.json({
       message: "Usuario registrado exitosamente",
-      token: session_token,
+      token: sessionToken,
       user: {
         email: newUser.email,
         firstname: newUser.firstname,
         lastname: newUser.lastname,
-        role: newUser.role
+        role: newUser.role,
       }
     });
-
   } catch (err) {
-
     console.error(err);
-    console.log(`${ip} - - [ ${date} ] "POST /auth/register" 500`);
-    res.status(500).json({ error: "Error interno del servidor" });
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
 
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    console.log(`${ip} - - [ ${date} ] "POST /auth/google" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 

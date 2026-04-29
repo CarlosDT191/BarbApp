@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'features/auth/login_page.dart';
 import 'features/home/home_page_client.dart';
+import 'features/home/home_page_owner.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -38,7 +39,8 @@ class MyApp extends StatefulWidget {
 
 // Estado de la aplicación
 class _MyAppState extends State<MyApp> {
-  bool _isLoggedIn = false;
+  bool _hasSession = false;
+  int? _sessionRole;
   bool _isLoading = true;
 
   /// Inicializa el estado cuando la aplicación inicia.
@@ -58,10 +60,12 @@ class _MyAppState extends State<MyApp> {
   Future<void> _checkLogin() async {
     // SharedPreferences permite guardar datos de forma local
     final prefs = await SharedPreferences.getInstance();
-    final loggedIn = prefs.getBool("isLoggedIn") ?? false;
+    final token = prefs.getString("token") ?? "";
+    final role = prefs.getInt("role");
 
     setState(() {
-      _isLoggedIn = loggedIn;
+      _hasSession = token.isNotEmpty;
+      _sessionRole = role;
       _isLoading = false;
     });
   }
@@ -71,11 +75,19 @@ class _MyAppState extends State<MyApp> {
   /// Guarda el estado autenticado en [SharedPreferences] para que
   /// persista entre ejecuciones de la aplicación.
   void _loginSuccess() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool("isLoggedIn", true);
-    setState(() {
-      _isLoggedIn = true;
-    });
+    await _checkLogin();
+  }
+
+  Widget _resolveHome() {
+    if (!_hasSession) {
+      return LoginPage(onLogin: _loginSuccess);
+    }
+
+    if (_sessionRole == 1) {
+      return const HomePageOwner();
+    }
+
+    return const HomePage();
   }
 
   // Build permite mostrar qué página dependiendo del almacenamiento local
@@ -113,10 +125,10 @@ class _MyAppState extends State<MyApp> {
           bodyLarge: TextStyle(color: Colors.white), 
         ),
       ),
-      home: _isLoggedIn ? HomePage() : LoginPage(onLogin: _loginSuccess), // Habría que habilitar la opción dependiendo si se inicia la cuenta como Cliente o como Propietario
+      home: _resolveHome(),
       routes: {
         '/login': (context) => LoginPage(onLogin: _loginSuccess),
-        '/home': (context) => HomePage(),
+        '/home': (context) => _resolveHome(),
       },
     );
   }

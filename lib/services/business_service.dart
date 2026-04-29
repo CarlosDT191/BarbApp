@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/models/booking_models.dart';
 
 class BusinessService {
   static final String _apiBaseUrl = getApiBaseUrl();
@@ -237,5 +237,99 @@ class BusinessService {
     }
 
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<List<BookingBusinessSummary>> listRegisteredBusinesses({
+    String query = '',
+  }) async {
+    final token = await _getRequiredToken();
+    final normalizedQuery = query.trim();
+
+    final uri = Uri.parse('$_apiBaseUrl/businesses').replace(
+      queryParameters:
+          normalizedQuery.isEmpty ? null : {'q': normalizedQuery},
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener negocios: ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawBusinesses =
+        decoded['businesses'] as List<dynamic>? ?? const <dynamic>[];
+
+    return rawBusinesses
+        .whereType<Map<String, dynamic>>()
+        .map((item) => BookingBusinessSummary.fromJson(item))
+        .toList(growable: false);
+  }
+
+  static Future<BookingBusinessDetails> getBusinessDetails({
+    required String businessId,
+  }) async {
+    final token = await _getRequiredToken();
+    final normalizedId = businessId.trim();
+
+    if (normalizedId.isEmpty) {
+      throw Exception('businessId es obligatorio');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/businesses/$normalizedId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener negocio: ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return BookingBusinessDetails.fromJson(decoded);
+  }
+
+  static Future<BookingAvailability> getBusinessAvailability({
+    required String businessId,
+    required String date,
+    required int offerIndex,
+  }) async {
+    final token = await _getRequiredToken();
+    final normalizedId = businessId.trim();
+    final normalizedDate = date.trim();
+
+    if (normalizedId.isEmpty || normalizedDate.isEmpty) {
+      throw Exception('Parametros invalidos para disponibilidad');
+    }
+
+    final uri = Uri.parse('$_apiBaseUrl/businesses/$normalizedId/availability')
+        .replace(queryParameters: {
+      'date': normalizedDate,
+      'offerIndex': offerIndex.toString(),
+    });
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener disponibilidad: ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return BookingAvailability.fromJson(decoded);
   }
 }

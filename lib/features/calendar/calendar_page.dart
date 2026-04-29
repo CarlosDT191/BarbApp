@@ -242,7 +242,10 @@ class _CalendarPageState extends State<CalendarPage> {
                     context,
                     MaterialPageRoute(
                       builder: (context) =>
-                          DayDetailPage(initialDate: selectedDay),
+                          DayDetailPage(
+                            initialDate: selectedDay,
+                            ownerView: role == 1,
+                          ),
                     ),
                   ).then((_) {
                     // 🔁 Se ejecuta cuando vuelves

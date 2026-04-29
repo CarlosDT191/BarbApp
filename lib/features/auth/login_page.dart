@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/auth/register_data.dart';
 import 'package:flutter_application_1/features/auth/register_type_account.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/models/decorations.dart';
@@ -10,6 +9,7 @@ import 'package:flutter_application_1/config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLogin;
@@ -23,7 +23,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
 
   // Aquí declaras GoogleSignIn
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
   String username= "";
   String password= "";
   bool isSent = false;
@@ -32,6 +32,13 @@ class _LoginPageState extends State<LoginPage> {
   String? errorMessage;
 
   bool get isFormValid => username.isNotEmpty && password.isNotEmpty;
+
+  Future<void> saveUserSessions(String token, int role) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("token", token);
+    await prefs.setInt("role", role);
+    await prefs.setBool("isLoggedIn", true);
+  }
 
   Future<void> loginUser() async {
     setState(() => isSent = true);
@@ -55,6 +62,7 @@ class _LoginPageState extends State<LoginPage> {
         String userToken = data["token"];
         int role = data["user"]["role"];
         await saveUserSessions(userToken, role);
+        widget.onLogin();
 
         setState(() {
           errorMessage = null;
@@ -90,29 +98,75 @@ class _LoginPageState extends State<LoginPage> {
   // Función para iniciar sesión con Google
   Future<void> loginWithGoogle() async {
     try {
-      // Inicia sesión con Google
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        // El usuario canceló la operación
         return;
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener el token de Google.',
+        );
+        return;
+      }
 
-      // Crea credenciales de Firebase
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      final fullName = googleUser.displayName?.trim() ?? '';
+      final nameParts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+      final firstname = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastname = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+      final apiBaseUrl = getApiBaseUrl();
+      final response = await http.post(
+        Uri.parse("$apiBaseUrl/auth/google"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": googleUser.email,
+          "token": idToken,
+          "firstname": firstname,
+          "lastname": lastname,
+        }),
       );
 
-      // Inicia sesión en Firebase
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final userToken = data["token"]?.toString() ?? "";
+        final role = (data["user"]?['role'] as num?)?.toInt();
 
-      // Usuario logueado
-        print('Usuario logueado: ${userCredential.user?.displayName}');
+        if (userToken.isEmpty || role == null) {
+          InputDecorations.showTopSnackBarError(
+            context,
+            'Respuesta inválida del servidor.',
+          );
+          return;
+        }
+
+        await saveUserSessions(userToken, role);
+        widget.onLogin();
+
+        if (role == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePageOwner()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        }
+      } else {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final error = data["error"]?.toString() ?? 'No se pudo iniciar sesión con Google.';
+        InputDecorations.showTopSnackBarError(context, error);
+      }
     } catch (e) {
-      print('Error en login con Google: $e');
+      InputDecorations.showTopSnackBarError(
+        context,
+        'Error en login con Google: $e',
+      );
     }
   }
 

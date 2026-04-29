@@ -9,6 +9,8 @@ class DayTimelineView extends StatefulWidget {
   final VoidCallback? onHourTap;
   final Function(int hour)? onHourSelected;
   final Function(String reservationId)? onDeleteReservation;
+  final bool isOwnerView;
+  final Color eventColor;
   final double hourHeight;
 
   const DayTimelineView({
@@ -18,7 +20,9 @@ class DayTimelineView extends StatefulWidget {
     this.onHourTap,
     this.onHourSelected,
     this.onDeleteReservation,
-    this.hourHeight = 100.0,
+    this.isOwnerView = false,
+    this.eventColor = const Color.fromARGB(255, 200, 156, 125),
+    this.hourHeight = 120.0,
   });
 
   @override
@@ -62,6 +66,8 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   /// Construye la timeline para un día específico
   @override
   Widget build(BuildContext context) {
+    final eventLayouts = _buildEventLayouts(widget.reservations);
+
     return SingleChildScrollView(
       controller: _scrollController,
       padding: const EdgeInsets.only(bottom: 100),
@@ -83,33 +89,88 @@ class _DayTimelineViewState extends State<DayTimelineView> {
           ),
 
           // Eventos superpuestos
-          SizedBox(
-            height: 24 * widget.hourHeight,
-            child: Stack(
-              children: widget.reservations
-                  .map(
-                    (reservation) => EventBlock(
-                      reservation: reservation,
-                      hourHeight: widget.hourHeight,
-                      onTap: () {
-                        // Mostrar detalles del evento (opcional)
-                        _showReservationDetails(reservation);
-                      },
-                      onDelete: () {
-                        _confirmDeleteReservation(reservation);
-                      },
-                    ),
-                  )
-                  .toList(),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const leftInset = 70.0;
+              const rightInset = 8.0;
+              final availableWidth =
+                  (constraints.maxWidth - leftInset - rightInset)
+                      .clamp(0.0, double.infinity);
+
+              return SizedBox(
+                height: 24 * widget.hourHeight,
+                child: Stack(
+                  children: eventLayouts
+                      .map(
+                        (layout) {
+                          final columnCount =
+                              layout.columnCount > 0 ? layout.columnCount : 1;
+                          final columnWidth = availableWidth / columnCount;
+                          final left = leftInset + (columnWidth * layout.columnIndex);
+
+                          return EventBlock(
+                            reservation: layout.reservation,
+                            hourHeight: widget.hourHeight,
+                            isOwnerView: widget.isOwnerView,
+                            backgroundColor: widget.eventColor,
+                            left: left,
+                            width: columnWidth,
+                            onTap: () {
+                              _showReservationDetails(layout.reservation);
+                            },
+                            onDelete: () {
+                              _confirmDeleteReservation(layout.reservation);
+                            },
+                          );
+                        },
+                      )
+                      .toList(),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
+  List<_EventLayout> _buildEventLayouts(List<Reservation> reservations) {
+    final grouped = <String, List<Reservation>>{};
+
+    for (final reservation in reservations) {
+      final key = reservation.time.trim();
+      grouped.putIfAbsent(key, () => []).add(reservation);
+    }
+
+    final layouts = <_EventLayout>[];
+    for (final group in grouped.values) {
+      for (var index = 0; index < group.length; index += 1) {
+        layouts.add(
+          _EventLayout(
+            reservation: group[index],
+            columnIndex: index,
+            columnCount: group.length,
+          ),
+        );
+      }
+    }
+
+    return layouts;
+  }
+
   /// Muestra detalles de una reserva
   void _showReservationDetails(Reservation reservation) {
+    final details = <Map<String, String>>[
+      {'Local:': reservation.businessDisplayName},
+      {'Servicio:': reservation.serviceDisplayName},
+      {'Hora:': reservation.time},
+      {'Duración:': '${reservation.durationMinutes} minutos'},
+    ];
+
+    if (widget.isOwnerView) {
+      details.insert(2, {'Cliente:': reservation.clientDisplayName});
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color.fromARGB(255, 35, 35, 35),
@@ -128,12 +189,10 @@ class _DayTimelineViewState extends State<DayTimelineView> {
               ),
             ),
             const SizedBox(height: 16),
-            _detailRow('Local:', reservation.localName),
-            _detailRow('Hora:', reservation.time),
-            _detailRow(
-              'Duración:',
-              '${reservation.durationMinutes} minutos',
-            ),
+            ...details.map((row) {
+              final entry = row.entries.first;
+              return _detailRow(entry.key, entry.value);
+            }).toList(),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -226,4 +285,16 @@ class _DayTimelineViewState extends State<DayTimelineView> {
       ),
     );
   }
+}
+
+class _EventLayout {
+  final Reservation reservation;
+  final int columnIndex;
+  final int columnCount;
+
+  const _EventLayout({
+    required this.reservation,
+    required this.columnIndex,
+    required this.columnCount,
+  });
 }

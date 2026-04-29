@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/favorite_service.dart';
+import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
@@ -43,11 +44,7 @@ class _HomePageState extends State<HomePage> {
   static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
   static const List<String> _placeTypes = ['barber_shop', 'hair_care'];
 
-  // Hues personalizables para pines: verde apagado, rojo apagado y neutro.
-  static const double _pinHueOpen = 110; // VERDE ES 120, apagado es 110
-  static const double _pinHueClosed = 20; // ROJO ES 0, apagado es 20
-  static const double _pinHueUnknown = 300;
-
+  // Hues personalizables para pines: registrado y no registrado.
   static const double _pinHueRegistered = 50; // AMARILLO ES 60, apagado es 50
   static const double _pinHueUnregistered = 160; // CIAN ES 180, apagado es 170
 
@@ -68,20 +65,17 @@ class _HomePageState extends State<HomePage> {
   _HairBusiness? _selectedBusinessForRoute;
   bool _isLoadingNearbyBusinesses = false;
   bool _isLoadingSearchSuggestions = false;
+  bool _hasSearched = false;
   // RADIO DEL CÍRCULO
   double _searchCircleRadiusMeters = _nearbySearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
     target: LatLng(37.8882, -4.7794),
     zoom: _defaultMapZoom,
   );
-  final BitmapDescriptor _openPinIcon = BitmapDescriptor.defaultMarkerWithHue(
-    _pinHueOpen,
-  );
-  final BitmapDescriptor _closedPinIcon = BitmapDescriptor.defaultMarkerWithHue(
-    _pinHueClosed,
-  );
-  final BitmapDescriptor _unknownPinIcon =
-      BitmapDescriptor.defaultMarkerWithHue(_pinHueUnknown);
+  final BitmapDescriptor _registeredPinIcon =
+      BitmapDescriptor.defaultMarkerWithHue(_pinHueRegistered);
+  final BitmapDescriptor _unregisteredPinIcon =
+      BitmapDescriptor.defaultMarkerWithHue(_pinHueUnregistered);
 
   Circle _buildSearchCircle(LatLng center) {
     return Circle(
@@ -174,6 +168,9 @@ class _HomePageState extends State<HomePage> {
         _registeredBusinessesByPlaceId
           ..clear()
           ..addAll(registeredByPlaceId);
+        _hairSalonMarkers = _buildMarkersFromBusinesses(
+          _hairBusinessesById.values,
+        );
       });
     } catch (_) {
       if (!mounted) {
@@ -187,12 +184,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   bool get _isSearchOverlayVisible {
-    if (!_searchFocusNode.hasFocus) {
-      return false;
+    if (_isLoadingSearchSuggestions || _searchSuggestions.isNotEmpty) {
+      return true;
     }
 
-    return _isLoadingSearchSuggestions ||
-        _searchSuggestions.isNotEmpty ||
+    return _searchFocusNode.hasFocus &&
         _searchController.text.trim().isNotEmpty;
   }
 
@@ -243,6 +239,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isLoadingSearchSuggestions = false;
       _searchSuggestions.clear();
+      _hasSearched = false;
       if (clearText) {
         _searchController.clear();
       }
@@ -261,23 +258,31 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isLoadingSearchSuggestions = false;
         _searchSuggestions.clear();
+        _hasSearched = false;
       });
       return;
     }
 
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      _fetchAutocompleteSuggestions(query);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingSearchSuggestions = false;
+      _searchSuggestions.clear();
+      _hasSearched = false;
     });
   }
 
   Future<void> _fetchAutocompleteSuggestions(String query) async {
     final normalizedQuery = query.trim();
     if (normalizedQuery.length < 2) {
-      return;
-    }
-
-    final apiKey = dotenv.env['google_maps_api_key'];
-    if (apiKey == null || apiKey.isEmpty) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarWarning(
+          context,
+          'Escribe al menos 2 caracteres para buscar.',
+        );
+      }
       return;
     }
 
@@ -287,73 +292,56 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _isLoadingSearchSuggestions = true;
+      _hasSearched = true;
     });
 
     try {
-      final uri = _buildPlacesAutocompleteUri(
-        apiKey: apiKey,
+      final primaryResults =
+          await BusinessService.searchGooglePlacesForBusinessLink(
         query: normalizedQuery,
+        type: 'hair_care',
+      );
+      final secondaryResults =
+          await BusinessService.searchGooglePlacesForBusinessLink(
+        query: normalizedQuery,
+        type: 'barber_shop',
       );
 
-      final response = await http.get(uri);
-      if (response.statusCode != 200) {
-        throw Exception('Error al buscar sugerencias');
+      final combined = <Map<String, dynamic>>[];
+      final seenPlaceIds = <String>{};
+
+      for (final rawItem in [...primaryResults, ...secondaryResults]) {
+        if (rawItem is! Map<String, dynamic>) {
+          continue;
+        }
+        final placeId = rawItem['placeId']?.toString().trim() ?? '';
+        if (placeId.isEmpty || seenPlaceIds.contains(placeId)) {
+          continue;
+        }
+        seenPlaceIds.add(placeId);
+        combined.add(rawItem);
       }
 
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final status = decoded['status']?.toString() ?? 'UNKNOWN_ERROR';
+      final suggestions = combined.map((rawItem) {
+        final placeId = rawItem['placeId']?.toString().trim() ?? '';
+        final name = rawItem['name']?.toString().trim() ?? '';
+        final address = rawItem['address']?.toString().trim() ?? '';
+        final location = rawItem['location'];
+        final locationMap = location is Map<String, dynamic> ? location : null;
+        final lat = _asDouble(locationMap?['lat']);
+        final lng = _asDouble(locationMap?['lng']);
 
-      if (status != 'OK' && status != 'ZERO_RESULTS') {
-        throw Exception('Google Autocomplete retorno estado $status');
-      }
+        if (placeId.isEmpty || name.isEmpty || lat == null || lng == null) {
+          return null;
+        }
 
-      final predictionsRaw =
-          (decoded['predictions'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<String, dynamic>>()
-              .toList(growable: false);
-
-      final filteredPredictions = predictionsRaw
-          .where(_isHairSalonPrediction)
-          .toList(growable: false);
-
-      final predictionSource = filteredPredictions.isNotEmpty
-          ? filteredPredictions
-          : predictionsRaw;
-
-      final suggestions = predictionSource
-          .take(5)
-          .map((rawPrediction) {
-            final placeId = rawPrediction['place_id']?.toString().trim() ?? '';
-            if (placeId.isEmpty) {
-              return null;
-            }
-
-            final structured = rawPrediction['structured_formatting'];
-            final structuredMap = structured is Map<String, dynamic>
-                ? structured
-                : null;
-
-            final mainText =
-                structuredMap?['main_text']?.toString().trim() ??
-                rawPrediction['description']?.toString().trim() ??
-                '';
-            final secondaryText =
-                structuredMap?['secondary_text']?.toString().trim() ??
-                rawPrediction['description']?.toString().trim() ??
-                '';
-
-            if (mainText.isEmpty) {
-              return null;
-            }
-
-            return _AutocompletePlaceSuggestion(
-              placeId: placeId,
-              mainText: mainText,
-              secondaryText: secondaryText,
-            );
-          })
-          .whereType<_AutocompletePlaceSuggestion>()
-          .toList(growable: false);
+        return _AutocompletePlaceSuggestion(
+          placeId: placeId,
+          mainText: name,
+          secondaryText: address,
+          location: LatLng(lat, lng),
+        );
+      }).whereType<_AutocompletePlaceSuggestion>().toList(growable: false);
 
       if (!mounted || _searchController.text.trim() != normalizedQuery) {
         return;
@@ -365,6 +353,13 @@ class _HomePageState extends State<HomePage> {
           ..addAll(suggestions);
         _isLoadingSearchSuggestions = false;
       });
+
+      if (suggestions.isEmpty && mounted) {
+        InputDecorations.showTopSnackBarWarning(
+          context,
+          'No se encontraron peluquerias o barberias para esa busqueda.',
+        );
+      }
     } catch (_) {
       if (!mounted || _searchController.text.trim() != normalizedQuery) {
         return;
@@ -374,6 +369,13 @@ class _HomePageState extends State<HomePage> {
         _searchSuggestions.clear();
         _isLoadingSearchSuggestions = false;
       });
+
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo consultar Google Places.',
+        );
+      }
     }
   }
 
@@ -481,23 +483,12 @@ class _HomePageState extends State<HomePage> {
 
     var business = _hairBusinessesById[suggestion.placeId];
     if (business == null) {
-      business = await _fetchBusinessByPlaceId(
-        placeId: suggestion.placeId,
-        fallbackName: suggestion.mainText,
-        fallbackAddress: suggestion.secondaryText,
+      business = _HairBusiness(
+        id: suggestion.placeId,
+        name: suggestion.mainText,
+        address: suggestion.secondaryText,
+        location: suggestion.location,
       );
-
-      if (business == null) {
-        if (!mounted) {
-          return;
-        }
-
-        InputDecorations.showTopSnackBarError(
-          context,
-          'No se pudo cargar este local.',
-        );
-        return;
-      }
 
       if (!mounted) {
         return;
@@ -582,7 +573,15 @@ class _HomePageState extends State<HomePage> {
               ? const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Text(
-                    'Escribe al menos 2 caracteres para buscar.',
+                    'Escribe al menos 2 caracteres y pulsa buscar.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                )
+              : !_hasSearched
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Text(
+                    'Pulsa buscar para ver resultados.',
                     style: TextStyle(color: Colors.black54),
                   ),
                 )
@@ -590,7 +589,7 @@ class _HomePageState extends State<HomePage> {
               ? const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Text(
-                    'No se encontraron locales para esa busqueda.',
+                    'No se encontraron peluquerias o barberias para esa busqueda.',
                     style: TextStyle(color: Colors.black54),
                   ),
                 )
@@ -905,13 +904,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   BitmapDescriptor _markerIconForBusiness(_HairBusiness business) {
-    if (business.openNow == true) {
-      return _openPinIcon;
-    }
-    if (business.openNow == false) {
-      return _closedPinIcon;
-    }
-    return _unknownPinIcon;
+    final isRegistered = _registeredBusinessesByPlaceId.containsKey(
+      business.id,
+    );
+    return isRegistered ? _registeredPinIcon : _unregisteredPinIcon;
   }
 
   Future<void> _initializeNearbySearch() async {
@@ -1574,7 +1570,7 @@ class _HomePageState extends State<HomePage> {
                                         Row(
                                           children: _buildRatingStars(business.rating!, size: 23,),
                                         ),
-                                        const SizedBox(width: 30),
+                                        const SizedBox(width: 27),
                                         Text(
                                           business.rating!.toStringAsFixed(1),
                                           style: TextStyle(
@@ -1694,7 +1690,37 @@ class _HomePageState extends State<HomePage> {
                                         child: SizedBox(
                                           height: 48,
                                           child: ElevatedButton.icon(
-                                            onPressed: null,
+                                            onPressed: () {
+                                              final businessId =
+                                                  registeredBusiness?['businessId']
+                                                      ?.toString()
+                                                      .trim() ??
+                                                      '';
+
+                                              if (businessId.isEmpty) {
+                                                InputDecorations
+                                                    .showTopSnackBarError(
+                                                  context,
+                                                  'No se pudo abrir la reserva.',
+                                                );
+                                                return;
+                                              }
+
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ReservationFlowPage(
+                                                    initialBusinessId:
+                                                        businessId,
+                                                    initialBusinessName:
+                                                        registeredBusiness?
+                                                                ['name']
+                                                            ?.toString(),
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: _primaryColor,
                                               foregroundColor: Colors.white,
@@ -2030,6 +2056,7 @@ class _HomePageState extends State<HomePage> {
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             compassEnabled: false,
+            mapToolbarEnabled: false,
             zoomControlsEnabled: false,
           ),
 
@@ -2153,7 +2180,14 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   SizedBox(width: 15),
 
-                  Icon(Icons.search, color: Colors.grey),
+                  GestureDetector(
+                    onTap: () {
+                      _fetchAutocompleteSuggestions(
+                        _searchController.text.trim(),
+                      );
+                    },
+                    child: const Icon(Icons.search, color: Colors.grey),
+                  ),
 
                   SizedBox(width: 8),
 
@@ -2167,13 +2201,8 @@ class _HomePageState extends State<HomePage> {
                         setState(() {});
                         _onSearchQueryChanged(value);
                       },
-                      onSubmitted: (_) {
-                        if (_searchSuggestions.isNotEmpty) {
-                          _onSearchSuggestionSelected(_searchSuggestions.first);
-                          return;
-                        }
-
-                        _searchFocusNode.unfocus();
+                      onSubmitted: (value) {
+                        _fetchAutocompleteSuggestions(value);
                       },
                       style: TextStyle(
                         color: Colors
@@ -2300,9 +2329,11 @@ class _AutocompletePlaceSuggestion {
     required this.placeId,
     required this.mainText,
     required this.secondaryText,
+    required this.location,
   });
 
   final String placeId;
   final String mainText;
   final String secondaryText;
+  final LatLng location;
 }
