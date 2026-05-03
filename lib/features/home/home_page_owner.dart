@@ -6,6 +6,7 @@ import 'package:flutter_application_1/features/notifications/notification_page.d
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_application_1/models/booking_models.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_application_1/services/business_service.dart';
@@ -14,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -38,11 +40,17 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   int unread = 0;
   int _nearbyFoundCount = 0;
   bool _hasCompletedNearbySearch = false;
-  static const int _maxNearbyResults =
-      60; // Máximo límite de locales para la API de Google Places.
+
+  // Máximo límite de locales para la API de Google Places.
+  static const int _maxNearbyResults = 120;
   static const int _nearbySearchPageLimit = 3;
-  static const int _nearbySearchRadiusMeters =
-      500; // Radio de búsqueda reducido a 500 metros para encontrar más cercanos.
+  
+  // Radio de búsqueda reducido a 500 metros para encontrar más cercanos.
+  static const int _defaultSearchRadiusMeters = 500; 
+  static const int _minSearchRadiusMeters = 50;
+  static const int _maxSearchRadiusMeters = 3500;
+  static const int _radiusStepMeters = 50;
+
   static const String _mapStatePrefsKey = 'home_page_owner_map_state_v1';
   static const double _defaultMapZoom = 14;
   static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
@@ -69,8 +77,19 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   bool _isLoadingNearbyBusinesses = false;
   bool _isLoadingSearchSuggestions = false;
   bool _hasSearched = false;
+  bool _filterBarberia = true;
+  bool _filterPeluqueria = true;
+  bool _filterRegisteredOnly = false;
+  bool _filterOpenNowOnly = false;
+  int _filterAvailabilityDays = 0;
+  bool _filterUsePriceRange = false;
+  String _filterServiceType = '';
+  double? _filterPriceValue;
+  double? _filterMinPrice;
+  double? _filterMaxPrice;
+  final Map<String, BookingBusinessDetails> _businessDetailsCache = {};
   // RADIO DEL CÍRCULO
-  double _searchCircleRadiusMeters = _nearbySearchRadiusMeters.toDouble();
+  double _searchCircleRadiusMeters = _defaultSearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
     target: LatLng(37.8882, -4.7794),
     zoom: _defaultMapZoom,
@@ -84,7 +103,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     return Circle(
       circleId: const CircleId('search-radius-circle'),
       center: center,
-      radius: 1000.0,
+      radius: _searchCircleRadiusMeters,
       strokeColor: const Color.fromARGB(255, 200, 156, 125),
       strokeWidth: 2,
       fillColor: const Color.fromARGB(255, 200, 156, 125).withOpacity(0.12),
@@ -156,7 +175,11 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     );
   }
 
-  Future<void> _syncRegisteredBusinesses(Iterable<String> placeIds) async {
+  Future<void> _syncRegisteredBusinesses(
+    Iterable<String> placeIds, {
+    bool updateMarkers = true,
+    Iterable<_HairBusiness>? markerSource,
+  }) async {
     try {
       final registeredByPlaceId =
           await BusinessService.getRegisteredBusinessesByPlaceIds(
@@ -171,9 +194,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         _registeredBusinessesByPlaceId
           ..clear()
           ..addAll(registeredByPlaceId);
-        _hairSalonMarkers = _buildMarkersFromBusinesses(
-          _hairBusinessesById.values,
-        );
+        if (updateMarkers) {
+          final businesses = markerSource ?? _hairBusinessesById.values;
+          _hairSalonMarkers = _buildMarkersFromBusinesses(businesses);
+        }
       });
     } catch (_) {
       if (!mounted) {
@@ -652,6 +676,449 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     );
   }
 
+  Future<void> _openFiltersSheet() async {
+    final serviceController = TextEditingController(text: _filterServiceType);
+    final priceController = TextEditingController(
+      text: _filterPriceValue?.toStringAsFixed(0) ?? '',
+    );
+    final minPriceController = TextEditingController(
+      text: _filterMinPrice?.toStringAsFixed(0) ?? '',
+    );
+    final maxPriceController = TextEditingController(
+      text: _filterMaxPrice?.toStringAsFixed(0) ?? '',
+    );
+
+    var localBarberia = _filterBarberia;
+    var localPeluqueria = _filterPeluqueria;
+    var localRegisteredOnly = _filterRegisteredOnly;
+    var localOpenNow = _filterOpenNowOnly;
+    var localAvailabilityDays = _filterAvailabilityDays;
+    var localUseRange = _filterUsePriceRange;
+    var localRadius = _searchCircleRadiusMeters;
+    final parentContext = context;
+
+    await showModalBottomSheet<void>(
+      context: parentContext,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color.fromARGB(255, 23, 23, 23),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Filtros de búsqueda',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Tipos de local',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile.adaptive(
+                        value: localBarberia,
+                        onChanged: (value) {
+                          setModalState(() {
+                            localBarberia = value;
+                          });
+                        },
+                        activeColor: _primaryColor,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Barbería',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      SwitchListTile.adaptive(
+                        value: localPeluqueria,
+                        onChanged: (value) {
+                          setModalState(() {
+                            localPeluqueria = value;
+                          });
+                        },
+                        activeColor: _primaryColor,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Peluquería',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      SwitchListTile.adaptive(
+                        value: localRegisteredOnly,
+                        onChanged: (value) {
+                          setModalState(() {
+                            localRegisteredOnly = value;
+                          });
+                        },
+                        activeColor: _primaryColor,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Sólo locales registrados en BarbApp',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Disponibilidad',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile.adaptive(
+                        value: localOpenNow,
+                        onChanged: (value) {
+                          setModalState(() {
+                            localOpenNow = value;
+                          });
+                        },
+                        activeColor: _primaryColor,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Sólo locales abiertos',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<int>(
+                        value: localAvailabilityDays,
+                        dropdownColor: const Color.fromARGB(255, 30, 30, 30),
+                        style: const TextStyle(color: Colors.white),
+                        iconEnabledColor: Colors.white70,
+                        decoration: InputDecoration(
+                          labelText: 'Reservas disponibles en menos de',
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.white24,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _primaryColor),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 0,
+                            child: Text('Sin filtro'),
+                          ),
+                          DropdownMenuItem(value: 1, child: Text('1 día')),
+                          DropdownMenuItem(value: 2, child: Text('2 días')),
+                          DropdownMenuItem(value: 3, child: Text('3 días')),
+                          DropdownMenuItem(value: 4, child: Text('4 días')),
+                          DropdownMenuItem(value: 5, child: Text('5 días')),
+                          DropdownMenuItem(value: 6, child: Text('6 días')),
+                          DropdownMenuItem(value: 7, child: Text('7 días')),
+                        ],
+                        onChanged: (value) {
+                          setModalState(() {
+                            localAvailabilityDays = value ?? 0;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Servicios por precios',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: serviceController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Tipo de servicio',
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.white24,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _primaryColor),
+                          ),
+                        ),
+                      ),
+                      SwitchListTile.adaptive(
+                        value: localUseRange,
+                        onChanged: (value) {
+                          setModalState(() {
+                            localUseRange = value;
+                          });
+                        },
+                        activeColor: _primaryColor,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Usar rango de precios',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      if (!localUseRange)
+                        TextField(
+                          controller: priceController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Precio máximo',
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Colors.white24,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: _primaryColor),
+                            ),
+                          ),
+                        ),
+                      if (localUseRange)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: minPriceController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  labelText: 'Precio mínimo',
+                                  labelStyle:
+                                      const TextStyle(color: Colors.white70),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: Colors.white24,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: _primaryColor),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: maxPriceController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  labelText: 'Precio máximo',
+                                  labelStyle:
+                                      const TextStyle(color: Colors.white70),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: Colors.white24,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: _primaryColor),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Distancia de la búsqueda',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Slider(
+                        value: localRadius,
+                        min: _minSearchRadiusMeters.toDouble(),
+                        max: _maxSearchRadiusMeters.toDouble(),
+                        divisions: (_maxSearchRadiusMeters -
+                                _minSearchRadiusMeters) ~/
+                            _radiusStepMeters,
+                        label: '${localRadius.round()} m',
+                        activeColor: _primaryColor,
+                        onChanged: (value) {
+                          setModalState(() {
+                            localRadius = value;
+                          });
+                        },
+                      ),
+                      Row(
+                        children: const [
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Colors.white54,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 60).',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  localBarberia = true;
+                                  localPeluqueria = true;
+                                  localRegisteredOnly = false;
+                                  localOpenNow = false;
+                                  localAvailabilityDays = 0;
+                                  localUseRange = false;
+                                  localRadius =
+                                      _defaultSearchRadiusMeters.toDouble();
+                                  serviceController.clear();
+                                  priceController.clear();
+                                  minPriceController.clear();
+                                  maxPriceController.clear();
+                                });
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white24),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: const Text('Restablecer'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                var appliedBarberia = localBarberia;
+                                var appliedPeluqueria = localPeluqueria;
+                                if (!appliedBarberia && !appliedPeluqueria) {
+                                  appliedBarberia = true;
+                                  appliedPeluqueria = true;
+                                }
+
+                                final parsedPrice =
+                                    _parsePrice(priceController.text);
+                                final parsedMin =
+                                    _parsePrice(minPriceController.text);
+                                final parsedMax =
+                                    _parsePrice(maxPriceController.text);
+                                final normalizedRange = _normalizePriceRange(
+                                  parsedMin,
+                                  parsedMax,
+                                );
+
+                                setState(() {
+                                  _filterBarberia = appliedBarberia;
+                                  _filterPeluqueria = appliedPeluqueria;
+                                  _filterRegisteredOnly = localRegisteredOnly;
+                                  _filterOpenNowOnly = localOpenNow;
+                                  _filterAvailabilityDays =
+                                      localAvailabilityDays;
+                                  _filterUsePriceRange = localUseRange;
+                                  _filterServiceType =
+                                      serviceController.text.trim();
+                                  _filterPriceValue = localUseRange
+                                      ? null
+                                      : parsedPrice;
+                                  _filterMinPrice = localUseRange
+                                      ? normalizedRange.min
+                                      : null;
+                                  _filterMaxPrice = localUseRange
+                                      ? normalizedRange.max
+                                      : null;
+                                  _searchCircleRadiusMeters = localRadius;
+                                });
+
+                                Navigator.pop(parentContext);
+                                _refreshBusinessesAroundCurrentView();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: const Text('Aplicar filtros'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    serviceController.dispose();
+    priceController.dispose();
+    minPriceController.dispose();
+    maxPriceController.dispose();
+  }
+
   Map<String, double> _latLngToMap(LatLng value) {
     return {'lat': value.latitude, 'lng': value.longitude};
   }
@@ -1043,6 +1510,252 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     }
   }
 
+  List<String> _activeBusinessKeywords() {
+    final keywords = <String>[];
+    if (_filterPeluqueria) {
+      keywords.add('peluqueria');
+    }
+    if (_filterBarberia) {
+      keywords.add('barberia');
+    }
+
+    return keywords.isEmpty ? _businessKeywords : keywords;
+  }
+
+  List<String> _activePlaceTypes() {
+    final types = <String>[];
+    if (_filterBarberia) {
+      types.add('barber_shop');
+    }
+    if (_filterPeluqueria) {
+      types.add('hair_care');
+    }
+
+    return types.isEmpty ? _placeTypes : types;
+  }
+
+  double? _parsePrice(String raw) {
+    final normalized = raw.replaceAll(',', '.').trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return double.tryParse(normalized);
+  }
+
+  _PriceRange _normalizePriceRange(double? min, double? max) {
+    if (min == null && max == null) {
+      return const _PriceRange(null, null);
+    }
+
+    var normalizedMin = min;
+    var normalizedMax = max;
+    if (normalizedMin != null &&
+        normalizedMax != null &&
+        normalizedMax < normalizedMin) {
+      final temp = normalizedMin;
+      normalizedMin = normalizedMax;
+      normalizedMax = temp;
+    }
+
+    return _PriceRange(normalizedMin, normalizedMax);
+  }
+
+  bool get _hasServicePriceFilter {
+    if (_filterServiceType.trim().isNotEmpty) {
+      return true;
+    }
+
+    if (_filterUsePriceRange) {
+      return _filterMinPrice != null || _filterMaxPrice != null;
+    }
+
+    return _filterPriceValue != null;
+  }
+
+  bool get _requiresRegisteredBusinesses {
+    return _filterRegisteredOnly ||
+        _hasServicePriceFilter ||
+        _filterAvailabilityDays > 0;
+  }
+
+  String? _businessIdForPlaceId(String placeId) {
+    final raw = _registeredBusinessesByPlaceId[placeId]?['businessId'];
+    return raw?.toString();
+  }
+
+  Future<BookingBusinessDetails?> _getBusinessDetails(
+    String businessId,
+  ) async {
+    final cached = _businessDetailsCache[businessId];
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final details = await BusinessService.getBusinessDetails(
+        businessId: businessId,
+      );
+      _businessDetailsCache[businessId] = details;
+      return details;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _matchesServicePriceFilter(BookingBusinessOffer offer) {
+    final serviceQuery = _filterServiceType.trim().toLowerCase();
+    if (serviceQuery.isNotEmpty) {
+      final offerName = offer.name.toLowerCase();
+      final offerType = offer.serviceType.toLowerCase();
+      if (!offerName.contains(serviceQuery) &&
+          !offerType.contains(serviceQuery)) {
+        return false;
+      }
+    }
+
+    if (_filterUsePriceRange) {
+      if (_filterMinPrice == null && _filterMaxPrice == null) {
+        return true;
+      }
+
+      final minPrice = _filterMinPrice ?? 0;
+      final maxPrice = _filterMaxPrice ?? double.infinity;
+      if (offer.price < minPrice || offer.price > maxPrice) {
+        return false;
+      }
+    } else if (_filterPriceValue != null) {
+      if (offer.price > _filterPriceValue!) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  Future<List<_HairBusiness>> _applyFilters(
+    List<_HairBusiness> businesses,
+  ) async {
+    var filtered = businesses;
+
+    if (_filterOpenNowOnly) {
+      filtered = filtered
+          .where((business) => business.openNow == true)
+          .toList(growable: false);
+    }
+
+    if (_requiresRegisteredBusinesses) {
+      final registeredIds = _registeredBusinessesByPlaceId.keys.toSet();
+      filtered = filtered
+          .where((business) => registeredIds.contains(business.id))
+          .toList(growable: false);
+    }
+
+    if (_hasServicePriceFilter) {
+      filtered = await _filterByServiceAndPrice(filtered);
+    }
+
+    if (_filterAvailabilityDays > 0) {
+      filtered = await _filterByAvailability(
+        filtered,
+        _filterAvailabilityDays,
+      );
+    }
+
+    return filtered;
+  }
+
+  Future<List<_HairBusiness>> _filterByServiceAndPrice(
+    List<_HairBusiness> businesses,
+  ) async {
+    final matches = <_HairBusiness>[];
+
+    for (final business in businesses) {
+      final businessId = _businessIdForPlaceId(business.id);
+      if (businessId == null) {
+        continue;
+      }
+
+      final details = await _getBusinessDetails(businessId);
+      if (details == null || details.offers.isEmpty) {
+        continue;
+      }
+
+      final offerMatches = details.offers
+          .any((offer) => _matchesServicePriceFilter(offer));
+      if (offerMatches) {
+        matches.add(business);
+      }
+    }
+
+    return matches;
+  }
+
+  Future<List<_HairBusiness>> _filterByAvailability(
+    List<_HairBusiness> businesses,
+    int days,
+  ) async {
+    final matches = <_HairBusiness>[];
+    final formatter = DateFormat('yyyy-MM-dd');
+    final today = DateTime.now();
+
+    for (final business in businesses) {
+      final businessId = _businessIdForPlaceId(business.id);
+      if (businessId == null) {
+        continue;
+      }
+
+      final details = await _getBusinessDetails(businessId);
+      if (details == null || details.offers.isEmpty) {
+        continue;
+      }
+
+      final hasAvailability = await _hasAvailabilityWithinDays(
+        details,
+        days,
+        today,
+        formatter,
+      );
+
+      if (hasAvailability) {
+        matches.add(business);
+      }
+    }
+
+    return matches;
+  }
+
+  Future<bool> _hasAvailabilityWithinDays(
+    BookingBusinessDetails details,
+    int days,
+    DateTime baseDate,
+    DateFormat formatter,
+  ) async {
+    for (var offset = 0; offset < days; offset += 1) {
+      final date = baseDate.add(Duration(days: offset));
+      final dateString = formatter.format(date);
+
+      for (var index = 0; index < details.offers.length; index += 1) {
+        try {
+          final availability = await BusinessService.getBusinessAvailability(
+            businessId: details.id,
+            date: dateString,
+            offerIndex: index,
+          );
+
+          final hasSlot = availability.slots
+              .any((slot) => slot.remaining > 0);
+          if (hasSlot) {
+            return true;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    return false;
+  }
+
   Future<void> _loadHairBusinesses() async {
     final apiKey = dotenv.env['google_maps_api_key'];
     if (apiKey == null || apiKey.isEmpty) {
@@ -1113,18 +1826,32 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
       final businesses = businessesById.values.take(_maxNearbyResults).toList();
 
+      await _syncRegisteredBusinesses(
+        businessesById.keys,
+        updateMarkers: false,
+      );
+
+      final filteredBusinesses = await _applyFilters(businesses);
+
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _hairBusinessesById
           ..clear()
-          ..addAll(businessesById);
+          ..addEntries(
+            filteredBusinesses.map(
+              (business) => MapEntry(business.id, business),
+            ),
+          );
 
-        _hairSalonMarkers = _buildMarkersFromBusinesses(businesses);
-        _nearbyFoundCount = businesses.length;
+        _hairSalonMarkers = _buildMarkersFromBusinesses(filteredBusinesses);
+        _nearbyFoundCount = filteredBusinesses.length;
         _hasCompletedNearbySearch = true;
         _searchAreaCircles = {_buildSearchCircle(searchOrigin)};
       });
 
-      await _syncRegisteredBusinesses(businessesById.keys);
       await _persistMapState();
     } finally {
       if (mounted) {
@@ -1141,11 +1868,12 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     required String type,
   }) {
     final encodedKeyword = Uri.encodeQueryComponent(keyword);
+    final radius = _searchCircleRadiusMeters.round().toString();
 
     return Uri.parse(
       'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
       '?location=${_searchCenter.latitude},${_searchCenter.longitude}'
-      '&radius=$_nearbySearchRadiusMeters'
+      '&radius=$radius'
       '&type=$type'
       '&keyword=$encodedKeyword'
       '&language=es'
@@ -1206,9 +1934,11 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   }) async {
     final collected = <Map<String, dynamic>>[];
     final seenPlaceIds = <String>{};
+    final keywords = _activeBusinessKeywords();
+    final types = _activePlaceTypes();
 
-    for (final keyword in _businessKeywords) {
-      for (final type in _placeTypes) {
+    for (final keyword in keywords) {
+      for (final type in types) {
         String? nextPageToken;
         int fetchedPages = 0;
 
@@ -2117,26 +2847,6 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                     ),
                   ),
 
-                  // 👉 ICONO DE FILTROS
-                  IconButton(
-                    icon: Icon(
-                      _searchController.text.trim().isEmpty
-                          ? Icons.tune
-                          : Icons.close_rounded,
-                      color: Colors.grey,
-                    ),
-                    onPressed: () {
-                      if (_searchController.text.trim().isNotEmpty) {
-                        _clearSearchSuggestions(clearText: true);
-                        _searchFocusNode.unfocus();
-                        setState(() {});
-                        return;
-                      }
-
-                      print("Filtros pulsado");
-                    },
-                  ),
-
                   SizedBox(width: 1),
                 ],
               ),
@@ -2158,6 +2868,15 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                       'Recalcular negocios según localización actual del mapa',
                   onPressed: _refreshBusinessesAroundCurrentView,
                   inverted: true,
+                ),
+                const SizedBox(height: 10),
+                _buildMapControlButton(
+                  icon: Icons.tune_rounded,
+                  tooltip: 'Cambiar filtros de búsqueda',
+                  onPressed: () {
+                    _openFiltersSheet();
+                  },
+                  inverted: false,
                 ),
               ],
             ),
@@ -2189,6 +2908,13 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       ),
     );
   }
+}
+
+class _PriceRange {
+  final double? min;
+  final double? max;
+
+  const _PriceRange(this.min, this.max);
 }
 
 class _HairBusiness {

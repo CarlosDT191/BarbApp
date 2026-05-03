@@ -1,27 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/reservation.dart';
+import 'package:flutter_application_1/features/calendar/models/calendar_entry.dart';
 import 'package:flutter_application_1/features/calendar/widgets/timeline_hour.dart';
 import 'package:flutter_application_1/features/calendar/widgets/event_block.dart';
 
 class DayTimelineView extends StatefulWidget {
   final DateTime date;
-  final List<Reservation> reservations;
+  final List<CalendarEntry> entries;
   final VoidCallback? onHourTap;
   final Function(int hour)? onHourSelected;
   final Function(String reservationId)? onDeleteReservation;
-  final bool isOwnerView;
-  final Color eventColor;
+  final Color reservationColor;
+  final Color appointmentColor;
   final double hourHeight;
 
   const DayTimelineView({
     super.key,
     required this.date,
-    required this.reservations,
+    required this.entries,
     this.onHourTap,
     this.onHourSelected,
     this.onDeleteReservation,
-    this.isOwnerView = false,
-    this.eventColor = const Color.fromARGB(255, 200, 156, 125),
+    this.reservationColor = reservationPrimaryColor,
+    this.appointmentColor = appointmentPrimaryColor,
     this.hourHeight = 120.0,
   });
 
@@ -66,7 +67,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   /// Construye la timeline para un día específico
   @override
   Widget build(BuildContext context) {
-    final eventLayouts = _buildEventLayouts(widget.reservations);
+    final eventLayouts = _buildEventLayouts(widget.entries);
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -109,17 +110,19 @@ class _DayTimelineViewState extends State<DayTimelineView> {
                           final left = leftInset + (columnWidth * layout.columnIndex);
 
                           return EventBlock(
-                            reservation: layout.reservation,
+                            reservation: layout.entry.reservation,
                             hourHeight: widget.hourHeight,
-                            isOwnerView: widget.isOwnerView,
-                            backgroundColor: widget.eventColor,
+                            isOwnerView: layout.entry.isAppointment,
+                            backgroundColor: layout.entry.isAppointment
+                                ? widget.appointmentColor
+                                : widget.reservationColor,
                             left: left,
                             width: columnWidth,
                             onTap: () {
-                              _showReservationDetails(layout.reservation);
+                              _showReservationDetails(layout.entry);
                             },
                             onDelete: () {
-                              _confirmDeleteReservation(layout.reservation);
+                              _confirmDeleteReservation(layout.entry.reservation);
                             },
                           );
                         },
@@ -134,12 +137,12 @@ class _DayTimelineViewState extends State<DayTimelineView> {
     );
   }
 
-  List<_EventLayout> _buildEventLayouts(List<Reservation> reservations) {
-    final grouped = <String, List<Reservation>>{};
+  List<_EventLayout> _buildEventLayouts(List<CalendarEntry> entries) {
+    final grouped = <String, List<CalendarEntry>>{};
 
-    for (final reservation in reservations) {
-      final key = reservation.time.trim();
-      grouped.putIfAbsent(key, () => []).add(reservation);
+    for (final entry in entries) {
+      final key = entry.reservation.time.trim();
+      grouped.putIfAbsent(key, () => []).add(entry);
     }
 
     final layouts = <_EventLayout>[];
@@ -147,7 +150,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
       for (var index = 0; index < group.length; index += 1) {
         layouts.add(
           _EventLayout(
-            reservation: group[index],
+            entry: group[index],
             columnIndex: index,
             columnCount: group.length,
           ),
@@ -159,7 +162,8 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   }
 
   /// Muestra detalles de una reserva
-  void _showReservationDetails(Reservation reservation) {
+  void _showReservationDetails(CalendarEntry entry) {
+    final reservation = entry.reservation;
     final details = <Map<String, String>>[
       {'Local:': reservation.businessDisplayName},
       {'Servicio:': reservation.serviceDisplayName},
@@ -167,7 +171,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
       {'Duración:': '${reservation.durationMinutes} minutos'},
     ];
 
-    if (widget.isOwnerView) {
+    if (entry.isAppointment) {
       details.insert(2, {'Cliente:': reservation.clientDisplayName});
     }
 
@@ -288,12 +292,12 @@ class _DayTimelineViewState extends State<DayTimelineView> {
 }
 
 class _EventLayout {
-  final Reservation reservation;
+  final CalendarEntry entry;
   final int columnIndex;
   final int columnCount;
 
   const _EventLayout({
-    required this.reservation,
+    required this.entry,
     required this.columnIndex,
     required this.columnCount,
   });

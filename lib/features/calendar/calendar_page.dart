@@ -6,6 +6,8 @@ import 'package:flutter_application_1/features/notifications/notification_page.d
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:flutter_application_1/features/calendar/pages/day_detail_page.dart';
+import 'package:flutter_application_1/features/calendar/models/calendar_entry.dart';
+import 'package:flutter_application_1/models/reservation.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_application_1/services/user_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,11 +26,13 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime? _selectedDay;
   int unread = 0;
   int? role = 0;
+  CalendarOwnerFilter _ownerFilter = CalendarOwnerFilter.all;
 
-  Map<DateTime, List<dynamic>> reservations = {};
+  Map<DateTime, List<CalendarEntry>> _calendarEntries = {};
   final ReservationService _reservationService = ReservationService();
 
-  final primaryColor = Color.fromARGB(255, 200, 156, 125);
+  final primaryColor = reservationPrimaryColor;
+  final appointmentColor = appointmentPrimaryColor;
   final backgroundColor = Color.fromARGB(255, 23, 23, 23);
   final textColor = Colors.white;
 
@@ -44,34 +48,48 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
-    fetchReservations();
     initNotifications();
     loadUserRole();
   }
 
   void loadUserRole() async {
     int? r = await getUserRole();
+    if (!mounted) {
+      return;
+    }
     setState(() {
       role = r;
     });
+    await fetchCalendarEntries();
   }
 
   /// Obtiene todas las reservas del usuario del servidor.
   ///
   /// Agrupa las reservas por día para mostrarlas en el calendario.
   /// Actualiza el estado con las reservas ordenadas por fecha.
-  Future<void> fetchReservations() async {
+  Future<void> fetchCalendarEntries() async {
     try {
-      final grouped = await _reservationService.getReservationsGroupedByDay();
+      final currentRole = role ?? 0;
+      final merged = <DateTime, List<CalendarEntry>>{};
 
-      // Convertir a Map<DateTime, List<dynamic>> para compatibilidad
-      Map<DateTime, List<dynamic>> loaded = {};
-      grouped.forEach((date, reservations) {
-        loaded[date] = reservations.cast<dynamic>();
-      });
+      if (currentRole == 1) {
+        final reservations = await _reservationService.getReservationsGroupedByDay();
+        final appointments = await _reservationService.getAppointmentsGroupedByDay();
+        _mergeEntries(merged, reservations, CalendarEntryType.reservation);
+        _mergeEntries(merged, appointments, CalendarEntryType.appointment);
+      } else {
+        final reservations = await _reservationService.getReservationsGroupedByDay();
+        _mergeEntries(merged, reservations, CalendarEntryType.reservation);
+      }
+
+      _sortEntries(merged);
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        reservations = loaded;
+        _calendarEntries = merged;
       });
     } catch (e) {
       if (mounted) {
@@ -87,9 +105,31 @@ class _CalendarPageState extends State<CalendarPage> {
   ///
   /// [day] es el día para el cual se desean obtener las reservas (`DateTime`).
   ///
-  /// Retorna un `List<dynamic>` con las reservas de ese día o una lista vacía.
-  List<dynamic> _getReservationsForDay(DateTime day) {
-    return reservations[DateTime(day.year, day.month, day.day)] ?? [];
+  /// Retorna un `List<CalendarEntry>` con las reservas de ese día o una lista vacía.
+  List<CalendarEntry> _getEntriesForDay(DateTime day) {
+    final normalized = DateTime(day.year, day.month, day.day);
+    final entries = _calendarEntries[normalized] ?? [];
+    return _filterEntries(entries);
+  }
+
+  List<CalendarEntry> _filterEntries(List<CalendarEntry> entries) {
+    if (role != 1) {
+      return entries;
+    }
+
+    switch (_ownerFilter) {
+      case CalendarOwnerFilter.reservations:
+        return entries
+            .where((entry) => entry.type == CalendarEntryType.reservation)
+            .toList();
+      case CalendarOwnerFilter.appointments:
+        return entries
+            .where((entry) => entry.type == CalendarEntryType.appointment)
+            .toList();
+      case CalendarOwnerFilter.all:
+      default:
+        return entries;
+    }
   }
 
   /// Maneja la navegación cuando se presiona un ícono de la barra inferior.
@@ -163,6 +203,79 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
+  Widget _buildOwnerFilter() {
+    final isSelected = [
+      _ownerFilter == CalendarOwnerFilter.all,
+      _ownerFilter == CalendarOwnerFilter.reservations,
+      _ownerFilter == CalendarOwnerFilter.appointments,
+    ];
+
+    return ToggleButtons(
+      isSelected: isSelected,
+      onPressed: (index) {
+        setState(() {
+          _ownerFilter = CalendarOwnerFilter.values[index];
+        });
+      },
+      borderRadius: BorderRadius.circular(18),
+      color: textColor.withOpacity(0.7),
+      selectedColor: textColor,
+      fillColor: primaryColor.withOpacity(0.2),
+      borderColor: primaryColor.withOpacity(0.3),
+      selectedBorderColor: primaryColor,
+      constraints: const BoxConstraints(minHeight: 36),
+      children: const [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14),
+          child: Text('Todas'),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14),
+          child: Text('Reservas'),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14),
+          child: Text('Citas'),
+        ),
+      ],
+    );
+  }
+
+  Color _colorForEntryType(CalendarEntryType type) {
+    return type == CalendarEntryType.appointment
+        ? appointmentColor
+        : primaryColor;
+  }
+
+  void _mergeEntries(
+    Map<DateTime, List<CalendarEntry>> target,
+    Map<DateTime, List<Reservation>> source,
+    CalendarEntryType type,
+  ) {
+    source.forEach((date, reservations) {
+      final normalized = DateTime(date.year, date.month, date.day);
+      target.putIfAbsent(normalized, () => []);
+      target[normalized]!.addAll(
+        reservations.map((reservation) => CalendarEntry(
+          reservation: reservation,
+          type: type,
+        )),
+      );
+    });
+  }
+
+  void _sortEntries(Map<DateTime, List<CalendarEntry>> entries) {
+    entries.forEach((date, items) {
+      items.sort((a, b) {
+        final aMinutes = (a.reservation.startHour * 60)
+            + a.reservation.startMinute;
+        final bMinutes = (b.reservation.startHour * 60)
+            + b.reservation.startMinute;
+        return aMinutes.compareTo(bMinutes);
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -196,7 +309,13 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
           ),
 
-          SizedBox(height: 70),
+          const SizedBox(height: 24),
+          if (role == 1) ...[
+            _buildOwnerFilter(),
+            const SizedBox(height: 24),
+          ] else ...[
+            const SizedBox(height: 46),
+          ],
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -245,18 +364,48 @@ class _CalendarPageState extends State<CalendarPage> {
                           DayDetailPage(
                             initialDate: selectedDay,
                             ownerView: role == 1,
+                            ownerFilter: _ownerFilter,
                           ),
                     ),
                   ).then((_) {
                     // 🔁 Se ejecuta cuando vuelves
                     initNotifications();
-                    fetchReservations();
+                    fetchCalendarEntries();
                   });
                 },
 
                 eventLoader: (day) {
-                  return _getReservationsForDay(day);
+                  return _getEntriesForDay(day);
                 },
+
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, day, events) {
+                    if (events.isEmpty) {
+                      return null;
+                    }
+
+                    final entries = events.cast<CalendarEntry>();
+                    final types = entries
+                        .map((entry) => entry.type)
+                        .toSet()
+                        .toList();
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: types.map((type) {
+                        return Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: _colorForEntryType(type),
+                            shape: BoxShape.circle,
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
 
                 // 🎨 HEADER (mes + flechas)
                 headerStyle: HeaderStyle(
@@ -290,11 +439,6 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
 
                   selectedDecoration: BoxDecoration(
-                    color: primaryColor,
-                    shape: BoxShape.circle,
-                  ),
-
-                  markerDecoration: BoxDecoration(
                     color: primaryColor,
                     shape: BoxShape.circle,
                   ),

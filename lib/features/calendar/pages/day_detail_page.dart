@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/features/calendar/models/calendar_entry.dart';
 import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
 import 'package:flutter_application_1/features/calendar/widgets/day_timeline_view.dart';
@@ -9,11 +10,13 @@ import 'package:intl/intl.dart';
 class DayDetailPage extends StatefulWidget {
   final DateTime initialDate;
   final bool ownerView;
+  final CalendarOwnerFilter ownerFilter;
 
   const DayDetailPage({
     super.key,
     required this.initialDate,
     this.ownerView = false,
+    this.ownerFilter = CalendarOwnerFilter.all,
   });
 
   @override
@@ -24,7 +27,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
   late PageController _pageController;
   late DateTime _displayedDate;
   final ReservationService _reservationService = ReservationService();
-  Map<DateTime, List<Reservation>> _cachedReservations = {};
+  Map<DateTime, List<CalendarEntry>> _cachedEntries = {};
   bool _isLoading = true;
   static const int _initialPage = 10000;
 
@@ -39,7 +42,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
     _pageController = PageController(
       initialPage: _initialPage,
     );
-    _loadReservations();
+    _loadEntries();
   }
 
   @override
@@ -49,12 +52,23 @@ class _DayDetailPageState extends State<DayDetailPage> {
   }
 
   /// Carga todas las reservas agrupadas por día
-  Future<void> _loadReservations() async {
+  Future<void> _loadEntries() async {
     try {
       setState(() => _isLoading = true);
-      final grouped = await _reservationService.getReservationsGroupedByDay();
+      final merged = <DateTime, List<CalendarEntry>>{};
+      if (widget.ownerView) {
+        final reservations = await _reservationService.getReservationsGroupedByDay();
+        final appointments = await _reservationService.getAppointmentsGroupedByDay();
+        _mergeEntries(merged, reservations, CalendarEntryType.reservation);
+        _mergeEntries(merged, appointments, CalendarEntryType.appointment);
+      } else {
+        final reservations = await _reservationService.getReservationsGroupedByDay();
+        _mergeEntries(merged, reservations, CalendarEntryType.reservation);
+      }
+
+      _sortEntries(merged);
       setState(() {
-        _cachedReservations = grouped;
+        _cachedEntries = merged;
         _isLoading = false;
       });
     } catch (e) {
@@ -66,9 +80,30 @@ class _DayDetailPageState extends State<DayDetailPage> {
   }
 
   /// Obtiene las reservas para un día específico
-  List<Reservation> _getReservationsForDay(DateTime date) {
+  List<CalendarEntry> _getEntriesForDay(DateTime date) {
     final normalized = DateTime(date.year, date.month, date.day);
-    return _cachedReservations[normalized] ?? [];
+    final entries = _cachedEntries[normalized] ?? [];
+    return _filterEntries(entries);
+  }
+
+  List<CalendarEntry> _filterEntries(List<CalendarEntry> entries) {
+    if (!widget.ownerView) {
+      return entries;
+    }
+
+    switch (widget.ownerFilter) {
+      case CalendarOwnerFilter.reservations:
+        return entries
+            .where((entry) => entry.type == CalendarEntryType.reservation)
+            .toList();
+      case CalendarOwnerFilter.appointments:
+        return entries
+            .where((entry) => entry.type == CalendarEntryType.appointment)
+            .toList();
+      case CalendarOwnerFilter.all:
+      default:
+        return entries;
+    }
   }
 
   /// Navega al día anterior
@@ -112,14 +147,19 @@ class _DayDetailPageState extends State<DayDetailPage> {
       createdReservation.date.day,
     );
 
-    if (!_cachedReservations.containsKey(normalized)) {
-      _cachedReservations[normalized] = [];
+    if (!_cachedEntries.containsKey(normalized)) {
+      _cachedEntries[normalized] = [];
     }
 
-    _cachedReservations[normalized]!.add(createdReservation);
-    _cachedReservations[normalized]!.sort((a, b) {
-      final aMinutes = (a.startHour * 60) + a.startMinute;
-      final bMinutes = (b.startHour * 60) + b.startMinute;
+    _cachedEntries[normalized]!.add(
+      CalendarEntry(
+        reservation: createdReservation,
+        type: CalendarEntryType.reservation,
+      ),
+    );
+    _cachedEntries[normalized]!.sort((a, b) {
+      final aMinutes = (a.reservation.startHour * 60) + a.reservation.startMinute;
+      final bMinutes = (b.reservation.startHour * 60) + b.reservation.startMinute;
       return aMinutes.compareTo(bMinutes);
     });
 
@@ -137,8 +177,8 @@ class _DayDetailPageState extends State<DayDetailPage> {
         _displayedDate.month,
         _displayedDate.day,
       );
-      _cachedReservations[normalized]?.removeWhere(
-        (res) => res.id == reservationId,
+      _cachedEntries[normalized]?.removeWhere(
+        (entry) => entry.reservation.id == reservationId,
       );
 
       setState(() {});
@@ -160,7 +200,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _cachedReservations.isEmpty) {
+    if (_isLoading && _cachedEntries.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           foregroundColor: Colors.white,
@@ -218,15 +258,11 @@ class _DayDetailPageState extends State<DayDetailPage> {
             pageDate.month,
             pageDate.day,
           );
-          final dayReservations = _getReservationsForDay(normalizedDate);
+          final dayEntries = _getEntriesForDay(normalizedDate);
 
           return DayTimelineView(
             date: normalizedDate,
-            reservations: dayReservations,
-            isOwnerView: widget.ownerView,
-            eventColor: widget.ownerView
-                ? const Color.fromARGB(255, 215, 145, 50)
-                : const Color.fromARGB(255, 200, 156, 125),
+            entries: dayEntries,
             onHourSelected: (hour) {
               final formattedHour = hour.toString().padLeft(2, '0');
               _openReservationFlow(
@@ -247,5 +283,34 @@ class _DayDetailPageState extends State<DayDetailPage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  void _mergeEntries(
+    Map<DateTime, List<CalendarEntry>> target,
+    Map<DateTime, List<Reservation>> source,
+    CalendarEntryType type,
+  ) {
+    source.forEach((date, reservations) {
+      final normalized = DateTime(date.year, date.month, date.day);
+      target.putIfAbsent(normalized, () => []);
+      target[normalized]!.addAll(
+        reservations.map((reservation) => CalendarEntry(
+          reservation: reservation,
+          type: type,
+        )),
+      );
+    });
+  }
+
+  void _sortEntries(Map<DateTime, List<CalendarEntry>> entries) {
+    entries.forEach((date, items) {
+      items.sort((a, b) {
+        final aMinutes = (a.reservation.startHour * 60)
+            + a.reservation.startMinute;
+        final bMinutes = (b.reservation.startHour * 60)
+            + b.reservation.startMinute;
+        return aMinutes.compareTo(bMinutes);
+      });
+    });
   }
 }

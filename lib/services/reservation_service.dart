@@ -51,6 +51,35 @@ class ReservationService {
     }
   }
 
+  /// Obtiene todas las citas del propietario autenticado.
+  ///
+  /// Retorna una `List<Reservation>` ordenada de todas las citas registradas
+  /// del propietario actual. Si no hay citas, devuelve una lista vacía.
+  Future<List<Reservation>> getMyAppointments() async {
+    try {
+      final token = await _getUserToken();
+      if (token == null) throw Exception("No hay token disponible");
+
+      final apiBaseUrl = getApiBaseUrl();
+      final response = await http.get(
+        Uri.parse("$apiBaseUrl/appointments/me"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception("Error al obtener citas: ${response.statusCode}");
+      }
+
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => Reservation.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception("Error en getMyAppointments: $e");
+    }
+  }
+
   /// Obtiene las reservas de un día específico.
   ///
   /// [date] es la fecha para la cual se desean obtener las reservas (`DateTime`).
@@ -177,33 +206,52 @@ class ReservationService {
   Future<Map<DateTime, List<Reservation>>> getReservationsGroupedByDay() async {
     try {
       final allReservations = await getMyReservations();
-      final Map<DateTime, List<Reservation>> grouped = {};
-
-      for (var reservation in allReservations) {
-        final date = DateTime(
-          reservation.date.year,
-          reservation.date.month,
-          reservation.date.day,
-        );
-
-        if (grouped[date] == null) {
-          grouped[date] = [];
-        }
-        grouped[date]!.add(reservation);
-      }
-
-      // Ordenar eventos dentro de cada día
-      grouped.forEach((date, reservations) {
-        reservations.sort((a, b) {
-          final aMinutes = (a.startHour * 60) + a.startMinute;
-          final bMinutes = (b.startHour * 60) + b.startMinute;
-          return aMinutes.compareTo(bMinutes);
-        });
-      });
-
-      return grouped;
+      return _groupReservationsByDay(allReservations);
     } catch (e) {
       throw Exception("Error en getReservationsGroupedByDay: $e");
     }
+  }
+
+  /// Agrupa todas las citas del propietario por fecha.
+  ///
+  /// Útil para mostrar las citas organizadas por día en la interfaz de usuario.
+  /// Retorna un `Map<DateTime, List<Reservation>>` donde cada clave es una fecha
+  /// y el valor es una lista de citas de ese día, ordenadas por hora.
+  Future<Map<DateTime, List<Reservation>>> getAppointmentsGroupedByDay() async {
+    try {
+      final allAppointments = await getMyAppointments();
+      return _groupReservationsByDay(allAppointments);
+    } catch (e) {
+      throw Exception("Error en getAppointmentsGroupedByDay: $e");
+    }
+  }
+
+  Map<DateTime, List<Reservation>> _groupReservationsByDay(
+    List<Reservation> reservations,
+  ) {
+    final Map<DateTime, List<Reservation>> grouped = {};
+
+    for (var reservation in reservations) {
+      final date = DateTime(
+        reservation.date.year,
+        reservation.date.month,
+        reservation.date.day,
+      );
+
+      if (grouped[date] == null) {
+        grouped[date] = [];
+      }
+      grouped[date]!.add(reservation);
+    }
+
+    grouped.forEach((date, reservations) {
+      reservations.sort((a, b) {
+        final aMinutes = (a.startHour * 60) + a.startMinute;
+        final bMinutes = (b.startHour * 60) + b.startMinute;
+        return aMinutes.compareTo(bMinutes);
+      });
+    });
+
+    return grouped;
   }
 }
