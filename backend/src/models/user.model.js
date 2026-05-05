@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema({
   google_id: { type: String, required: false, default: null },
   password: { type: String, required: false, default: null },
   role: { type: Number, required: true },
+  deviceTokens: {
+    type: [String],
+    default: [],
+  },
   businesses: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "Business",

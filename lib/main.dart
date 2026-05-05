@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'features/auth/login_page.dart';
@@ -8,6 +9,7 @@ import 'features/home/home_page_client.dart';
 import 'features/home/home_page_owner.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_application_1/services/push_notification_service.dart';
 
 /// Punto de entrada principal de la aplicación Flutter.
 ///
@@ -16,15 +18,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   await dotenv.load(fileName: "assets/.env");
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   runApp(const MyApp());
 }
@@ -102,9 +102,7 @@ class _MyAppState extends State<MyApp> {
 
       locale: const Locale('es', 'ES'),
 
-      supportedLocales: const [
-        Locale('es', 'ES'),
-      ],
+      supportedLocales: const [Locale('es', 'ES')],
 
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -115,15 +113,18 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         scaffoldBackgroundColor: Color.fromARGB(255, 23, 23, 23),
         primaryColor: Color.fromARGB(255, 23, 23, 23),
-        colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 23, 23, 23)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Color.fromARGB(255, 23, 23, 23),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: const Color.fromARGB(255, 23, 23, 23), width: 2),
+            borderSide: BorderSide(
+              color: const Color.fromARGB(255, 23, 23, 23),
+              width: 2,
+            ),
           ),
         ),
-        textTheme: TextTheme(
-          bodyLarge: TextStyle(color: Colors.white), 
-        ),
+        textTheme: TextTheme(bodyLarge: TextStyle(color: Colors.white)),
       ),
       home: _resolveHome(),
       routes: {

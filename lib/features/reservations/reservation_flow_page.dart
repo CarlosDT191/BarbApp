@@ -82,8 +82,9 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     });
 
     try {
-      final businesses =
-          await BusinessService.listRegisteredBusinesses(query: query);
+      final businesses = await BusinessService.listRegisteredBusinesses(
+        query: query,
+      );
 
       if (!mounted) {
         return;
@@ -116,8 +117,9 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     });
 
     try {
-      final details =
-          await BusinessService.getBusinessDetails(businessId: businessId);
+      final details = await BusinessService.getBusinessDetails(
+        businessId: businessId,
+      );
 
       if (!mounted) {
         return;
@@ -254,6 +256,27 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       locale: const Locale('es', 'ES'),
+      builder: (context, child) {
+        final theme = Theme.of(context);
+
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: const ColorScheme.dark().copyWith(
+              primary: Color.fromARGB(255, 200, 156, 125), // día seleccionado
+              onPrimary: Colors.white, // texto sobre día seleccionado
+
+              surface: Color.fromARGB(255, 30, 30, 30), // fondo principal calendario
+              onSurface: Colors.white, // texto general
+
+              background: Color.fromARGB(255, 23, 23, 23), // fondo general
+              onBackground: Colors.white,
+            ),
+
+            dialogBackgroundColor: const Color.fromARGB(255, 23, 23, 23),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked == null) {
@@ -389,7 +412,9 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
             height: 6,
             margin: const EdgeInsets.symmetric(horizontal: 3),
             decoration: BoxDecoration(
-              color: selected ? Color.fromARGB(255, 200, 156, 125) : Colors.white12,
+              color: selected
+                  ? Color.fromARGB(255, 200, 156, 125)
+                  : Colors.white12,
               borderRadius: BorderRadius.circular(20),
             ),
           ),
@@ -410,89 +435,88 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
               ),
             )
           : _businesses.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No hay negocios disponibles.',
-                    style: TextStyle(color: Colors.white70),
+          ? const Center(
+              child: Text(
+                'No hay negocios disponibles.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            )
+          : ListView(
+              children: [
+                TextField(
+                  controller: _businessSearchController,
+                  onChanged: _onBusinessSearchChanged,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar negocio...',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    suffixIcon: const Icon(
+                      Icons.search,
+                      color: Color.fromARGB(255, 200, 156, 125),
+                    ),
+                    filled: true,
+                    fillColor: const Color.fromARGB(255, 38, 38, 38),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
-                )
-              : ListView(
-                  children: [
-                    TextField(
-                      controller: _businessSearchController,
-                      onChanged: _onBusinessSearchChanged,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Buscar negocio...',
-                        hintStyle: TextStyle(color: Colors.grey[500]),
-                        suffixIcon:
-                            const Icon(Icons.search, color: Color.fromARGB(255, 200, 156, 125)),
-                        filled: true,
-                        fillColor: const Color.fromARGB(255, 38, 38, 38),
-                        border: OutlineInputBorder(
+                ),
+                const SizedBox(height: 12),
+
+                ..._businesses.map((business) {
+                  final isSelected = _selectedBusiness?.id == business.id;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () => _selectBusiness(business),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color.fromARGB(255, 55, 45, 38)
+                              : const Color.fromARGB(255, 30, 30, 30),
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color.fromARGB(255, 200, 156, 125)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              business.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (business.address.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                business.address,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    ..._businesses.map((business) {
-                      final isSelected =
-                          _selectedBusiness?.id == business.id;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: InkWell(
-                          onTap: () => _selectBusiness(business),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color.fromARGB(255, 55, 45, 38)
-                                  : const Color.fromARGB(255, 30, 30, 30),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? const Color.fromARGB(
-                                        255, 200, 156, 125)
-                                    : Colors.transparent,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  business.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                if (business.address.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    business.address,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ],
-                ),
+                  );
+                }).toList(),
+              ],
+            ),
     );
   }
 
@@ -550,10 +574,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
             onTap: () => _selectOffer(index),
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color.fromARGB(255, 55, 45, 38)
@@ -611,9 +632,58 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     final slots = availability?.slots ?? [];
     final formattedDate = DateFormat('dd/MM/yyyy').format(_selectedDate);
 
+    Widget availabilityContent;
+    if (_isLoadingAvailability) {
+      availabilityContent = const Center(
+        child: CircularProgressIndicator(
+          color: Color.fromARGB(255, 200, 156, 125),
+        ),
+      );
+    } else if (availability == null) {
+      availabilityContent = const Text(
+        'Selecciona un servicio para ver horarios disponibles.',
+        style: TextStyle(color: Colors.white70),
+      );
+    } else if (slots.isEmpty) {
+      availabilityContent = const Text(
+        'No hay horarios disponibles para esta fecha.',
+        style: TextStyle(color: Colors.white70),
+      );
+    } else {
+      availabilityContent = SingleChildScrollView(
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: slots.map((slot) {
+            final isSelected = _selectedTime == slot.time;
+            final label = slot.remaining > 1
+                ? '${slot.time} (${slot.remaining})'
+                : slot.time;
+
+            return ChoiceChip(
+              label: Text(label),
+              selected: isSelected,
+              selectedColor: const Color.fromARGB(255, 200, 156, 125),
+              backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.black : Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+              onSelected: (_) {
+                setState(() {
+                  _selectedTime = slot.time;
+                });
+              },
+            );
+          }).toList(),
+        ),
+      );
+    }
+
     return _buildCard(
       title: '3. Selecciona fecha y hora',
       subtitle: 'Escoge un día y una hora disponible.',
+      expandChild: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -645,49 +715,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
             ),
           ),
           const SizedBox(height: 16),
-          if (_isLoadingAvailability)
-            const Center(
-              child: CircularProgressIndicator(
-                color: Color.fromARGB(255, 200, 156, 125),
-              ),
-            )
-          else if (availability == null)
-            const Text(
-              'Selecciona un servicio para ver horarios disponibles.',
-              style: TextStyle(color: Colors.white70),
-            )
-          else if (slots.isEmpty)
-            const Text(
-              'No hay horarios disponibles para esta fecha.',
-              style: TextStyle(color: Colors.white70),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: slots.map((slot) {
-                final isSelected = _selectedTime == slot.time;
-                final label = slot.remaining > 1
-                    ? '${slot.time} (${slot.remaining})'
-                    : slot.time;
-
-                return ChoiceChip(
-                  label: Text(label),
-                  selected: isSelected,
-                  selectedColor: const Color.fromARGB(255, 200, 156, 125),
-                  backgroundColor: const Color.fromARGB(255, 30, 30, 30),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.black : Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  onSelected: (_) {
-                    setState(() {
-                      _selectedTime = slot.time;
-                    });
-                  },
-                );
-              }).toList(),
-            ),
+          Expanded(child: availabilityContent),
         ],
       ),
     );
@@ -783,15 +811,23 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                             ? null
                             : (_canContinue ? _handleNext : null),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 200, 156, 125),
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            200,
+                            156,
+                            125,
+                          ),
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.grey,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30), // opcional (para bordes redondeados)
+                            borderRadius: BorderRadius.circular(
+                              30,
+                            ), // opcional (para bordes redondeados)
                             side: const BorderSide(
-                              color: Colors.white, // ← aquí defines el borde blanco
-                              width: 1.5,          // grosor del borde
+                              color: Colors
+                                  .white, // ← aquí defines el borde blanco
+                              width: 1.5, // grosor del borde
                             ),
                           ),
                         ),
@@ -824,4 +860,3 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     );
   }
 }
-

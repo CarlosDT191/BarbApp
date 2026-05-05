@@ -234,3 +234,57 @@ exports.deleteProfile = async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
+
+/**
+ * Registra el token de dispositivo para notificaciones push
+ * Requiere token JWT válido para identificar al usuario
+ * @param string req.body.token Token FCM del dispositivo
+ * @return json {saved: boolean} Indica si el token fue registrado
+ */
+exports.registerDeviceToken = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':')
+      ? originalIp.split(':').pop()
+      : originalIp;
+
+    const date = formatDate();
+
+    const userId = req.user.userId;
+    const rawToken = typeof req.body?.token === "string" ? req.body.token : "";
+    const deviceToken = rawToken.trim();
+
+    if (!deviceToken) {
+      console.log(`${ip} - - [ ${date} ] "POST /users/device-token" 400 (Token requerido)`);
+      return res.status(400).json({ error: "Token requerido" });
+    }
+
+    await User.updateOne(
+      { _id: userId },
+      { $addToSet: { deviceTokens: deviceToken } }
+    );
+
+    console.log(`${ip} - - [ ${date} ] "POST /users/device-token" 200`);
+    return res.json({ saved: true });
+  } catch (err) {
+    console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':')
+      ? originalIp.split(':').pop()
+      : originalIp;
+
+    const date = formatDate();
+    console.log(`${ip} - - [ ${date} ] "POST /users/device-token" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};

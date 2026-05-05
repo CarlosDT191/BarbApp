@@ -4,8 +4,11 @@ import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
 import 'package:flutter_application_1/features/calendar/widgets/day_timeline_view.dart';
 import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
+import 'package:flutter_application_1/features/reservations/appointment_flow_page.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:intl/intl.dart';
+
+enum _CreateAction { reservation, appointment }
 
 class DayDetailPage extends StatefulWidget {
   final DateTime initialDate;
@@ -39,9 +42,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
       widget.initialDate.month,
       widget.initialDate.day,
     );
-    _pageController = PageController(
-      initialPage: _initialPage,
-    );
+    _pageController = PageController(initialPage: _initialPage);
     _loadEntries();
   }
 
@@ -57,12 +58,15 @@ class _DayDetailPageState extends State<DayDetailPage> {
       setState(() => _isLoading = true);
       final merged = <DateTime, List<CalendarEntry>>{};
       if (widget.ownerView) {
-        final reservations = await _reservationService.getReservationsGroupedByDay();
-        final appointments = await _reservationService.getAppointmentsGroupedByDay();
+        final reservations = await _reservationService
+            .getReservationsGroupedByDay();
+        final appointments = await _reservationService
+            .getAppointmentsGroupedByDay();
         _mergeEntries(merged, reservations, CalendarEntryType.reservation);
         _mergeEntries(merged, appointments, CalendarEntryType.appointment);
       } else {
-        final reservations = await _reservationService.getReservationsGroupedByDay();
+        final reservations = await _reservationService
+            .getReservationsGroupedByDay();
         _mergeEntries(merged, reservations, CalendarEntryType.reservation);
       }
 
@@ -73,7 +77,10 @@ class _DayDetailPageState extends State<DayDetailPage> {
       });
     } catch (e) {
       if (mounted) {
-        InputDecorations.showTopSnackBarError(context, "Error al cargar reservas: $e");
+        InputDecorations.showTopSnackBarError(
+          context,
+          "Error al cargar reservas: $e",
+        );
       }
       setState(() => _isLoading = false);
     }
@@ -122,18 +129,13 @@ class _DayDetailPageState extends State<DayDetailPage> {
     );
   }
 
-  Future<void> _openReservationFlow({
-    DateTime? date,
-    String? time,
-  }) async {
+  Future<void> _openReservationFlow({DateTime? date, String? time}) async {
     final initialDate = date ?? _displayedDate;
     final createdReservation = await Navigator.push<Reservation>(
       context,
       MaterialPageRoute(
-        builder: (_) => ReservationFlowPage(
-          initialDate: initialDate,
-          initialTime: time,
-        ),
+        builder: (_) =>
+            ReservationFlowPage(initialDate: initialDate, initialTime: time),
       ),
     );
 
@@ -158,12 +160,167 @@ class _DayDetailPageState extends State<DayDetailPage> {
       ),
     );
     _cachedEntries[normalized]!.sort((a, b) {
-      final aMinutes = (a.reservation.startHour * 60) + a.reservation.startMinute;
-      final bMinutes = (b.reservation.startHour * 60) + b.reservation.startMinute;
+      final aMinutes =
+          (a.reservation.startHour * 60) + a.reservation.startMinute;
+      final bMinutes =
+          (b.reservation.startHour * 60) + b.reservation.startMinute;
       return aMinutes.compareTo(bMinutes);
     });
 
     setState(() {});
+  }
+
+  Future<void> _openAppointmentFlow({DateTime? date, String? time}) async {
+    final initialDate = date ?? _displayedDate;
+    final createdAppointment = await Navigator.push<Reservation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            AppointmentFlowPage(initialDate: initialDate, initialTime: time),
+      ),
+    );
+
+    if (createdAppointment == null || !mounted) {
+      return;
+    }
+
+    final normalized = DateTime(
+      createdAppointment.date.year,
+      createdAppointment.date.month,
+      createdAppointment.date.day,
+    );
+
+    if (!_cachedEntries.containsKey(normalized)) {
+      _cachedEntries[normalized] = [];
+    }
+
+    _cachedEntries[normalized]!.add(
+      CalendarEntry(
+        reservation: createdAppointment,
+        type: CalendarEntryType.appointment,
+      ),
+    );
+    _cachedEntries[normalized]!.sort((a, b) {
+      final aMinutes =
+          (a.reservation.startHour * 60) + a.reservation.startMinute;
+      final bMinutes =
+          (b.reservation.startHour * 60) + b.reservation.startMinute;
+      return aMinutes.compareTo(bMinutes);
+    });
+
+    setState(() {});
+  }
+
+  Future<void> _showCreateOptions({DateTime? date, String? time}) async {
+    final action = await showModalBottomSheet<_CreateAction>(
+      context: context,
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Crear evento',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  splashColor: const Color.fromARGB(120, 200, 156, 125),
+                  highlightColor: const Color.fromARGB(80, 200, 156, 125),
+                  onTap: () => Navigator.pop(context, _CreateAction.reservation),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 38, 38, 38),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 70, 70, 70),
+                        width: 1,
+                      ),
+                    ),
+                    child: const ListTile(
+                      leading: Icon(
+                        Icons.event_available,
+                        color: Color.fromARGB(255, 200, 156, 125),
+                      ),
+                      title: Text(
+                        'Crear nueva reserva',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      subtitle: Text(
+                        'Usa el flujo de reserva actual.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 🔹 Opción 2
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  splashColor: const Color.fromARGB(120, 200, 156, 125),
+                  highlightColor: const Color.fromARGB(80, 200, 156, 125),
+                  onTap: () => Navigator.pop(context, _CreateAction.appointment),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 38, 38, 38),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 70, 70, 70),
+                        width: 1,
+                      ),
+                    ),
+                    child: const ListTile(
+                      leading: Icon(
+                        Icons.work_outline,
+                        color: Color.fromARGB(255, 200, 156, 125),
+                      ),
+                      title: Text(
+                        'Crear nueva cita para mis negocios',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      subtitle: Text(
+                        'Registra una cita manualmente.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    if (action == _CreateAction.reservation) {
+      await _openReservationFlow(date: date, time: time);
+    } else {
+      await _openAppointmentFlow(date: date, time: time);
+    }
   }
 
   /// Elimina una reserva
@@ -225,10 +382,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
           children: [
             Text(
               _formatDateForAppBar(_displayedDate),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -242,11 +396,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
           final newDate = widget.initialDate.add(Duration(days: daysOffset));
 
           setState(() {
-            _displayedDate = DateTime(
-              newDate.year,
-              newDate.month,
-              newDate.day,
-            );
+            _displayedDate = DateTime(newDate.year, newDate.month, newDate.day);
           });
         },
         itemBuilder: (context, index) {
@@ -265,10 +415,17 @@ class _DayDetailPageState extends State<DayDetailPage> {
             entries: dayEntries,
             onHourSelected: (hour) {
               final formattedHour = hour.toString().padLeft(2, '0');
-              _openReservationFlow(
-                date: normalizedDate,
-                time: '$formattedHour:00',
-              );
+              if (widget.ownerView) {
+                _showCreateOptions(
+                  date: normalizedDate,
+                  time: '$formattedHour:00',
+                );
+              } else {
+                _openReservationFlow(
+                  date: normalizedDate,
+                  time: '$formattedHour:00',
+                );
+              }
             },
             onDeleteReservation: _deleteReservation,
           );
@@ -276,10 +433,16 @@ class _DayDetailPageState extends State<DayDetailPage> {
       ),
       // Botón flotante para crear evento rápido
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _openReservationFlow(date: _displayedDate),
+        onPressed: () {
+          if (widget.ownerView) {
+            _showCreateOptions(date: _displayedDate);
+          } else {
+            _openReservationFlow(date: _displayedDate);
+          }
+        },
         backgroundColor: const Color.fromARGB(255, 200, 156, 125),
         foregroundColor: Colors.white,
-        tooltip: 'Nueva reserva',
+        tooltip: widget.ownerView ? 'Nuevo evento' : 'Nueva reserva',
         child: const Icon(Icons.add),
       ),
     );
@@ -294,10 +457,9 @@ class _DayDetailPageState extends State<DayDetailPage> {
       final normalized = DateTime(date.year, date.month, date.day);
       target.putIfAbsent(normalized, () => []);
       target[normalized]!.addAll(
-        reservations.map((reservation) => CalendarEntry(
-          reservation: reservation,
-          type: type,
-        )),
+        reservations.map(
+          (reservation) => CalendarEntry(reservation: reservation, type: type),
+        ),
       );
     });
   }
@@ -305,10 +467,10 @@ class _DayDetailPageState extends State<DayDetailPage> {
   void _sortEntries(Map<DateTime, List<CalendarEntry>> entries) {
     entries.forEach((date, items) {
       items.sort((a, b) {
-        final aMinutes = (a.reservation.startHour * 60)
-            + a.reservation.startMinute;
-        final bMinutes = (b.reservation.startHour * 60)
-            + b.reservation.startMinute;
+        final aMinutes =
+            (a.reservation.startHour * 60) + a.reservation.startMinute;
+        final bMinutes =
+            (b.reservation.startHour * 60) + b.reservation.startMinute;
         return aMinutes.compareTo(bMinutes);
       });
     });

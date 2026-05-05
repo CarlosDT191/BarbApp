@@ -19,6 +19,9 @@ router.get("/reservations/me", authMiddleware, reservationsController.getMyReser
 // Obtener citas del propietario
 router.get("/appointments/me", authMiddleware, reservationsController.getMyAppointments);
 
+// Crear cita del propietario
+router.post("/appointments", authMiddleware, reservationsController.createAppointment);
+
 // Crear reserva
 router.post("/reservations", authMiddleware, reservationsController.createReservation);
 
@@ -92,6 +95,9 @@ router.patch("/notifications/:id/read", authMiddleware, notificationsController.
 */
 // OBTENER MÁS INFORMACIÓN DEL USUARIO
 router.get("/users/me", authMiddleware, userController.obtainData);
+
+// REGISTRAR TOKEN DE DISPOSITIVO PARA NOTIFICACIONES
+router.post("/users/device-token", authMiddleware, userController.registerDeviceToken);
 
 // ACTUALIZAR PERFIL
 router.put("/users/profile", authMiddleware, userController.updateProfile);

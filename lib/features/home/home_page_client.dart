@@ -9,6 +9,7 @@ import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_application_1/models/booking_models.dart';
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/models/service_types.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/favorite_service.dart';
 import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
@@ -29,7 +30,12 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
-  static const Color _registeredSheetBackgroundColor = Color.fromARGB(255, 23, 23, 23);
+  static const Color _registeredSheetBackgroundColor = Color.fromARGB(
+    255,
+    23,
+    23,
+    23,
+  );
   static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
 
   int _selectedIndex = 2;
@@ -42,10 +48,14 @@ class _HomePageState extends State<HomePage> {
   static const int _nearbySearchPageLimit = 3;
 
   // Radio de búsqueda reducido a 500 metros para encontrar más cercanos.
-  static const int _defaultSearchRadiusMeters = 500; 
+  static const int _defaultSearchRadiusMeters = 500;
   static const int _minSearchRadiusMeters = 50;
   static const int _maxSearchRadiusMeters = 3500;
   static const int _radiusStepMeters = 50;
+
+  static const double _minOfferPrice = 3;
+  static const double _maxOfferPrice = 80;
+  static const double _offerPriceStep = 1;
 
   static const String _mapStatePrefsKey = 'home_page_client_map_state_v1';
   static const double _defaultMapZoom = 14;
@@ -322,14 +332,14 @@ class _HomePageState extends State<HomePage> {
     try {
       final primaryResults =
           await BusinessService.searchGooglePlacesForBusinessLink(
-        query: normalizedQuery,
-        type: 'hair_care',
-      );
+            query: normalizedQuery,
+            type: 'hair_care',
+          );
       final secondaryResults =
           await BusinessService.searchGooglePlacesForBusinessLink(
-        query: normalizedQuery,
-        type: 'barber_shop',
-      );
+            query: normalizedQuery,
+            type: 'barber_shop',
+          );
 
       final combined = <Map<String, dynamic>>[];
       final seenPlaceIds = <String>{};
@@ -346,26 +356,31 @@ class _HomePageState extends State<HomePage> {
         combined.add(rawItem);
       }
 
-      final suggestions = combined.map((rawItem) {
-        final placeId = rawItem['placeId']?.toString().trim() ?? '';
-        final name = rawItem['name']?.toString().trim() ?? '';
-        final address = rawItem['address']?.toString().trim() ?? '';
-        final location = rawItem['location'];
-        final locationMap = location is Map<String, dynamic> ? location : null;
-        final lat = _asDouble(locationMap?['lat']);
-        final lng = _asDouble(locationMap?['lng']);
+      final suggestions = combined
+          .map((rawItem) {
+            final placeId = rawItem['placeId']?.toString().trim() ?? '';
+            final name = rawItem['name']?.toString().trim() ?? '';
+            final address = rawItem['address']?.toString().trim() ?? '';
+            final location = rawItem['location'];
+            final locationMap = location is Map<String, dynamic>
+                ? location
+                : null;
+            final lat = _asDouble(locationMap?['lat']);
+            final lng = _asDouble(locationMap?['lng']);
 
-        if (placeId.isEmpty || name.isEmpty || lat == null || lng == null) {
-          return null;
-        }
+            if (placeId.isEmpty || name.isEmpty || lat == null || lng == null) {
+              return null;
+            }
 
-        return _AutocompletePlaceSuggestion(
-          placeId: placeId,
-          mainText: name,
-          secondaryText: address,
-          location: LatLng(lat, lng),
-        );
-      }).whereType<_AutocompletePlaceSuggestion>().toList(growable: false);
+            return _AutocompletePlaceSuggestion(
+              placeId: placeId,
+              mainText: name,
+              secondaryText: address,
+              location: LatLng(lat, lng),
+            );
+          })
+          .whereType<_AutocompletePlaceSuggestion>()
+          .toList(growable: false);
 
       if (!mounted || _searchController.text.trim() != normalizedQuery) {
         return;
@@ -651,16 +666,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openFiltersSheet() async {
-    final serviceController = TextEditingController(text: _filterServiceType);
-    final priceController = TextEditingController(
-      text: _filterPriceValue?.toStringAsFixed(0) ?? '',
-    );
-    final minPriceController = TextEditingController(
-      text: _filterMinPrice?.toStringAsFixed(0) ?? '',
-    );
-    final maxPriceController = TextEditingController(
-      text: _filterMaxPrice?.toStringAsFixed(0) ?? '',
-    );
+    final serviceLabels = kServiceTypeOptions
+        .map((option) => option.label)
+        .toSet();
+    var localServiceType = _filterServiceType.trim();
+    if (!serviceLabels.contains(localServiceType)) {
+      localServiceType = '';
+    }
 
     var localBarberia = _filterBarberia;
     var localPeluqueria = _filterPeluqueria;
@@ -669,6 +681,19 @@ class _HomePageState extends State<HomePage> {
     var localAvailabilityDays = _filterAvailabilityDays;
     var localUseRange = _filterUsePriceRange;
     var localRadius = _searchCircleRadiusMeters;
+    var localPriceValue = _clampOfferPrice(_filterPriceValue ?? _maxOfferPrice);
+    var localPriceRange = RangeValues(
+      _clampOfferPrice(_filterMinPrice ?? _minOfferPrice),
+      _clampOfferPrice(_filterMaxPrice ?? _maxOfferPrice),
+    );
+    if (localPriceRange.start > localPriceRange.end) {
+      localPriceRange = RangeValues(localPriceRange.end, localPriceRange.start);
+    }
+    if (localServiceType.isEmpty) {
+      localUseRange = false;
+    }
+    final priceDivisions = ((_maxOfferPrice - _minOfferPrice) / _offerPriceStep)
+        .round();
 
     await showModalBottomSheet<void>(
       context: context,
@@ -677,14 +702,40 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            Widget buildSection({
+              required String title,
+              required List<Widget> children,
+            }) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 30, 30, 30),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...children,
+                  ],
+                ),
+              );
+            }
+
             return SafeArea(
               top: false,
               child: Container(
                 decoration: const BoxDecoration(
                   color: Color.fromARGB(255, 23, 23, 23),
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 child: SingleChildScrollView(
@@ -712,281 +763,291 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      const Text(
-                        'Tipos de local',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile.adaptive(
-                        value: localBarberia,
-                        onChanged: (value) {
-                          setModalState(() {
-                            localBarberia = value;
-                          });
-                        },
-                        activeColor: _primaryColor,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Barbería',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        value: localPeluqueria,
-                        onChanged: (value) {
-                          setModalState(() {
-                            localPeluqueria = value;
-                          });
-                        },
-                        activeColor: _primaryColor,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Peluquería',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        value: localRegisteredOnly,
-                        onChanged: (value) {
-                          setModalState(() {
-                            localRegisteredOnly = value;
-                          });
-                        },
-                        activeColor: _primaryColor,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Sólo locales registrados en BarbApp',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Disponibilidad',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile.adaptive(
-                        value: localOpenNow,
-                        onChanged: (value) {
-                          setModalState(() {
-                            localOpenNow = value;
-                          });
-                        },
-                        activeColor: _primaryColor,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Sólo locales abiertos',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<int>(
-                        value: localAvailabilityDays,
-                        dropdownColor: const Color.fromARGB(255, 30, 30, 30),
-                        style: const TextStyle(color: Colors.white),
-                        iconEnabledColor: Colors.white70,
-                        decoration: InputDecoration(
-                          labelText: 'Reservas disponibles en menos de',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Colors.white24,
+                      buildSection(
+                        title: 'Tipos de local',
+                        children: [
+                          SwitchListTile.adaptive(
+                            value: localBarberia,
+                            onChanged: (value) {
+                              setModalState(() {
+                                localBarberia = value;
+                              });
+                            },
+                            activeColor: _primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Barbería',
+                              style: TextStyle(color: Colors.white),
                             ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: _primaryColor),
+                          SwitchListTile.adaptive(
+                            value: localPeluqueria,
+                            onChanged: (value) {
+                              setModalState(() {
+                                localPeluqueria = value;
+                              });
+                            },
+                            activeColor: _primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Peluquería',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 0,
-                            child: Text('Sin filtro'),
+                          SwitchListTile.adaptive(
+                            value: localRegisteredOnly,
+                            onChanged: (value) {
+                              setModalState(() {
+                                localRegisteredOnly = value;
+                              });
+                            },
+                            activeColor: _primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Sólo locales registrados en BarbApp',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
-                          DropdownMenuItem(value: 1, child: Text('1 día')),
-                          DropdownMenuItem(value: 2, child: Text('2 días')),
-                          DropdownMenuItem(value: 3, child: Text('3 días')),
-                          DropdownMenuItem(value: 4, child: Text('4 días')),
-                          DropdownMenuItem(value: 5, child: Text('5 días')),
-                          DropdownMenuItem(value: 6, child: Text('6 días')),
-                          DropdownMenuItem(value: 7, child: Text('7 días')),
                         ],
-                        onChanged: (value) {
-                          setModalState(() {
-                            localAvailabilityDays = value ?? 0;
-                          });
-                        },
                       ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Servicios por precios',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: serviceController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Tipo de servicio',
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Colors.white24,
+                      buildSection(
+                        title: 'Disponibilidad',
+                        children: [
+                          SwitchListTile.adaptive(
+                            value: localOpenNow,
+                            onChanged: (value) {
+                              setModalState(() {
+                                localOpenNow = value;
+                              });
+                            },
+                            activeColor: _primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Sólo locales abiertos',
+                              style: TextStyle(color: Colors.white),
                             ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: _primaryColor),
-                          ),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        value: localUseRange,
-                        onChanged: (value) {
-                          setModalState(() {
-                            localUseRange = value;
-                          });
-                        },
-                        activeColor: _primaryColor,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Usar rango de precios',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      if (!localUseRange)
-                        TextField(
-                          controller: priceController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Precio máximo',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.white24,
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<int>(
+                            value: localAvailabilityDays,
+                            dropdownColor: const Color.fromARGB(
+                              255,
+                              30,
+                              30,
+                              30,
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                            iconEnabledColor: Colors.white70,
+                            decoration: InputDecoration(
+                              labelText: 'Reservas disponibles en menos de',
+                              labelStyle: const TextStyle(
+                                color: Colors.white70,
                               ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: _primaryColor),
-                            ),
-                          ),
-                        ),
-                      if (localUseRange)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: minPriceController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                  decimal: true,
-                                ),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Precio mínimo',
-                                  labelStyle:
-                                      const TextStyle(color: Colors.white70),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: _primaryColor),
-                                  ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Colors.white24,
                                 ),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: _primaryColor),
+                              ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: maxPriceController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                  decimal: true,
-                                ),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Precio máximo',
-                                  labelStyle:
-                                      const TextStyle(color: Colors.white70),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: _primaryColor),
-                                  ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 0,
+                                child: Text('Sin filtro'),
+                              ),
+                              DropdownMenuItem(value: 1, child: Text('1 día')),
+                              DropdownMenuItem(value: 2, child: Text('2 días')),
+                              DropdownMenuItem(value: 3, child: Text('3 días')),
+                              DropdownMenuItem(value: 4, child: Text('4 días')),
+                              DropdownMenuItem(value: 5, child: Text('5 días')),
+                              DropdownMenuItem(value: 6, child: Text('6 días')),
+                              DropdownMenuItem(value: 7, child: Text('7 días')),
+                            ],
+                            onChanged: (value) {
+                              setModalState(() {
+                                localAvailabilityDays = value ?? 0;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      buildSection(
+                        title: 'Servicios por precios',
+                        children: [
+                          DropdownButtonFormField<String>(
+                            value: localServiceType,
+                            dropdownColor: const Color.fromARGB(
+                              255,
+                              30,
+                              30,
+                              30,
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                            iconEnabledColor: Colors.white70,
+                            decoration: InputDecoration(
+                              labelText: 'Tipo de servicio',
+                              labelStyle: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Colors.white24,
                                 ),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: _primaryColor),
+                              ),
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: '',
+                                child: Text('Todos los servicios'),
+                              ),
+                              ...kServiceTypeOptions.map((option) {
+                                return DropdownMenuItem<String>(
+                                  value: option.label,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        option.icon,
+                                        color: Colors.white70,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(option.label),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              setModalState(() {
+                                localServiceType = value ?? '';
+                                if (localServiceType.isEmpty) {
+                                  localUseRange = false;
+                                  localPriceValue = _maxOfferPrice;
+                                  localPriceRange = RangeValues(
+                                    _minOfferPrice,
+                                    _maxOfferPrice,
+                                  );
+                                }
+                              });
+                            },
+                          ),
+                          if (localServiceType.isNotEmpty)
+                            SwitchListTile.adaptive(
+                              value: localUseRange,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  localUseRange = value;
+                                });
+                              },
+                              activeColor: _primaryColor,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text(
+                                'Usar rango de precios',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          if (localServiceType.isNotEmpty &&
+                              !localUseRange) ...[
+                            Text(
+                              'Precio máximo: ${localPriceValue.toStringAsFixed(0)} €',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            Slider(
+                              value: localPriceValue,
+                              min: _minOfferPrice,
+                              max: _maxOfferPrice,
+                              divisions: priceDivisions,
+                              label: '${localPriceValue.toStringAsFixed(0)} €',
+                              activeColor: _primaryColor,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  localPriceValue = value;
+                                });
+                              },
                             ),
                           ],
-                        ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Distancia de la búsqueda',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Slider(
-                        value: localRadius,
-                        min: _minSearchRadiusMeters.toDouble(),
-                        max: _maxSearchRadiusMeters.toDouble(),
-                        divisions: (_maxSearchRadiusMeters -
-                                _minSearchRadiusMeters) ~/
-                            _radiusStepMeters,
-                        label: '${localRadius.round()} m',
-                        activeColor: _primaryColor,
-                        onChanged: (value) {
-                          setModalState(() {
-                            localRadius = value;
-                          });
-                        },
-                      ),
-                      Row(
-                        children: const [
-                          Icon(
-                            Icons.info_outline,
-                            size: 16,
-                            color: Colors.white54,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 60).',
-                              style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
+                          if (localServiceType.isNotEmpty && localUseRange) ...[
+                            RangeSlider(
+                              values: localPriceRange,
+                              min: _minOfferPrice,
+                              max: _maxOfferPrice,
+                              divisions: priceDivisions,
+                              labels: RangeLabels(
+                                '${localPriceRange.start.toStringAsFixed(0)} €',
+                                '${localPriceRange.end.toStringAsFixed(0)} €',
                               ),
+                              activeColor: _primaryColor,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  localPriceRange = value;
+                                });
+                              },
                             ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Min: ${localPriceRange.start.toStringAsFixed(0)} €',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                                Text(
+                                  'Max: ${localPriceRange.end.toStringAsFixed(0)} €',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                      buildSection(
+                        title: 'Distancia de la búsqueda',
+                        children: [
+                          Slider(
+                            value: localRadius,
+                            min: _minSearchRadiusMeters.toDouble(),
+                            max: _maxSearchRadiusMeters.toDouble(),
+                            divisions:
+                                (_maxSearchRadiusMeters -
+                                    _minSearchRadiusMeters) ~/
+                                _radiusStepMeters,
+                            label: '${localRadius.round()} m',
+                            activeColor: _primaryColor,
+                            onChanged: (value) {
+                              setModalState(() {
+                                localRadius = value;
+                              });
+                            },
+                          ),
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.white54,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 60).',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
                       Row(
                         children: [
                           Expanded(
@@ -999,12 +1060,14 @@ class _HomePageState extends State<HomePage> {
                                   localOpenNow = false;
                                   localAvailabilityDays = 0;
                                   localUseRange = false;
-                                  localRadius =
-                                      _defaultSearchRadiusMeters.toDouble();
-                                  serviceController.clear();
-                                  priceController.clear();
-                                  minPriceController.clear();
-                                  maxPriceController.clear();
+                                  localRadius = _defaultSearchRadiusMeters
+                                      .toDouble();
+                                  localServiceType = '';
+                                  localPriceValue = _maxOfferPrice;
+                                  localPriceRange = RangeValues(
+                                    _minOfferPrice,
+                                    _maxOfferPrice,
+                                  );
                                 });
                               },
                               style: OutlinedButton.styleFrom(
@@ -1028,16 +1091,21 @@ class _HomePageState extends State<HomePage> {
                                   appliedPeluqueria = true;
                                 }
 
-                                final parsedPrice =
-                                    _parsePrice(priceController.text);
-                                final parsedMin =
-                                    _parsePrice(minPriceController.text);
-                                final parsedMax =
-                                    _parsePrice(maxPriceController.text);
-                                final normalizedRange = _normalizePriceRange(
-                                  parsedMin,
-                                  parsedMax,
-                                );
+                                final hasServiceType = localServiceType
+                                    .trim()
+                                    .isNotEmpty;
+                                final applyUseRange =
+                                    hasServiceType && localUseRange;
+                                final applyPriceValue =
+                                    hasServiceType && !localUseRange
+                                    ? localPriceValue
+                                    : null;
+                                final applyMinPrice = applyUseRange
+                                    ? localPriceRange.start
+                                    : null;
+                                final applyMaxPrice = applyUseRange
+                                    ? localPriceRange.end
+                                    : null;
 
                                 setState(() {
                                   _filterBarberia = appliedBarberia;
@@ -1046,18 +1114,13 @@ class _HomePageState extends State<HomePage> {
                                   _filterOpenNowOnly = localOpenNow;
                                   _filterAvailabilityDays =
                                       localAvailabilityDays;
-                                  _filterUsePriceRange = localUseRange;
-                                  _filterServiceType =
-                                      serviceController.text.trim();
-                                  _filterPriceValue = localUseRange
-                                      ? null
-                                      : parsedPrice;
-                                  _filterMinPrice = localUseRange
-                                      ? normalizedRange.min
-                                      : null;
-                                  _filterMaxPrice = localUseRange
-                                      ? normalizedRange.max
-                                      : null;
+                                  _filterUsePriceRange = applyUseRange;
+                                  _filterServiceType = hasServiceType
+                                      ? localServiceType.trim()
+                                      : '';
+                                  _filterPriceValue = applyPriceValue;
+                                  _filterMinPrice = applyMinPrice;
+                                  _filterMaxPrice = applyMaxPrice;
                                   _searchCircleRadiusMeters = localRadius;
                                 });
 
@@ -1069,6 +1132,10 @@ class _HomePageState extends State<HomePage> {
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  side: const BorderSide(color: Colors.white, width: 1),
                                 ),
                               ),
                               child: const Text('Aplicar filtros'),
@@ -1085,11 +1152,6 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
-
-    serviceController.dispose();
-    priceController.dispose();
-    minPriceController.dispose();
-    maxPriceController.dispose();
   }
 
   Future<void> _loadFavoriteBusinessIds() async {
@@ -1573,30 +1635,8 @@ class _HomePageState extends State<HomePage> {
     return types.isEmpty ? _placeTypes : types;
   }
 
-  double? _parsePrice(String raw) {
-    final normalized = raw.replaceAll(',', '.').trim();
-    if (normalized.isEmpty) {
-      return null;
-    }
-    return double.tryParse(normalized);
-  }
-
-  _PriceRange _normalizePriceRange(double? min, double? max) {
-    if (min == null && max == null) {
-      return const _PriceRange(null, null);
-    }
-
-    var normalizedMin = min;
-    var normalizedMax = max;
-    if (normalizedMin != null &&
-        normalizedMax != null &&
-        normalizedMax < normalizedMin) {
-      final temp = normalizedMin;
-      normalizedMin = normalizedMax;
-      normalizedMax = temp;
-    }
-
-    return _PriceRange(normalizedMin, normalizedMax);
+  double _clampOfferPrice(double value) {
+    return value.clamp(_minOfferPrice, _maxOfferPrice).toDouble();
   }
 
   bool get _hasServicePriceFilter {
@@ -1622,9 +1662,7 @@ class _HomePageState extends State<HomePage> {
     return raw?.toString();
   }
 
-  Future<BookingBusinessDetails?> _getBusinessDetails(
-    String businessId,
-  ) async {
+  Future<BookingBusinessDetails?> _getBusinessDetails(String businessId) async {
     final cached = _businessDetailsCache[businessId];
     if (cached != null) {
       return cached;
@@ -1644,10 +1682,8 @@ class _HomePageState extends State<HomePage> {
   bool _matchesServicePriceFilter(BookingBusinessOffer offer) {
     final serviceQuery = _filterServiceType.trim().toLowerCase();
     if (serviceQuery.isNotEmpty) {
-      final offerName = offer.name.toLowerCase();
       final offerType = offer.serviceType.toLowerCase();
-      if (!offerName.contains(serviceQuery) &&
-          !offerType.contains(serviceQuery)) {
+      if (offerType != serviceQuery) {
         return false;
       }
     }
@@ -1694,10 +1730,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (_filterAvailabilityDays > 0) {
-      filtered = await _filterByAvailability(
-        filtered,
-        _filterAvailabilityDays,
-      );
+      filtered = await _filterByAvailability(filtered, _filterAvailabilityDays);
     }
 
     return filtered;
@@ -1719,8 +1752,9 @@ class _HomePageState extends State<HomePage> {
         continue;
       }
 
-      final offerMatches = details.offers
-          .any((offer) => _matchesServicePriceFilter(offer));
+      final offerMatches = details.offers.any(
+        (offer) => _matchesServicePriceFilter(offer),
+      );
       if (offerMatches) {
         matches.add(business);
       }
@@ -1781,8 +1815,7 @@ class _HomePageState extends State<HomePage> {
             offerIndex: index,
           );
 
-          final hasSlot = availability.slots
-              .any((slot) => slot.remaining > 0);
+          final hasSlot = availability.slots.any((slot) => slot.remaining > 0);
           if (hasSlot) {
             return true;
           }
@@ -2119,8 +2152,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final registeredBusiness =
-                _registeredBusinessesByPlaceId[placeId];
+            final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
             final isRegistered = registeredBusiness != null;
 
             return FutureBuilder<_HairBusiness>(
@@ -2138,37 +2170,40 @@ class _HomePageState extends State<HomePage> {
                   return Container(
                     decoration: const BoxDecoration(
                       color: Colors.white,
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(24)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
                     ),
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
                     child: const Text(
                       'No se pudo cargar el detalle del local.',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   );
                 }
 
                 final business = snapshot.data!;
-                final isFavorite =
-                    _favoriteBusinessIds.contains(business.id);
+                final isFavorite = _favoriteBusinessIds.contains(business.id);
 
                 final firstHoursLine =
                     (business.openingHours != null &&
-                            business.openingHours!.isNotEmpty)
-                        ? business.openingHours!.first
-                        : 'Horario no disponible';
+                        business.openingHours!.isNotEmpty)
+                    ? business.openingHours!.first
+                    : 'Horario no disponible';
 
                 final titleColor = isRegistered ? _primaryColor : Colors.white;
                 final secondaryTextColor = Colors.white70;
                 final iconColor = isRegistered ? _primaryColor : Colors.white;
                 final containerColor = _registeredSheetBackgroundColor;
                 final infoCardColor = _registeredCardColor;
-                final stateColor = business.openNow == null ? Color.fromARGB(255, 205, 205, 205) : (business.openNow! ? Colors.green : Colors.red);
+                final stateColor = business.openNow == null
+                    ? Color.fromARGB(255, 205, 205, 205)
+                    : (business.openNow! ? Colors.green : Colors.red);
 
-
-                final photos= business.photoReferences ?? const <String>[];
+                final photos = business.photoReferences ?? const <String>[];
 
                 return SafeArea(
                   top: false,
@@ -2188,8 +2223,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: SingleChildScrollView(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 10),
                           Center(
@@ -2200,8 +2234,7 @@ class _HomePageState extends State<HomePage> {
                                 color: isRegistered
                                     ? _primaryColor
                                     : const Color.fromARGB(255, 205, 205, 205),
-                                borderRadius:
-                                    BorderRadius.circular(100),
+                                borderRadius: BorderRadius.circular(100),
                               ),
                             ),
                           ),
@@ -2217,8 +2250,7 @@ class _HomePageState extends State<HomePage> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
@@ -2230,23 +2262,20 @@ class _HomePageState extends State<HomePage> {
                                               business.name,
                                               style: TextStyle(
                                                 fontSize: 23,
-                                                fontWeight:
-                                                    FontWeight.w800,
+                                                fontWeight: FontWeight.w800,
                                                 color: titleColor,
                                               ),
                                             ),
                                           ),
                                           if (isRegistered)
                                             const Padding(
-                                              padding:
-                                                  EdgeInsets.only(
-                                                      left: 8,
-                                                      top: 2),
+                                              padding: EdgeInsets.only(
+                                                left: 8,
+                                                top: 2,
+                                              ),
                                               child: Icon(
-                                                Icons
-                                                    .verified_rounded,
-                                                color:
-                                                    _primaryColor,
+                                                Icons.verified_rounded,
+                                                color: _primaryColor,
                                                 size: 28,
                                               ),
                                             ),
@@ -2268,7 +2297,9 @@ class _HomePageState extends State<HomePage> {
                                             ? Icons.bookmark_rounded
                                             : Icons.bookmark_outline_rounded,
                                         size: 35,
-                                        color: isFavorite ? _primaryColor : secondaryTextColor,
+                                        color: isFavorite
+                                            ? _primaryColor
+                                            : secondaryTextColor,
                                       ),
                                     ),
                                   ],
@@ -2289,7 +2320,10 @@ class _HomePageState extends State<HomePage> {
 
                                 if (business.rating != null)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: infoCardColor,
                                       borderRadius: BorderRadius.circular(16),
@@ -2297,7 +2331,10 @@ class _HomePageState extends State<HomePage> {
                                     child: Row(
                                       children: [
                                         Row(
-                                          children: _buildRatingStars(business.rating!, size: 23,),
+                                          children: _buildRatingStars(
+                                            business.rating!,
+                                            size: 23,
+                                          ),
                                         ),
                                         const SizedBox(width: 27),
                                         Text(
@@ -2329,26 +2366,22 @@ class _HomePageState extends State<HomePage> {
                                 const SizedBox(height: 14),
 
                                 Container(
-                                  padding:
-                                      const EdgeInsets.all(14),
+                                  padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     color: infoCardColor,
-                                    borderRadius:
-                                        BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Column(
                                     children: [
                                       _buildDetailRow(
-                                        icon: Icons
-                                            .location_on_outlined,
+                                        icon: Icons.location_on_outlined,
                                         iconColor: iconColor,
                                         textColor: secondaryTextColor,
                                         text: business.address,
                                       ),
                                       const SizedBox(height: 10),
                                       _buildDetailRow(
-                                        icon: Icons
-                                            .access_time,
+                                        icon: Icons.access_time,
                                         iconColor: iconColor,
                                         textColor: secondaryTextColor,
                                         text: firstHoursLine,
@@ -2384,7 +2417,8 @@ class _HomePageState extends State<HomePage> {
                                         height: 48,
                                         child: OutlinedButton.icon(
                                           onPressed: () async {
-                                            _selectedBusinessForRoute = business;
+                                            _selectedBusinessForRoute =
+                                                business;
                                             await _openGoogleMapsRoute(
                                               targetBusiness: business,
                                             );
@@ -2395,9 +2429,8 @@ class _HomePageState extends State<HomePage> {
                                               color: Colors.white54,
                                             ),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(
-                                                14,
-                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
                                             ),
                                           ),
                                           icon: const Icon(
@@ -2424,11 +2457,10 @@ class _HomePageState extends State<HomePage> {
                                                   registeredBusiness?['businessId']
                                                       ?.toString()
                                                       .trim() ??
-                                                      '';
+                                                  '';
 
                                               if (businessId.isEmpty) {
-                                                InputDecorations
-                                                    .showTopSnackBarError(
+                                                InputDecorations.showTopSnackBarError(
                                                   context,
                                                   'No se pudo abrir la reserva.',
                                                 );
@@ -2440,13 +2472,12 @@ class _HomePageState extends State<HomePage> {
                                                 MaterialPageRoute(
                                                   builder: (_) =>
                                                       ReservationFlowPage(
-                                                    initialBusinessId:
-                                                        businessId,
-                                                    initialBusinessName:
-                                                        registeredBusiness?
-                                                                ['name']
-                                                            ?.toString(),
-                                                  ),
+                                                        initialBusinessId:
+                                                            businessId,
+                                                        initialBusinessName:
+                                                            registeredBusiness?['name']
+                                                                ?.toString(),
+                                                      ),
                                                 ),
                                               );
                                             },
@@ -2455,12 +2486,12 @@ class _HomePageState extends State<HomePage> {
                                               foregroundColor: Colors.white,
                                               disabledBackgroundColor:
                                                   _primaryColor,
-                                              disabledForegroundColor: Colors.white,
+                                              disabledForegroundColor:
+                                                  Colors.white,
                                               elevation: 0,
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  14,
-                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                             ),
                                             icon: const Icon(
@@ -2479,7 +2510,6 @@ class _HomePageState extends State<HomePage> {
                                     ],
                                   ],
                                 ),
-
                               ],
                             ),
                           ),
@@ -2926,12 +2956,9 @@ class _HomePageState extends State<HomePage> {
                       controller: _searchController,
                       focusNode: _searchFocusNode,
                       textInputAction: TextInputAction.search,
-                      onChanged: (value) {
-                        setState(() {});
-                        _onSearchQueryChanged(value);
-                      },
+                      onChanged: _onSearchQueryChanged,
                       onSubmitted: (value) {
-                        _fetchAutocompleteSuggestions(value);
+                        _fetchAutocompleteSuggestions(value.trim());
                       },
                       style: TextStyle(
                         color: Colors
@@ -2992,7 +3019,7 @@ class _HomePageState extends State<HomePage> {
             right: 16,
             bottom: 15,
             child: Column(
-              children: [      
+              children: [
                 const SizedBox(height: 10),
                 _buildMapControlButton(
                   icon: Icons.my_location,
@@ -3014,13 +3041,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
-
-class _PriceRange {
-  final double? min;
-  final double? max;
-
-  const _PriceRange(this.min, this.max);
 }
 
 class _HairBusiness {

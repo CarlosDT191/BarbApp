@@ -133,10 +133,11 @@ class ReservationService {
 
       final apiBaseUrl = getApiBaseUrl();
 
-      final normalizedDate = DateTime(date.year, date.month, date.day)
-          .toIso8601String()
-          .split('T')
-          .first;
+      final normalizedDate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+      ).toIso8601String().split('T').first;
 
       final body = jsonEncode({
         'date': normalizedDate,
@@ -166,6 +167,67 @@ class ReservationService {
       return Reservation.fromJson(jsonData);
     } catch (e) {
       throw Exception("Error en createReservation: $e");
+    }
+  }
+
+  /// Crea una nueva cita para un negocio del propietario autenticado.
+  ///
+  /// [date] es la fecha deseada para la cita (`DateTime`).
+  /// [time] es la hora deseada en formato HH:mm, como "14:30" (`String`).
+  /// [businessId] es el ID del negocio del propietario (`String`).
+  /// [offerIndex] es el indice del servicio dentro del negocio (`int`).
+  /// [clientName] es el nombre de la persona que reserva (`String`).
+  ///
+  /// Envía los datos al backend y retorna un objeto `Reservation` con los datos
+  /// de la nueva cita creada.
+  Future<Reservation> createAppointment({
+    required DateTime date,
+    required String time,
+    required String businessId,
+    required int offerIndex,
+    required String clientName,
+  }) async {
+    try {
+      final token = await _getUserToken();
+      if (token == null) throw Exception("No hay token disponible");
+
+      final apiBaseUrl = getApiBaseUrl();
+
+      final normalizedDate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+      ).toIso8601String().split('T').first;
+
+      final body = jsonEncode({
+        'date': normalizedDate,
+        'time': time,
+        'businessId': businessId,
+        'offerIndex': offerIndex,
+        'clientName': clientName.trim(),
+      });
+
+      final response = await http.post(
+        Uri.parse("$apiBaseUrl/appointments"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: body,
+      );
+
+      if (response.statusCode != 201 && response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        final errorMessage = errorData is Map<String, dynamic>
+            ? (errorData['error'] ?? errorData['message'])?.toString()
+            : null;
+        throw Exception(errorMessage ?? "Error al crear cita");
+      }
+
+      final jsonData = jsonDecode(response.body);
+      return Reservation.fromJson(jsonData);
+    } catch (e) {
+      throw Exception("Error en createAppointment: $e");
     }
   }
 

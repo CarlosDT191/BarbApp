@@ -2,6 +2,7 @@ const Reservation = require("../models/reservation.model");
 const Notification = require("../models/notification.model");
 const User = require("../models/user.model");
 const Business = require("../models/business.model");
+const { sendPushToUser } = require("../services/push_notifications");
 const { formatDate } = require('../config/date');
 const {
   toTrimmedString,
@@ -34,7 +35,7 @@ exports.getMyReservations = async (req, res) => {
     const userId = req.user.userId;
     const userRole = Number(req.user.role);
     // No se produce filtrado, se creará otra llamada al endpoint que recoja las citas de un propietario
-    const filter = { user: userId };
+    const filter = { user: userId, isOwnerAppointment: { $ne: true } };
 
     const reservations = await Reservation.find(filter)
       .sort({ date: 1, time: 1 });
@@ -231,6 +232,7 @@ exports.createReservation = async (req, res) => {
       service: serviceSnapshot,
       clientName,
       clientEmail: toTrimmedString(client?.email),
+      isOwnerAppointment: false,
     });
 
     const formattedDate = normalizedDate.toLocaleDateString('es-ES', {
@@ -262,6 +264,20 @@ exports.createReservation = async (req, res) => {
     }
 
     await Notification.create(notifications);
+
+    if (String(business.owner) !== String(userId)) {
+      try {
+        await sendPushToUser(business.owner, {
+          title: "Nueva reserva",
+          body: ownerMessage,
+          data: {
+            type: "reservation",
+            reservationId: reservation._id.toString(),
+          },
+        });
+      } catch (_) {
+      }
+    }
     
     res.status(201).json(reservation);
 
@@ -279,6 +295,168 @@ exports.createReservation = async (req, res) => {
     const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
     const log_date = formatDate();
     console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 500`);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Crea una nueva cita para un negocio del propietario autenticado
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param Object req.body.date Fecha de la cita (YYYY-MM-DD)
+ * @param string req.body.time Hora de la cita (HH:mm)
+ * @param string req.body.businessId ID del negocio
+ * @param number req.body.offerIndex Indice del servicio seleccionado
+ * @param string req.body.clientName Nombre del cliente
+ * @return json {object} Objeto con los datos de la cita creada
+ */
+exports.createAppointment = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const log_date = formatDate();
+
+    const userId = req.user.userId;
+
+    const { date, time, businessId, offerIndex, clientName, clientEmail } = req.body;
+
+    const normalizedBusinessId = toTrimmedString(businessId);
+    const normalizedTime = toTrimmedString(time);
+    const normalizedDate = normalizeReservationDate(date);
+    const normalizedOfferIndex = Number(offerIndex);
+    const normalizedClientName = toTrimmedString(clientName);
+
+    if (
+      !normalizedBusinessId ||
+      !normalizedTime ||
+      normalizedDate === null ||
+      !Number.isInteger(normalizedOfferIndex) ||
+      normalizedOfferIndex < 0 ||
+      !normalizedClientName
+    ) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 400 (Campos obligatorios)`);
+      return res.status(400).json({ error: "Campos obligatorios" });
+    }
+
+    const timeMinutes = parseTimeToMinutes(normalizedTime);
+    if (timeMinutes === null) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 400 (Hora invalida)`);
+      return res.status(400).json({ error: "Hora invalida" });
+    }
+
+    const business = await Business.findById(normalizedBusinessId).lean();
+    if (!business) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 404 (Negocio no encontrado)`);
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    if (String(business.owner) !== String(userId)) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 403 (No autorizado)`);
+      return res.status(403).json({ error: "No autorizado" });
+    }
+
+    const offers = Array.isArray(business.offers) ? business.offers : [];
+    const selectedOffer = offers[normalizedOfferIndex];
+    if (!selectedOffer) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 400 (Servicio invalido)`);
+      return res.status(400).json({ error: "Servicio invalido" });
+    }
+
+    const scheduleDay = resolveScheduleForDate(business.schedule, normalizedDate);
+    const slotTimes = buildSlotTimesForSchedule(scheduleDay, selectedOffer.durationMinutes);
+
+    if (slotTimes.length === 0 || !slotTimes.includes(timeMinutes)) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 409 (Hora no disponible)`);
+      return res.status(409).json({ error: "Hora no disponible" });
+    }
+
+    const { start: dayStart, end: dayEnd } = getReservationDayRange(normalizedDate);
+    const existingReservations = await Reservation.find({
+      business: business._id,
+      date: { $gte: dayStart, $lt: dayEnd },
+    }).lean();
+
+    const reservationBlocks = existingReservations.map((reservation) => {
+      const start = parseTimeToMinutes(reservation?.time) ?? 0;
+      const duration = Number(reservation?.durationMinutes)
+        || Number(reservation?.service?.durationMinutes)
+        || 60;
+      return {
+        start,
+        end: start + duration,
+      };
+    });
+
+    const slotEnd = timeMinutes + selectedOffer.durationMinutes;
+    const overlappingCount = reservationBlocks.filter((block) => (
+      block.start < slotEnd && block.end > timeMinutes
+    )).length;
+
+    const capacity = Number.isInteger(business.employeeCount) && business.employeeCount >= 0
+      ? business.employeeCount + 1
+      : 1;
+
+    if (overlappingCount >= capacity) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 409 (Cupo no disponible)`);
+      return res.status(409).json({ error: "Cupo no disponible" });
+    }
+
+    const serviceSnapshot = {
+      name: toTrimmedString(selectedOffer.name),
+      serviceType: toTrimmedString(selectedOffer.serviceType),
+      price: Number(selectedOffer.price),
+      durationMinutes: Number(selectedOffer.durationMinutes),
+    };
+
+    const reservation = await Reservation.create({
+      user: userId,
+      owner: business.owner,
+      business: business._id,
+      date: normalizedDate,
+      time: normalizedTime,
+      durationMinutes: serviceSnapshot.durationMinutes,
+      local_name: toTrimmedString(business.name),
+      service: serviceSnapshot,
+      clientName: normalizedClientName,
+      clientEmail: toTrimmedString(clientEmail),
+      isOwnerAppointment: true,
+    });
+
+    const formattedDate = normalizedDate.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const businessName = toTrimmedString(business.name);
+    const username = normalizedClientName;
+
+    const message = `Nueva cita creada para ${username} en ${businessName} el día ${formattedDate} a las ${normalizedTime}`;
+
+    await Notification.create({
+      user: userId,
+      type: "reservation",
+      message,
+      relatedId: reservation._id,
+    });
+
+    res.status(201).json(reservation);
+
+    const formattedDateLog = formatDate();
+    console.log(`${ip} - - [ ${formattedDateLog} ] "POST /appointments" 201`);
+  } catch (err) {
+    console.error(err);
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const log_date = formatDate();
+    console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 500`);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
@@ -360,6 +538,23 @@ exports.deleteReservation = async (req, res) => {
     }
 
     await Notification.create(cancelNotifications);
+
+    const pushTarget = isOwnerCancel ? reservation.user : reservation.owner;
+    const pushBody = isOwnerCancel ? clientMessage : ownerMessage;
+
+    if (String(pushTarget) !== String(userId)) {
+      try {
+        await sendPushToUser(pushTarget, {
+          title: "Reserva cancelada",
+          body: pushBody,
+          data: {
+            type: "cancel",
+            reservationId: reservation._id.toString(),
+          },
+        });
+      } catch (_) {
+      }
+    }
 
     console.log(`${ip} - - [ ${date} ] "DELETE /reservations/:reservationId" 200`);
 

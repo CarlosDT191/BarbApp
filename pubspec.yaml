@@ -31,6 +31,8 @@ dependencies:
   firebase_auth: ^5.0.0
 
   google_sign_in: ^6.2.1
+  googleapis: ^13.2.0
+  extension_google_sign_in_as_googleapis_auth: ^2.0.12
 
   table_calendar: ^3.0.9
 
@@ -45,6 +47,8 @@ dependencies:
     sdk: flutter
 
   firebase_core: ^3.1.1   # o la versión más reciente
+  firebase_messaging: ^15.1.0
+  flutter_local_notifications: ^17.2.1
 
   # Aquí agregas el paquete para guardar datos en el teléfono
   shared_preferences: ^2.2.2

@@ -77,6 +77,12 @@ const reservationSchema = new mongoose.Schema({
     default: "",
   },
 
+  isOwnerAppointment: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+
 }, {
   timestamps: true
 });

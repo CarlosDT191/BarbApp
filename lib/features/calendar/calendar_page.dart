@@ -13,6 +13,7 @@ import 'package:flutter_application_1/services/user_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
+import 'package:flutter_application_1/services/google_calendar_service.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -27,6 +28,7 @@ class _CalendarPageState extends State<CalendarPage> {
   int unread = 0;
   int? role = 0;
   CalendarOwnerFilter _ownerFilter = CalendarOwnerFilter.all;
+  bool _isExporting = false;
 
   Map<DateTime, List<CalendarEntry>> _calendarEntries = {};
   final ReservationService _reservationService = ReservationService();
@@ -73,12 +75,15 @@ class _CalendarPageState extends State<CalendarPage> {
       final merged = <DateTime, List<CalendarEntry>>{};
 
       if (currentRole == 1) {
-        final reservations = await _reservationService.getReservationsGroupedByDay();
-        final appointments = await _reservationService.getAppointmentsGroupedByDay();
+        final reservations = await _reservationService
+            .getReservationsGroupedByDay();
+        final appointments = await _reservationService
+            .getAppointmentsGroupedByDay();
         _mergeEntries(merged, reservations, CalendarEntryType.reservation);
         _mergeEntries(merged, appointments, CalendarEntryType.appointment);
       } else {
-        final reservations = await _reservationService.getReservationsGroupedByDay();
+        final reservations = await _reservationService
+            .getReservationsGroupedByDay();
         _mergeEntries(merged, reservations, CalendarEntryType.reservation);
       }
 
@@ -203,6 +208,67 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
+  Future<void> _exportToGoogleCalendar() async {
+    if (_isExporting) {
+      return;
+    }
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final currentRole = role ?? 0;
+      final reservations = await _reservationService.getMyReservations();
+      final allEvents = <String, Reservation>{};
+
+      for (final reservation in reservations) {
+        allEvents[reservation.id] = reservation;
+      }
+
+      if (currentRole == 1) {
+        final appointments = await _reservationService.getMyAppointments();
+        for (final appointment in appointments) {
+          allEvents[appointment.id] = appointment;
+        }
+      }
+
+      final exportList = allEvents.values.toList(growable: false);
+      if (exportList.isEmpty) {
+        InputDecorations.showTopSnackBarWarning(
+          context,
+          'No hay eventos para exportar.',
+        );
+        return;
+      }
+
+      final calendarService = GoogleCalendarService();
+      final createdCount = await calendarService.exportReservations(exportList);
+
+      if (!mounted) {
+        return;
+      }
+
+      InputDecorations.showTopSnackBarSuccess(
+        context,
+        'Se exportaron $createdCount eventos a Google Calendar.',
+      );
+    } catch (e) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudieron exportar los eventos: $e',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
   Widget _buildOwnerFilter() {
     final isSelected = [
       _ownerFilter == CalendarOwnerFilter.all,
@@ -256,10 +322,9 @@ class _CalendarPageState extends State<CalendarPage> {
       final normalized = DateTime(date.year, date.month, date.day);
       target.putIfAbsent(normalized, () => []);
       target[normalized]!.addAll(
-        reservations.map((reservation) => CalendarEntry(
-          reservation: reservation,
-          type: type,
-        )),
+        reservations.map(
+          (reservation) => CalendarEntry(reservation: reservation, type: type),
+        ),
       );
     });
   }
@@ -267,10 +332,10 @@ class _CalendarPageState extends State<CalendarPage> {
   void _sortEntries(Map<DateTime, List<CalendarEntry>> entries) {
     entries.forEach((date, items) {
       items.sort((a, b) {
-        final aMinutes = (a.reservation.startHour * 60)
-            + a.reservation.startMinute;
-        final bMinutes = (b.reservation.startHour * 60)
-            + b.reservation.startMinute;
+        final aMinutes =
+            (a.reservation.startHour * 60) + a.reservation.startMinute;
+        final bMinutes =
+            (b.reservation.startHour * 60) + b.reservation.startMinute;
         return aMinutes.compareTo(bMinutes);
       });
     });
@@ -360,12 +425,11 @@ class _CalendarPageState extends State<CalendarPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          DayDetailPage(
-                            initialDate: selectedDay,
-                            ownerView: role == 1,
-                            ownerFilter: _ownerFilter,
-                          ),
+                      builder: (context) => DayDetailPage(
+                        initialDate: selectedDay,
+                        ownerView: role == 1,
+                        ownerFilter: _ownerFilter,
+                      ),
                     ),
                   ).then((_) {
                     // 🔁 Se ejecuta cuando vuelves
@@ -448,6 +512,44 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
           ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isExporting ? null : _exportToGoogleCalendar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 200, 156, 125),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    side: const BorderSide(color: Colors.white, width: 1.5),
+                  ),
+                ),
+                icon: _isExporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Icon(Icons.calendar_month),
+                label: Text(
+                  _isExporting
+                      ? 'Exportando eventos...'
+                      : 'Exportar eventos a Google Calendar',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );

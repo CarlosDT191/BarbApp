@@ -62,10 +62,7 @@ class UserService {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json",
         },
-        body: json.encode({
-          "firstname": firstname,
-          "lastname": lastname,
-        }),
+        body: json.encode({"firstname": firstname, "lastname": lastname}),
       );
 
       if (response.statusCode == 200) {
@@ -122,8 +119,7 @@ class UserService {
         final data = json.decode(response.body);
         String errorMessage = data["error"] ?? "Error desconocido";
         throw Exception(errorMessage);
-      }
-      else{
+      } else {
         final data = json.decode(response.body);
         return data;
       }
@@ -143,9 +139,7 @@ class UserService {
 
     final response = await http.get(
       Uri.parse("$apiBaseUrl/notifications"),
-      headers: {
-        "Authorization": "Bearer $token"
-      },
+      headers: {"Authorization": "Bearer $token"},
     );
 
     final data = jsonDecode(response.body);
@@ -171,35 +165,70 @@ class UserService {
     await fetchAndStoreNotifications(token);
   }
 
+  /// Registra el token del dispositivo para notificaciones push.
+  ///
+  /// [deviceToken] es el token FCM del dispositivo.
+  /// Si no hay sesión activa se ignora la operación.
+  static Future<void> registerDeviceToken(String deviceToken) async {
+    final sanitizedToken = deviceToken.trim();
+    if (sanitizedToken.isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    if (token == null) {
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse("$apiBaseUrl/users/device-token"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: json.encode({"token": sanitizedToken}),
+      );
+
+      if (response.statusCode != 200) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+  }
+
   /// Elimina permanentemente la cuenta del usuario autenticado.
   ///
   /// Esta acción es irreversible y elimina todos los datos asociados al usuario
   /// de la base de datos. Retorna un mapa con el mensaje de confirmación del servidor.
   static Future<Map<String, dynamic>> deleteProfile() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("token");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
 
-    if (token == null) {
-      throw Exception("No token found");
+      if (token == null) {
+        throw Exception("No token found");
+      }
+
+      final response = await http.delete(
+        Uri.parse("$apiBaseUrl/users/profile"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final data = json.decode(response.body);
+        throw Exception(data["error"] ?? "Error eliminando usuario");
+      }
+    } catch (e) {
+      throw Exception("Error eliminando cuenta: $e");
     }
-
-    final response = await http.delete(
-      Uri.parse("$apiBaseUrl/users/profile"),
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      final data = json.decode(response.body);
-      throw Exception(data["error"] ?? "Error eliminando usuario");
-    }
-  } catch (e) {
-    throw Exception("Error eliminando cuenta: $e");
   }
-}
 }

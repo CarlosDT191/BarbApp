@@ -8,6 +8,7 @@ import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/models/service_types.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 
 class OwnerBusinessPage extends StatefulWidget {
@@ -92,7 +93,8 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
     final changed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => OwnerBusinessDetailPage(initialBusiness: business),
+        builder: (context) =>
+            OwnerBusinessDetailPage(initialBusiness: business),
       ),
     );
 
@@ -1165,10 +1167,12 @@ class _OwnerBusinessSetupFlowPageState
                 suffixText: 'mins.',
                 labelStyle: TextStyle(color: Colors.white70),
                 border: OutlineInputBorder(borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(
-                  color: Colors.white30, // 👈 borde en reposo
-                  width: 1.2,
-                ),),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: Colors.white30, // 👈 borde en reposo
+                    width: 1.2,
+                  ),
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
                     color: Color.fromARGB(255, 200, 156, 125),
@@ -1224,19 +1228,7 @@ class _OwnerBusinessSetupFlowPageState
 
   // BUILD OFFER DE CREACIÓN
   Widget _buildOfferItem(_OfferDraft offer, int index) {
-    // Tipos de servicios predefinidos con sus respectivos iconos
-    final List<Map<String, dynamic>> _serviceTypes = [
-      {'label': 'Corte común', 'icon': Icons.content_cut},
-      {'label': 'Corte + lavado', 'icon': Icons.water_drop_rounded},
-      {'label': 'Corte infantil', 'icon': Icons.child_care},
-      {'label': 'Corte tercera edad', 'icon': Icons.elderly},
-      {'label': 'Solo maquinilla', 'icon': Icons.electric_rickshaw},
-      {'label': 'Barba', 'icon': Icons.face},
-      {'label': 'Corte + barba', 'icon': Icons.people_rounded},
-      {'label': 'Corte con navaja', 'icon': Icons.architecture},
-      {'label': 'Tintado de pelo', 'icon': Icons.color_lens},
-      {'label': 'Otro', 'icon': Icons.add_circle_outline},
-    ];
+    final serviceTypes = kServiceTypeOptions;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -1254,10 +1246,12 @@ class _OwnerBusinessSetupFlowPageState
               labelText: 'Nombre del servicio',
               labelStyle: TextStyle(color: Colors.white70),
               border: OutlineInputBorder(borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(
-                color: Colors.white30, // 👈 borde en reposo
-                width: 1.2,
-              ),),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: Colors.white30, // 👈 borde en reposo
+                  width: 1.2,
+                ),
+              ),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(
                   color: Color.fromARGB(255, 200, 156, 125),
@@ -1268,19 +1262,24 @@ class _OwnerBusinessSetupFlowPageState
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _serviceTypes.any((t) => t['label'] == offer.serviceTypeController.text)
-                    ? offer.serviceTypeController.text
-                    : null,
+            value:
+                serviceTypes.any(
+                  (option) => option.label == offer.serviceTypeController.text,
+                )
+                ? offer.serviceTypeController.text
+                : null,
             dropdownColor: const Color.fromARGB(255, 38, 38, 38),
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
               labelText: 'Tipo de servicio',
               labelStyle: TextStyle(color: Colors.white70),
               border: OutlineInputBorder(borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(
-                color: Colors.white30, // 👈 borde en reposo
-                width: 1.2,
-              ),),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: Colors.white30, // 👈 borde en reposo
+                  width: 1.2,
+                ),
+              ),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(
                   color: Color.fromARGB(255, 200, 156, 125),
@@ -1288,14 +1287,14 @@ class _OwnerBusinessSetupFlowPageState
                 ),
               ),
             ),
-            items: _serviceTypes.map((type) {
+            items: serviceTypes.map((option) {
               return DropdownMenuItem<String>(
-                value: type['label'],
+                value: option.label,
                 child: Row(
                   children: [
-                    Icon(type['icon'], color: Colors.white70, size: 20),
+                    Icon(option.icon, color: Colors.white70, size: 20),
                     const SizedBox(width: 8),
-                    Text(type['label']),
+                    Text(option.label),
                   ],
                 ),
               );
@@ -1313,7 +1312,9 @@ class _OwnerBusinessSetupFlowPageState
               Expanded(
                 child: TextField(
                   controller: offer.priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     labelText: 'Precio',
@@ -1658,7 +1659,8 @@ class _OwnerBusinessSetupFlowPageState
   Widget _buildEmployeesStep() {
     return _buildCard(
       title: '4. Cantidad de empleados',
-      subtitle: 'Define cuántos empleados trabajan en tu negocio. Si simplemente trabaja usted, no agregue empleados.',
+      subtitle:
+          'Define cuántos empleados trabajan en tu negocio. Si simplemente trabaja usted, no agregue empleados.',
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1761,6 +1763,15 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
   bool _isDeleting = false;
   bool _hasChanges = false;
 
+  IconData _iconForServiceType(String serviceType) {
+    for (final option in kServiceTypeOptions) {
+      if (option.label == serviceType) {
+        return option.icon;
+      }
+    }
+    return Icons.content_cut;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1818,7 +1829,7 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
-                  enabledBorder: OutlineInputBorder(
+                enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
@@ -1979,8 +1990,8 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(
-                            Icons.content_cut,
+                          Icon(
+                            _iconForServiceType(offer.serviceType),
                             color: Colors.white70,
                             size: 18,
                           ),
@@ -2072,7 +2083,9 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
-              onPressed: _isDeleting ? null : _showDeleteConfirmation, //  BOTÓN DEVINCULAR NEGOCIO
+              onPressed: _isDeleting
+                  ? null
+                  : _showDeleteConfirmation, //  BOTÓN DEVINCULAR NEGOCIO
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red,
                 side: const BorderSide(color: Colors.red),
@@ -2088,7 +2101,9 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
                       ),
                     )
                   : const Icon(Icons.link_off_rounded),
-              label: Text(_isDeleting ? 'Eliminando...' : 'Desvincular negocio'),
+              label: Text(
+                _isDeleting ? 'Eliminando...' : 'Desvincular negocio',
+              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -2817,10 +2832,12 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
                 suffixText: 'mins.',
                 labelStyle: TextStyle(color: Colors.white70),
                 border: OutlineInputBorder(borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(
-                  color: Colors.white30, // 👈 borde en reposo
-                  width: 1.2,
-                ),),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: Colors.white30, // 👈 borde en reposo
+                    width: 1.2,
+                  ),
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
                     color: Color.fromARGB(255, 200, 156, 125),
@@ -2873,19 +2890,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
 
   // BUILD OFFER DE EDICIÓN
   Widget _buildOfferItem(_OfferDraft offer, int index) {
-    // Tipos de servicios predefinidos con sus respectivos iconos
-    final List<Map<String, dynamic>> _serviceTypes = [
-      {'label': 'Corte común', 'icon': Icons.content_cut},
-      {'label': 'Corte + lavado', 'icon': Icons.local_car_wash},
-      {'label': 'Corte infantil', 'icon': Icons.child_care},
-      {'label': 'Corte tercera edad', 'icon': Icons.elderly},
-      {'label': 'Solo maquinilla', 'icon': Icons.electric_rickshaw},
-      {'label': 'Barba', 'icon': Icons.face},
-      {'label': 'Corte + barba', 'icon': Icons.people_rounded},
-      {'label': 'Corte con navaja', 'icon': Icons.architecture},
-      {'label': 'Tintado de pelo', 'icon': Icons.color_lens},
-      {'label': 'Otro', 'icon': Icons.add_circle_outline},
-    ];
+    final serviceTypes = kServiceTypeOptions;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -2913,21 +2918,26 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
             ),
           ),
           const SizedBox(height: 12),
-          
+
           DropdownButtonFormField<String>(
-            value: _serviceTypes.any((t) => t['label'] == offer.serviceTypeController.text)
-                    ? offer.serviceTypeController.text
-                    : null,
+            value:
+                serviceTypes.any(
+                  (option) => option.label == offer.serviceTypeController.text,
+                )
+                ? offer.serviceTypeController.text
+                : null,
             dropdownColor: const Color.fromARGB(255, 38, 38, 38),
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
               labelText: 'Tipo de servicio',
               labelStyle: TextStyle(color: Colors.white70),
               border: OutlineInputBorder(borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(
-                color: Colors.white30, // 👈 borde en reposo
-                width: 1.2,
-              ),),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: Colors.white30, // 👈 borde en reposo
+                  width: 1.2,
+                ),
+              ),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(
                   color: Color.fromARGB(255, 200, 156, 125),
@@ -2935,14 +2945,14 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
                 ),
               ),
             ),
-            items: _serviceTypes.map((type) {
+            items: serviceTypes.map((option) {
               return DropdownMenuItem<String>(
-                value: type['label'],
+                value: option.label,
                 child: Row(
                   children: [
-                    Icon(type['icon'], color: Colors.white70, size: 20),
+                    Icon(option.icon, color: Colors.white70, size: 20),
                     const SizedBox(width: 8),
-                    Text(type['label']),
+                    Text(option.label),
                   ],
                 ),
               );
@@ -2959,7 +2969,9 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
               Expanded(
                 child: TextField(
                   controller: offer.priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     labelText: 'Precio',
@@ -3638,7 +3650,7 @@ class BusinessOffer {
       'name': name,
       'price': price,
       'durationMinutes': durationMinutes,
-      'serviceType': serviceType
+      'serviceType': serviceType,
     };
   }
 }
