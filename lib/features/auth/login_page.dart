@@ -6,6 +6,7 @@ import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/config/google_auth_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -23,7 +24,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
 
   // Aquí declaras GoogleSignIn
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
+  late final GoogleSignIn _googleSignIn =
+      buildGoogleSignIn(scopes: const ['email']);
   String username= "";
   String password= "";
   bool isSent = false;
@@ -98,6 +100,12 @@ class _LoginPageState extends State<LoginPage> {
   // Función para iniciar sesión con Google
   Future<void> loginWithGoogle() async {
     try {
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {
+        // Ignorar errores para permitir el inicio de sesion.
+      }
+
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         return;

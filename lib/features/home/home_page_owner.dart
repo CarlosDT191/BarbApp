@@ -301,28 +301,40 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     final query = rawQuery.trim();
     _searchDebounce?.cancel();
 
-    if (query.length < 2) {
-      if (!mounted) {
-        return;
-      }
+    if (!mounted) {
+      return;
+    }
 
+    final shouldReset =
+        _isLoadingSearchSuggestions ||
+        _searchSuggestions.isNotEmpty ||
+        _hasSearched;
+
+    if (query.length < 2) {
+      if (shouldReset) {
+        setState(() {
+          _isLoadingSearchSuggestions = false;
+          _searchSuggestions.clear();
+          _hasSearched = false;
+        });
+      }
+      if (!_searchFocusNode.hasFocus) {
+        _searchFocusNode.requestFocus();
+      }
+      return;
+    }
+
+    if (shouldReset) {
       setState(() {
         _isLoadingSearchSuggestions = false;
         _searchSuggestions.clear();
         _hasSearched = false;
       });
-      return;
     }
 
-    if (!mounted) {
-      return;
+    if (!_searchFocusNode.hasFocus) {
+      _searchFocusNode.requestFocus();
     }
-
-    setState(() {
-      _isLoadingSearchSuggestions = false;
-      _searchSuggestions.clear();
-      _hasSearched = false;
-    });
   }
 
   Future<void> _fetchAutocompleteSuggestions(String query) async {
@@ -2135,6 +2147,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
             }
 
             final business = snapshot.data!;
+            /*final businessId =
+              registeredBusiness?['businessId']?.toString().trim() ?? '';
+            final shouldShowOffers = isRegistered && businessId.isNotEmpty;*/
             final firstHoursLine =
                 (business.openingHours != null &&
                     business.openingHours!.isNotEmpty)
@@ -2324,6 +2339,18 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                               ),
                             ),
                             const SizedBox(height: 16),
+
+                            /*if (shouldShowOffers) ...[
+                              _buildOffersSection(
+                                businessId: businessId,
+                                cardColor: infoCardColor,
+                                titleColor: titleColor,
+                                subtitleColor: secondaryTextColor,
+                                iconColor: iconColor,
+                              ),
+                              const SizedBox(height: 16),
+                            ],*/
+
                             Row(
                               children: [
                                 Expanded(
@@ -2534,7 +2561,186 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       ],
     );
   }
+/*
+  IconData _iconForServiceType(String serviceType) {
+    for (final option in kServiceTypeOptions) {
+      if (option.label == serviceType) {
+        return option.icon;
+      }
+    }
+    return Icons.content_cut;
+  }
 
+  String _formatOfferTitle(BookingBusinessOffer offer) {
+    final serviceType = offer.serviceType.trim();
+    final name = offer.name.trim();
+
+    if (serviceType.isEmpty) {
+      return name.isEmpty ? 'Oferta' : name;
+    }
+
+    if (name.isEmpty) {
+      return serviceType;
+    }
+
+    return '($serviceType) $name';
+  }
+
+  Widget _buildOfferRow({
+    required BookingBusinessOffer offer,
+    required Color titleColor,
+    required Color subtitleColor,
+    required Color iconColor,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          _iconForServiceType(offer.serviceType),
+          color: iconColor,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatOfferTitle(offer),
+                style: TextStyle(
+                  color: subtitleColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    '${offer.price.toStringAsFixed(2)} EUR',
+                    style: TextStyle(
+                      color: titleColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (offer.durationMinutes > 0) ...[
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.access_time,
+                      color: Colors.white54,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${offer.durationMinutes} min',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOffersSection({
+    required String businessId,
+    required Color cardColor,
+    required Color titleColor,
+    required Color subtitleColor,
+    required Color iconColor,
+  }) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.34;
+
+    return FutureBuilder<BookingBusinessDetails?>(
+      future: _getBusinessDetails(businessId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: const [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _primaryColor,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Cargando ofertas...',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final offers = snapshot.data?.offers ?? const <BookingBusinessOffer>[];
+        if (offers.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'Sin ofertas disponibles.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ofertas',
+                style: TextStyle(
+                  color: titleColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: offers.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    return _buildOfferRow(
+                      offer: offers[index],
+                      titleColor: titleColor,
+                      subtitleColor: subtitleColor,
+                      iconColor: iconColor,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+*/
   List<Widget> _buildRatingStars(double rating, {double size = 22}) {
     final clamped = rating.clamp(0, 5);
     final fullStars = clamped.floor();
@@ -2856,6 +3062,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                       onChanged: _onSearchQueryChanged,
                       onSubmitted: (value) {
                         _fetchAutocompleteSuggestions(value.trim());
+                        if (!_searchFocusNode.hasFocus) {
+                          _searchFocusNode.requestFocus();
+                        }
                       },
                       style: TextStyle(color: Colors.black, fontSize: 16),
                       decoration: InputDecoration(

@@ -4,15 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/features/auth/register_data.dart';
 import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/config/google_auth_config.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:http/http.dart' as http;
-
-final GoogleSignIn _googleSignIn = GoogleSignIn(
-  scopes: ['email'],
-);
 
 class RegisterEmail extends StatefulWidget {
   final int? selectedRole;
@@ -31,6 +28,9 @@ Future<void> saveUserSessions(String token, int role) async {
 }
 
 class _RegisterEmailState extends State<RegisterEmail> {
+
+  late final GoogleSignIn _googleSignIn =
+      buildGoogleSignIn(scopes: const ['email']);
 
   String email= "";
   final emailController = TextEditingController();
@@ -74,6 +74,12 @@ class _RegisterEmailState extends State<RegisterEmail> {
 
   Future<void> signInWithGoogle() async {
     try {
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {
+        // Ignorar errores para permitir el inicio de sesion.
+      }
+
       final GoogleSignInAccount? account = await _googleSignIn.signIn();
 
       if (account == null) return; // usuario canceló

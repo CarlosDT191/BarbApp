@@ -1,13 +1,16 @@
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/calendar/v3.dart' as calendar;
+import 'package:flutter_application_1/config/google_auth_config.dart';
 import 'package:flutter_application_1/models/reservation.dart';
 
 class GoogleCalendarService {
   GoogleCalendarService({GoogleSignIn? googleSignIn})
     : _googleSignIn =
           googleSignIn ??
-          GoogleSignIn(scopes: [calendar.CalendarApi.calendarEventsScope]);
+          buildGoogleSignIn(
+            scopes: [calendar.CalendarApi.calendarEventsScope],
+          );
 
   final GoogleSignIn _googleSignIn;
 
@@ -16,10 +19,13 @@ class GoogleCalendarService {
       return 0;
     }
 
-    final account =
-        _googleSignIn.currentUser ??
-        await _googleSignIn.signInSilently() ??
-        await _googleSignIn.signIn();
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {
+      // Ignorar errores para permitir la seleccion de cuenta.
+    }
+
+    final account = await _googleSignIn.signIn();
 
     if (account == null) {
       throw Exception('Inicio de sesion cancelado');

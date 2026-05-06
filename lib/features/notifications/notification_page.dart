@@ -151,6 +151,120 @@ class _NotificationPageState extends State<NotificationPage> {
     );
   }
 
+  DateTime? _parseNotificationDate(dynamic notif) {
+    final raw = notif["createdAt"];
+    if (raw is! String || raw.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      return DateTime.parse(raw).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _labelForNotificationDate(DateTime createdAt, DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final createdDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
+    final dayDiff = today.difference(createdDay).inDays;
+
+    if (dayDiff <= 0) {
+      return 'Hoy';
+    }
+    if (dayDiff == 1) {
+      return 'Ayer';
+    }
+    if (dayDiff <= 6) {
+      return 'Hace $dayDiff días';
+    }
+    if (dayDiff <= 13) {
+      return 'La semana pasada';
+    }
+    if (dayDiff <= 20) {
+      return 'Hace 2 semanas';
+    }
+    if (dayDiff <= 27) {
+      return 'Hace 3 semanas';
+    }
+
+    final monthsDiff =
+        (now.year - createdAt.year) * 12 + (now.month - createdAt.month);
+    if (monthsDiff <= 0) {
+      return 'Hace $dayDiff días';
+    }
+    if (monthsDiff == 1) {
+      return 'Mes pasado';
+    }
+    if (monthsDiff <= 11) {
+      return 'Hace $monthsDiff meses';
+    }
+
+    final yearsDiff = (monthsDiff / 12).floor();
+    if (yearsDiff == 1) {
+      return 'El año pasado';
+    }
+    return 'Hace $yearsDiff años';
+  }
+
+  Widget _buildNotificationGroupHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(25, 18, 25, 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white70,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  List<dynamic> _sortedNotifications() {
+    final items = List<dynamic>.from(notifications);
+    items.sort((a, b) {
+      final dateA = _parseNotificationDate(a);
+      final dateB = _parseNotificationDate(b);
+
+      if (dateA == null && dateB == null) {
+        return 0;
+      }
+      if (dateA == null) {
+        return 1;
+      }
+      if (dateB == null) {
+        return -1;
+      }
+
+      return dateB.compareTo(dateA);
+    });
+    return items;
+  }
+
+  List<Widget> _buildNotificationListWidgets() {
+    final now = DateTime.now();
+    final items = _sortedNotifications();
+    final widgets = <Widget>[];
+
+    String? currentLabel;
+    for (final notif in items) {
+      final createdAt = _parseNotificationDate(notif);
+      final label = createdAt == null
+          ? 'Sin fecha'
+          : _labelForNotificationDate(createdAt, now);
+
+      if (label != currentLabel) {
+        widgets.add(_buildNotificationGroupHeader(label));
+        currentLabel = label;
+      }
+
+      widgets.add(_buildNotificationItem(notif));
+    }
+
+    return widgets;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -276,12 +390,9 @@ class _NotificationPageState extends State<NotificationPage> {
                       style: TextStyle(color: Colors.white70),
                     ),
                   )
-                : ListView.builder(
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      final notif = notifications[index];
-                      return _buildNotificationItem(notif);
-                    },
+                : ListView(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    children: _buildNotificationListWidgets(),
                   ),
           ),
         ],
