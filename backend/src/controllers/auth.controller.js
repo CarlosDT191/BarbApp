@@ -138,8 +138,8 @@ exports.google = async (req, res) => {
     }
 
     if (!firstname || !lastname || role === undefined) {
-      console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (Todos los campos son obligatorios)`);
-      return res.status(400).json({ error: "Todos los campos son obligatorios" });
+      console.log(`${ip} - - [ ${date} ] "POST /auth/google" 400 (El correo especificado no está registrado)`);
+      return res.status(400).json({ error: "El correo especificado no está registrado" });
     }
 
     const normalizedRole = Number(role);
