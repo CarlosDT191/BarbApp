@@ -146,6 +146,23 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ error: "Campos obligatorios" });
     }
 
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    ));
+    const maxAllowedDate = new Date(Date.UTC(
+      todayUtc.getUTCFullYear(),
+      todayUtc.getUTCMonth() + 3,
+      todayUtc.getUTCDate(),
+    ));
+
+    if (normalizedDate >= maxAllowedDate) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 409 (Fecha fuera del rango permitido)`);
+      return res.status(409).json({ error: "Fecha fuera del rango permitido" });
+    }
+
     const timeMinutes = parseTimeToMinutes(normalizedTime);
     if (timeMinutes === null) {
       console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 400 (Hora invalida)`);
@@ -243,8 +260,8 @@ exports.createReservation = async (req, res) => {
 
     const businessName = toTrimmedString(business.name);
     const clientLabel = clientName || "Cliente";
-    const clientMessage = `Reserva confirmada: Has reservado en ${businessName}, ${serviceSnapshot.name} para el ${formattedDate} a las ${normalizedTime} correctamente.`;
-    const ownerMessage = `Nueva cita: ${clientLabel} ha reservado ${serviceSnapshot.name} (${businessName}) para el ${formattedDate} a las ${normalizedTime}`;
+    const clientMessage = `Reserva confirmada: Has reservado en ${businessName}, ${serviceSnapshot.name} para el ${formattedDate} a las ${normalizedTime}.`;
+    const ownerMessage = `Nueva cita: ${clientLabel} ha reservado ${serviceSnapshot.name} (${businessName}) para el ${formattedDate} a las ${normalizedTime}.`;
     const notifications = [
       {
         user: userId,
@@ -512,10 +529,10 @@ exports.deleteReservation = async (req, res) => {
 
     const ownerMessage = isOwnerCancel
       ? `Has cancelado la reserva de ${clientLabel} en ${detailsLabel}`
-      : `La reserva de ${clientLabel} en ${detailsLabel} fue cancelada por el cliente`;
+      : `La reserva de ${clientLabel} en ${detailsLabel} fue cancelada por el cliente.`;
     const clientMessage = isOwnerCancel
       ? `Tu reserva en ${detailsLabel} fue cancelada por el propietario`
-      : `Has cancelado tu reserva en ${detailsLabel}`;
+      : `Has cancelado tu reserva en ${detailsLabel}.`;
 
     await reservation.deleteOne();
 

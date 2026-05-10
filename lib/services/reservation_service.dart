@@ -160,13 +160,13 @@ class ReservationService {
         final errorMessage = errorData is Map<String, dynamic>
             ? (errorData['error'] ?? errorData['message'])?.toString()
             : null;
-        throw Exception(errorMessage ?? "Error al crear reserva");
+        throw errorMessage ?? "Error al crear reserva";
       }
 
       final jsonData = jsonDecode(response.body);
       return Reservation.fromJson(jsonData);
     } catch (e) {
-      throw Exception("Error en createReservation: $e");
+      rethrow;
     }
   }
 
@@ -221,13 +221,13 @@ class ReservationService {
         final errorMessage = errorData is Map<String, dynamic>
             ? (errorData['error'] ?? errorData['message'])?.toString()
             : null;
-        throw Exception(errorMessage ?? "Error al crear cita");
+        throw errorMessage ?? "Error al crear cita";
       }
 
       final jsonData = jsonDecode(response.body);
       return Reservation.fromJson(jsonData);
     } catch (e) {
-      throw Exception("Error en createAppointment: $e");
+      rethrow;
     }
   }
 
@@ -256,7 +256,7 @@ class ReservationService {
         throw Exception("Error al eliminar reserva: ${response.statusCode}");
       }
     } catch (e) {
-      throw Exception("Error en deleteReservation: $e");
+      rethrow;
     }
   }
 
@@ -270,7 +270,7 @@ class ReservationService {
       final allReservations = await getMyReservations();
       return _groupReservationsByDay(allReservations);
     } catch (e) {
-      throw Exception("Error en getReservationsGroupedByDay: $e");
+      rethrow;
     }
   }
 
@@ -284,7 +284,7 @@ class ReservationService {
       final allAppointments = await getMyAppointments();
       return _groupReservationsByDay(allAppointments);
     } catch (e) {
-      throw Exception("Error en getAppointmentsGroupedByDay: $e");
+      rethrow;
     }
   }
 

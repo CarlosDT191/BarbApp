@@ -164,14 +164,16 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   /// Muestra detalles de una reserva
   void _showReservationDetails(CalendarEntry entry) {
     final reservation = entry.reservation;
+    final isAppointment = entry.isAppointment;
     final details = <Map<String, String>>[
+      {'Tipo:': isAppointment ? 'Cita' : 'Reserva'},
       {'Local:': reservation.businessDisplayName},
       {'Servicio:': reservation.serviceDisplayName},
       {'Hora:': reservation.time},
       {'Duración:': '${reservation.durationMinutes} minutos'},
     ];
 
-    if (entry.isAppointment) {
+    if (isAppointment) {
       details.insert(2, {'Cliente:': reservation.clientDisplayName});
     }
 
@@ -185,7 +187,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Detalles de la Reserva',
+              isAppointment ? 'Detalles de la Cita' : 'Detalles de la Reserva',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

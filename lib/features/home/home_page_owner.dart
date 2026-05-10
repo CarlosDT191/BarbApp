@@ -2147,9 +2147,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
             }
 
             final business = snapshot.data!;
-            /*final businessId =
+            final businessId =
               registeredBusiness?['businessId']?.toString().trim() ?? '';
-            final shouldShowOffers = isRegistered && businessId.isNotEmpty;*/
+            final shouldShowOffers = isRegistered && businessId.isNotEmpty;
             final firstHoursLine =
                 (business.openingHours != null &&
                     business.openingHours!.isNotEmpty)
@@ -2168,51 +2168,60 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
             final photos = business.photoReferences ?? const <String>[];
 
+            /// MÁXIMO DE TARJETA
+            final maxSheetHeight = MediaQuery.of(context).size.height * 0.9;
+
             return SafeArea(
               top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  border: isRegistered
-                      ? Border(
-                          top: BorderSide(color: _primaryColor, width: 3),
-                          left: BorderSide(color: _primaryColor, width: 3),
-                          right: BorderSide(color: _primaryColor, width: 3),
-                        )
-                      : null,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10),
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: isRegistered
-                                ? _primaryColor
-                                : const Color.fromARGB(255, 205, 205, 205),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                        ),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxSheetHeight),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
                       ),
-                      const SizedBox(height: 14),
+                      border: isRegistered
+                          ? Border(
+                              top: BorderSide(color: _primaryColor, width: 3),
+                              left:
+                                  BorderSide(color: _primaryColor, width: 3),
+                              right:
+                                  BorderSide(color: _primaryColor, width: 3),
+                            )
+                          : null,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Center(
+                            child: Container(
+                              width: 44,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: isRegistered
+                                    ? _primaryColor
+                                    : const Color.fromARGB(255, 205, 205, 205),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
                       if (photos.isNotEmpty)
                         _buildPhotoCarousel(
                           placeId: placeId,
                           photoReferences: photos,
                           isRegistered: isRegistered,
                         ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -2449,10 +2458,12 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                 ],
                               ],
                             ),
-                          ],
-                        ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -2885,6 +2896,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
   @override
   Widget build(BuildContext context) {
+    final isSearchActive = _searchFocusNode.hasFocus;
     return Scaffold(
       // BARRA INFERIOR CON LOS ICONOS
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -3040,18 +3052,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
               ),
               child: Row(
                 children: [
-                  SizedBox(width: 15),
-
-                  GestureDetector(
-                    onTap: () {
-                      _fetchAutocompleteSuggestions(
-                        _searchController.text.trim(),
-                      );
-                    },
-                    child: const Icon(Icons.search, color: Colors.grey),
-                  ),
-
-                  SizedBox(width: 8),
+                  const SizedBox(width: 16),
 
                   // 👉 INPUT
                   Expanded(
@@ -3066,22 +3067,50 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                           _searchFocusNode.requestFocus();
                         }
                       },
-                      style: TextStyle(color: Colors.black, fontSize: 16),
-                      decoration: InputDecoration(
+                      style: const TextStyle(color: Colors.black, fontSize: 16),
+                      decoration: const InputDecoration(
                         hintText: "Buscar locales",
                         hintStyle: TextStyle(color: Colors.grey),
                         isDense: true,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
+                        contentPadding: EdgeInsets.symmetric(
                           vertical: 12,
                         ),
                       ),
                     ),
                   ),
 
-                  SizedBox(width: 1),
+                  const SizedBox(width: 8),
+
+                  GestureDetector(
+                    onTap: () {
+                      _fetchAutocompleteSuggestions(
+                        _searchController.text.trim(),
+                      );
+                      if (!_searchFocusNode.hasFocus) {
+                        _searchFocusNode.requestFocus();
+                      }
+                    },
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: isSearchActive
+                            ? _primaryColor
+                            : const Color.fromARGB(255, 200, 200, 200),
+                        borderRadius: BorderRadius.circular(17),
+                      ),
+                      child: const Icon(
+                        Icons.search,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
                 ],
               ),
             ),

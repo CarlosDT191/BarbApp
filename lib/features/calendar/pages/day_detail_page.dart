@@ -355,8 +355,16 @@ class _DayDetailPageState extends State<DayDetailPage> {
     return DateFormat('EEEE, d MMMM', 'es_ES').format(date);
   }
 
+  bool _isPastDay(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final normalized = DateTime(date.year, date.month, date.day);
+    return normalized.isBefore(today);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isPastDay = _isPastDay(_displayedDate);
     if (_isLoading && _cachedEntries.isEmpty) {
       return Scaffold(
         appBar: AppBar(
@@ -414,6 +422,9 @@ class _DayDetailPageState extends State<DayDetailPage> {
             date: normalizedDate,
             entries: dayEntries,
             onHourSelected: (hour) {
+              if (_isPastDay(normalizedDate)) {
+                return;
+              }
               final formattedHour = hour.toString().padLeft(2, '0');
               if (widget.ownerView) {
                 _showCreateOptions(
@@ -432,19 +443,21 @@ class _DayDetailPageState extends State<DayDetailPage> {
         },
       ),
       // Botón flotante para crear evento rápido
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (widget.ownerView) {
-            _showCreateOptions(date: _displayedDate);
-          } else {
-            _openReservationFlow(date: _displayedDate);
-          }
-        },
-        backgroundColor: const Color.fromARGB(255, 200, 156, 125),
-        foregroundColor: Colors.white,
-        tooltip: widget.ownerView ? 'Nuevo evento' : 'Nueva reserva',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: isPastDay
+          ? null
+          : FloatingActionButton(
+              onPressed: () {
+                if (widget.ownerView) {
+                  _showCreateOptions(date: _displayedDate);
+                } else {
+                  _openReservationFlow(date: _displayedDate);
+                }
+              },
+              backgroundColor: const Color.fromARGB(255, 200, 156, 125),
+              foregroundColor: Colors.white,
+              tooltip: widget.ownerView ? 'Nuevo evento' : 'Nueva reserva',
+              child: const Icon(Icons.add),
+            ),
     );
   }
 

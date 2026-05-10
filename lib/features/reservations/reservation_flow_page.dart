@@ -181,7 +181,8 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
       String? preselectedTime;
       if (widget.initialTime != null) {
         final candidate = widget.initialTime!.trim();
-        if (availability.slots.any((slot) => slot.time == candidate)) {
+        if (availability.slots.any((slot) => slot.time == candidate) &&
+            _isSlotSelectable(_selectedDate, candidate)) {
           preselectedTime = candidate;
         }
       }
@@ -403,6 +404,45 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     }
   }
 
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _isSlotSelectable(DateTime date, String slotTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final normalized = DateTime(date.year, date.month, date.day);
+
+    if (normalized.isBefore(today)) {
+      return false;
+    }
+
+    if (!_isSameDay(normalized, today)) {
+      return true;
+    }
+
+    final parts = slotTime.split(':');
+    if (parts.isEmpty) {
+      return false;
+    }
+
+    final hour = int.tryParse(parts[0]);
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) : 0;
+    if (hour == null || minute == null) {
+      return false;
+    }
+
+    final slotDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      hour,
+      minute,
+    );
+
+    return slotDateTime.isAfter(now);
+  }
+
   Widget _buildStepHeader() {
     return Row(
       children: List.generate(3, (index) {
@@ -434,13 +474,6 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                 color: Color.fromARGB(255, 200, 156, 125),
               ),
             )
-          : _businesses.isEmpty
-          ? const Center(
-              child: Text(
-                'No hay negocios disponibles.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
           : ListView(
               children: [
                 TextField(
@@ -457,14 +490,37 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                     filled: true,
                     fillColor: const Color.fromARGB(255, 38, 38, 38),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
                       borderSide: BorderSide.none,
+                    ),
+
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide(
+                        color: const Color.fromARGB(255, 200, 156, 125),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
-
-                ..._businesses.map((business) {
+                if (_businesses.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'No hay negocios disponibles.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  )
+                else
+                  ..._businesses.map((business) {
                   final isSelected = _selectedBusiness?.id == business.id;
 
                   return Padding(
@@ -630,6 +686,9 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
   Widget _buildDateStep() {
     final availability = _availability;
     final slots = availability?.slots ?? [];
+    final visibleSlots = slots
+        .where((slot) => _isSlotSelectable(_selectedDate, slot.time))
+        .toList();
     final formattedDate = DateFormat('dd/MM/yyyy').format(_selectedDate);
 
     Widget availabilityContent;
@@ -644,7 +703,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
         'Selecciona un servicio para ver horarios disponibles.',
         style: TextStyle(color: Colors.white70),
       );
-    } else if (slots.isEmpty) {
+    } else if (visibleSlots.isEmpty) {
       availabilityContent = const Text(
         'No hay horarios disponibles para esta fecha.',
         style: TextStyle(color: Colors.white70),
@@ -654,7 +713,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: slots.map((slot) {
+          children: visibleSlots.map((slot) {
             final isSelected = _selectedTime == slot.time;
             final label = slot.remaining > 1
                 ? '${slot.time} (${slot.remaining})'
@@ -792,6 +851,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
                       child: TextButton(
                         onPressed: _isSaving ? null : _handleBack,
                         style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           side: const BorderSide(color: Colors.white54),
                         ),

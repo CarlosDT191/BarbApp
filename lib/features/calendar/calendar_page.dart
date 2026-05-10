@@ -353,28 +353,33 @@ class _CalendarPageState extends State<CalendarPage> {
         unreadNotifications: unread,
       ),
 
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(height: 90),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(height: 30),
 
-          Text(
-            'Mis reservas',
-            style: TextStyle(
-              fontSize: 33,
-              color: Color.fromARGB(255, 200, 156, 125),
-              fontWeight: FontWeight.bold,
+            Text(
+              'Mis reservas',
+              style: TextStyle(
+                fontSize: 33,
+                color: Color.fromARGB(255, 200, 156, 125),
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          Text(
-            'Revisa tus reservas ya creadas o solicita alguna nueva',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color.fromARGB(255, 200, 156, 125),
+            Text(
+              'Revisa tus reservas ya creadas o solicita alguna nueva',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color.fromARGB(255, 200, 156, 125),
+              ),
             ),
-          ),
 
-          const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 24),
           if (role == 1) ...[
             _buildOwnerFilter(),
             const SizedBox(height: 24),
@@ -549,8 +554,13 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-        ],
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

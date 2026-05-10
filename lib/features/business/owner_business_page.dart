@@ -2105,7 +2105,7 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
                 _isDeleting ? 'Eliminando...' : 'Desvincular negocio',
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
           ],
         ),
       ),
@@ -2692,7 +2692,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
         title: const Text('Editar negocio'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         child: Column(
           children: [
             Row(
