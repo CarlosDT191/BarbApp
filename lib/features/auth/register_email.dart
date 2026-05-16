@@ -146,6 +146,8 @@ class _RegisterEmailState extends State<RegisterEmail> {
       }
 
       await saveUserSessions(token, role);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool("show_welcome_tab", true);
 
       for(int i=0; i<2; ++i){
         Navigator.pop(context);

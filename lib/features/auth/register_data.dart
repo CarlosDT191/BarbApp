@@ -62,6 +62,8 @@ class _RegisterPageState extends State<RegisterPage> {
         String userToken = data["token"];
         int role = data["user"]["role"];
         saveUserSessions(userToken, role);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool("show_welcome_tab", true);
 
         setState(() {
           errorMessage = null;

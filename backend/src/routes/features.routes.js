@@ -48,8 +48,22 @@ router.get("/businesses", authMiddleware, businessesController.listBusinesses);
 // Obtener detalle de un negocio registrado
 router.get("/businesses/:businessId", authMiddleware, businessesController.getBusinessDetails);
 
+// Obtener ingresos estimados del negocio
+router.get(
+	"/businesses/:businessId/revenue",
+	authMiddleware,
+	businessesController.getBusinessRevenue,
+);
+
 // Obtener disponibilidad de un negocio por servicio y fecha
 router.get("/businesses/:businessId/availability", authMiddleware, businessesController.getBusinessAvailability);
+
+// Actualizar dias de vacaciones del negocio
+router.put(
+	"/businesses/:businessId/vacations",
+	authMiddleware,
+	businessesController.updateBusinessVacationDays,
+);
 
 // Crear negocio
 router.post("/businesses", authMiddleware, businessesController.createBusiness);

@@ -29,6 +29,7 @@ class HomePageOwner extends StatefulWidget {
 
 class _HomePageOwnerState extends State<HomePageOwner> {
   static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
+  static const Color _searchButtonHoldColor = Color.fromARGB(255, 173, 124, 92);
   static const Color _registeredSheetBackgroundColor = Color.fromARGB(
     255,
     23,
@@ -36,6 +37,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     23,
   );
   static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
+  static const String _welcomePrefsKey = "show_welcome_tab";
 
   int _selectedIndex = 2;
   int unread = 0;
@@ -82,6 +84,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   bool _isLoadingNearbyBusinesses = false;
   bool _isLoadingSearchSuggestions = false;
   bool _hasSearched = false;
+  bool _isSearchButtonActive = false;
+  bool _isSearchButtonPressed = false;
+  bool _welcomeTabShown = false;
   bool _filterBarberia = true;
   bool _filterPeluqueria = true;
   bool _filterRegisteredOnly = false;
@@ -291,6 +296,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       _isLoadingSearchSuggestions = false;
       _searchSuggestions.clear();
       _hasSearched = false;
+      _isSearchButtonActive = false;
+      _isSearchButtonPressed = false;
       if (clearText) {
         _searchController.clear();
       }
@@ -311,11 +318,13 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         _hasSearched;
 
     if (query.length < 2) {
-      if (shouldReset) {
+      if (shouldReset || _isSearchButtonActive || _isSearchButtonPressed) {
         setState(() {
           _isLoadingSearchSuggestions = false;
           _searchSuggestions.clear();
           _hasSearched = false;
+          _isSearchButtonActive = false;
+          _isSearchButtonPressed = false;
         });
       }
       if (!_searchFocusNode.hasFocus) {
@@ -332,6 +341,24 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       });
     }
 
+    if (!_searchFocusNode.hasFocus) {
+      _searchFocusNode.requestFocus();
+    }
+  }
+
+  void _handleSearchTap() {
+    final query = _searchController.text.trim();
+    final canActivate = query.length >= 2;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSearchButtonActive = canActivate;
+    });
+
+    _fetchAutocompleteSuggestions(query);
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
@@ -1071,7 +1098,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 60).',
+                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 120).',
                                   style: TextStyle(
                                     color: Colors.white54,
                                     fontSize: 12,
@@ -2349,7 +2376,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                             ),
                             const SizedBox(height: 16),
 
-                            /*if (shouldShowOffers) ...[
+                            if (shouldShowOffers) ...[
                               _buildOffersSection(
                                 businessId: businessId,
                                 cardColor: infoCardColor,
@@ -2358,7 +2385,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                 iconColor: iconColor,
                               ),
                               const SizedBox(height: 16),
-                            ],*/
+                            ],
 
                             Row(
                               children: [
@@ -2572,7 +2599,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       ],
     );
   }
-/*
+
   IconData _iconForServiceType(String serviceType) {
     for (final option in kServiceTypeOptions) {
       if (option.label == serviceType) {
@@ -2663,6 +2690,66 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     required Color iconColor,
   }) {
     final maxHeight = MediaQuery.of(context).size.height * 0.34;
+    Widget buildOffersContent(List<BookingBusinessOffer> offers) {
+      if (offers.isEmpty) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text(
+            'Sin ofertas disponibles.',
+            style: TextStyle(color: Colors.white70),
+          ),
+        );
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ofertas',
+              style: TextStyle(
+                color: titleColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemCount: offers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  return _buildOfferRow(
+                    offer: offers[index],
+                    titleColor: titleColor,
+                    subtitleColor: subtitleColor,
+                    iconColor: iconColor,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final cached = _businessDetailsCache[businessId];
+    if (cached != null) {
+      return buildOffersContent(cached.offers);
+    }
 
     return FutureBuilder<BookingBusinessDetails?>(
       future: _getBusinessDetails(businessId),
@@ -2695,54 +2782,171 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         }
 
         final offers = snapshot.data?.offers ?? const <BookingBusinessOffer>[];
-        if (offers.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Text(
-              'Sin ofertas disponibles.',
-              style: TextStyle(color: Colors.white70),
-            ),
-          );
-        }
+        return buildOffersContent(offers);
+      },
+    );
+  }
 
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(16),
+  Widget _buildWelcomeItem({
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: _primaryColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(text: description),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+    );
+  }
+
+  Future<void> _maybeShowWelcomeTab() async {
+    if (_welcomeTabShown) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final shouldShow = prefs.getBool(_welcomePrefsKey) ?? false;
+    if (!shouldShow || !mounted) {
+      return;
+    }
+
+    _welcomeTabShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _showWelcomeTab();
+    });
+  }
+
+  Future<void> _dismissWelcomeTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_welcomePrefsKey, false);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _showWelcomeTab() {
+    const subtitle =
+        'Esta app sobre negocios de peluquería y barbería contiene múltiples herramientas para ayudar a tu negocio y a gestionar tus reservas en otros negocios.';
+
+    final items = <Map<String, dynamic>>[
+      {
+        'title': 'Calendario',
+        'description':
+            'Consulta reservas y citas de tus negocios, además de tus reservas.',
+        'icon': Icons.calendar_month,
+      },
+      {
+        'title': 'Negocios',
+        'description': 'Gestiona tus negocios, servicios y horarios.',
+        'icon': Icons.home_work_rounded,
+      },
+      {
+        'title': 'Mapa',
+        'description': 'Explora negocios cercanos y tu ubicación.',
+        'icon': Icons.map,
+      },
+      {
+        'title': 'Notificaciones',
+        'description': 'Recibe avisos de reservas, citas y novedades.',
+        'icon': Icons.notifications,
+      },
+      {
+        'title': 'Perfil',
+        'description': 'Actualiza tus datos y preferencias.',
+        'icon': Icons.person,
+      },
+    ];
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color.fromARGB(255, 23, 23, 23),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Stack(
             children: [
-              Text(
-                'Ofertas',
-                style: TextStyle(
-                  color: titleColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 6),
+                      const Text(
+                        '¡Bienvenid@ a BarbApp!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        subtitle,
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        textAlign: TextAlign.justify,
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Guía rápida',
+                        style: TextStyle(
+                          color: _primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...items.map((item) {
+                        return _buildWelcomeItem(
+                          title: item['title'] ?? '',
+                          description: item['description'] ?? '',
+                          icon: item['icon'] as IconData? ?? Icons.info,
+                        );
+                      }).toList(),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxHeight),
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  shrinkWrap: true,
-                  physics: const ClampingScrollPhysics(),
-                  itemCount: offers.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    return _buildOfferRow(
-                      offer: offers[index],
-                      titleColor: titleColor,
-                      subtitleColor: subtitleColor,
-                      iconColor: iconColor,
-                    );
-                  },
+              Positioned(
+                top: 6,
+                right: 6,
+                child: IconButton(
+                  onPressed: _dismissWelcomeTab,
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Cerrar',
                 ),
               ),
             ],
@@ -2751,7 +2955,6 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       },
     );
   }
-*/
   List<Widget> _buildRatingStars(double rating, {double size = 22}) {
     final clamped = rating.clamp(0, 5);
     final fullStars = clamped.floor();
@@ -2879,6 +3082,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
     initNotifications();
     _initializeNearbySearch();
+    _maybeShowWelcomeTab();
   }
 
   /// Inicializa y actualiza el listado de notificaciones no leídas.
@@ -2896,7 +3100,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
   @override
   Widget build(BuildContext context) {
-    final isSearchActive = _searchFocusNode.hasFocus;
+    final isSearchActive = _isSearchButtonActive;
+    final isSearchPressed = _isSearchButtonPressed;
     return Scaffold(
       // BARRA INFERIOR CON LOS ICONOS
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -3062,7 +3267,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                       textInputAction: TextInputAction.search,
                       onChanged: _onSearchQueryChanged,
                       onSubmitted: (value) {
-                        _fetchAutocompleteSuggestions(value.trim());
+                        _handleSearchTap();
                         if (!_searchFocusNode.hasFocus) {
                           _searchFocusNode.requestFocus();
                         }
@@ -3082,35 +3287,54 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                     ),
                   ),
 
-                  const SizedBox(width: 8),
-
                   GestureDetector(
-                    onTap: () {
-                      _fetchAutocompleteSuggestions(
-                        _searchController.text.trim(),
-                      );
-                      if (!_searchFocusNode.hasFocus) {
-                        _searchFocusNode.requestFocus();
+                    onTap: _handleSearchTap,
+                    onLongPress: _handleSearchTap,
+                    onLongPressStart: (_) {
+                      final query = _searchController.text.trim();
+                      if (query.length < 2 || !mounted) {
+                        return;
                       }
+                      setState(() {
+                        _isSearchButtonPressed = true;
+                      });
+                    },
+                    onLongPressEnd: (_) {
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _isSearchButtonPressed = false;
+                      });
+                    },
+                    onLongPressCancel: () {
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _isSearchButtonPressed = false;
+                      });
                     },
                     child: Container(
-                      width: 34,
-                      height: 34,
+                      width: 64,
+                      height: double.infinity,
                       decoration: BoxDecoration(
-                        color: isSearchActive
-                            ? _primaryColor
-                            : const Color.fromARGB(255, 200, 200, 200),
-                        borderRadius: BorderRadius.circular(17),
+                        color: isSearchPressed
+                            ? _searchButtonHoldColor
+                            : (isSearchActive
+                                ? _primaryColor
+                                : const Color.fromARGB(255, 215, 216, 219)),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(30),
+                        ),
                       ),
                       child: const Icon(
                         Icons.search,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),
-
-                  const SizedBox(width: 12),
                 ],
               ),
             ),

@@ -23,6 +23,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? firstname;
   String? lastname;
   String? email;
+  String? authProvider;
   bool isLoading = true;
   int _selectedIndex = 4;
   int unread = 0;
@@ -124,6 +125,7 @@ class _ProfilePageState extends State<ProfilePage> {
         firstname = userData['firstname'] ?? "Usuario";
         lastname = userData['lastname'] ?? "";
         email = userData['email'] ?? "correo@email.com";
+        authProvider = userData['auth_provider']?.toString().toLowerCase();
         isLoading = false;
       });
     } catch (e) {
@@ -410,14 +412,15 @@ class _ProfilePageState extends State<ProfilePage> {
                       loadUserData(); // 👈 recargar datos
                     }
                   }),
-                  _buildOption(Icons.lock_rounded, "Cambiar contraseña", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChangePasswordPage(),
-                      ),
-                    );
-                  }),
+                  if (authProvider != 'google')
+                    _buildOption(Icons.lock_rounded, "Cambiar contraseña", () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChangePasswordPage(),
+                        ),
+                      );
+                    }),
                   _buildOption(Icons.logout, "Cerrar sesión", () {
                     _showLogoutConfirmation();
                   }),

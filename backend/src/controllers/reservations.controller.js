@@ -13,6 +13,18 @@ const {
   buildSlotTimesForSchedule,
 } = require('../config/features');
 
+const isVacationDay = (vacationDays, normalizedDate) => {
+  if (!normalizedDate || !Array.isArray(vacationDays)) {
+    return false;
+  }
+
+  const targetTime = normalizedDate.getTime();
+  return vacationDays.some((day) => {
+    const time = new Date(day).getTime();
+    return Number.isFinite(time) && time === targetTime;
+  });
+};
+
 /**
  * Obtiene todas las reservas del usuario autenticado
  * Ordena las reservas por fecha de forma ascendente
@@ -175,6 +187,11 @@ exports.createReservation = async (req, res) => {
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
+    if (isVacationDay(business.vacationDays, normalizedDate)) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 409 (Dia vacacional)`);
+      return res.status(409).json({ error: "El negocio está en periodo vacacional" });
+    }
+
     const offers = Array.isArray(business.offers) ? business.offers : [];
     const selectedOffer = offers[normalizedOfferIndex];
     if (!selectedOffer) {
@@ -212,9 +229,10 @@ exports.createReservation = async (req, res) => {
       block.start < slotEnd && block.end > timeMinutes
     )).length;
 
-    const capacity = Number.isInteger(business.employeeCount) && business.employeeCount >= 0
-      ? business.employeeCount + 1
+    const rawEmployeeCount = Number.isInteger(business.employeeCount)
+      ? business.employeeCount
       : 1;
+    const capacity = Math.max(1, rawEmployeeCount);
 
     if (overlappingCount >= capacity) {
       console.log(`${ip} - - [ ${log_date} ] "POST /reservations" 409 (Cupo no disponible)`);
@@ -370,6 +388,11 @@ exports.createAppointment = async (req, res) => {
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
+    if (isVacationDay(business.vacationDays, normalizedDate)) {
+      console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 409 (Dia vacacional)`);
+      return res.status(409).json({ error: "El negocio está en periodo vacacional" });
+    }
+
     if (String(business.owner) !== String(userId)) {
       console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 403 (No autorizado)`);
       return res.status(403).json({ error: "No autorizado" });
@@ -412,9 +435,10 @@ exports.createAppointment = async (req, res) => {
       block.start < slotEnd && block.end > timeMinutes
     )).length;
 
-    const capacity = Number.isInteger(business.employeeCount) && business.employeeCount >= 0
-      ? business.employeeCount + 1
+    const rawEmployeeCount = Number.isInteger(business.employeeCount)
+      ? business.employeeCount
       : 1;
+    const capacity = Math.max(1, rawEmployeeCount);
 
     if (overlappingCount >= capacity) {
       console.log(`${ip} - - [ ${log_date} ] "POST /appointments" 409 (Cupo no disponible)`);

@@ -28,7 +28,7 @@ class GoogleCalendarService {
     final account = await _googleSignIn.signIn();
 
     if (account == null) {
-      throw Exception('Inicio de sesion cancelado');
+      throw Exception('Exportación cancelada por falta de especificación de cuenta');
     }
 
     final client = await _googleSignIn.authenticatedClient();

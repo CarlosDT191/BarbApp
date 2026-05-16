@@ -104,6 +104,10 @@ const businessSchema = new mongoose.Schema({
     type: [businessDayScheduleSchema],
     default: [],
   },
+  vacationDays: {
+    type: [Date],
+    default: [],
+  },
   scheduleMode: {
     type: String,
     enum: ["single", "by_day"],

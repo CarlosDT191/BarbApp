@@ -10,6 +10,7 @@ import 'package:flutter_application_1/features/calendar/models/calendar_entry.da
 import 'package:flutter_application_1/models/reservation.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_application_1/services/user_service.dart';
+import 'package:flutter_application_1/services/business_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
@@ -29,6 +30,8 @@ class _CalendarPageState extends State<CalendarPage> {
   int? role = 0;
   CalendarOwnerFilter _ownerFilter = CalendarOwnerFilter.all;
   bool _isExporting = false;
+  bool _hasSingleBusiness = false;
+  Set<String> _vacationDays = {};
 
   Map<DateTime, List<CalendarEntry>> _calendarEntries = {};
   final ReservationService _reservationService = ReservationService();
@@ -63,6 +66,7 @@ class _CalendarPageState extends State<CalendarPage> {
       role = r;
     });
     await fetchCalendarEntries();
+    await _loadOwnerVacationDays();
   }
 
   /// Obtiene todas las reservas del usuario del servidor.
@@ -341,6 +345,83 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
+  String _dateKey(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  bool _isVacationDay(DateTime day) {
+    return _vacationDays.contains(_dateKey(day));
+  }
+
+  Future<void> _loadOwnerVacationDays() async {
+    if (role != 1) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _hasSingleBusiness = false;
+        _vacationDays = {};
+      });
+      return;
+    }
+
+    try {
+      final businesses = await BusinessService.getMyBusinesses();
+      if (!mounted) {
+        return;
+      }
+
+      if (businesses.length != 1) {
+        setState(() {
+          _hasSingleBusiness = false;
+          _vacationDays = {};
+        });
+        return;
+      }
+
+      final business = businesses.first;
+      final businessId =
+          (business['_id'] ?? business['id'])?.toString().trim() ?? '';
+      if (businessId.isEmpty) {
+        setState(() {
+          _hasSingleBusiness = false;
+          _vacationDays = {};
+        });
+        return;
+      }
+
+      final details = await BusinessService.getBusinessDetailsPayload(
+        businessId: businessId,
+      );
+      final rawDays = details['vacationDays'] as List<dynamic>? ?? const [];
+      final dayKeys = rawDays
+          .map((rawDay) => DateTime.tryParse(rawDay.toString()))
+          .whereType<DateTime>()
+          .map(_dateKey)
+          .toSet();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _hasSingleBusiness = true;
+        _vacationDays = dayKeys;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _hasSingleBusiness = false;
+        _vacationDays = {};
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -415,6 +496,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2030, 12, 31),
                 focusedDay: _focusedDay,
+                holidayPredicate: (day) {
+                  return _hasSingleBusiness && _isVacationDay(day);
+                },
 
                 selectedDayPredicate: (day) {
                   return isSameDay(_selectedDay, day);
@@ -501,6 +585,11 @@ class _CalendarPageState extends State<CalendarPage> {
                 calendarStyle: CalendarStyle(
                   defaultTextStyle: TextStyle(color: textColor),
                   weekendTextStyle: TextStyle(color: primaryColor),
+                  holidayDecoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  holidayTextStyle: const TextStyle(color: Colors.white),
 
                   todayDecoration: BoxDecoration(
                     color: primaryColor.withOpacity(0.5),

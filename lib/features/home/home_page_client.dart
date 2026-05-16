@@ -30,6 +30,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
+  static const Color _searchButtonHoldColor = Color.fromARGB(255, 173, 124, 92);
   static const Color _registeredSheetBackgroundColor = Color.fromARGB(
     255,
     23,
@@ -37,6 +38,7 @@ class _HomePageState extends State<HomePage> {
     23,
   );
   static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
+  static const String _welcomePrefsKey = "show_welcome_tab";
 
   int _selectedIndex = 2;
   int unread = 0;
@@ -84,6 +86,9 @@ class _HomePageState extends State<HomePage> {
   bool _isLoadingNearbyBusinesses = false;
   bool _isLoadingSearchSuggestions = false;
   bool _hasSearched = false;
+  bool _isSearchButtonActive = false;
+  bool _isSearchButtonPressed = false;
+  bool _welcomeTabShown = false;
   bool _filterBarberia = true;
   bool _filterPeluqueria = true;
   bool _filterRegisteredOnly = false;
@@ -274,6 +279,8 @@ class _HomePageState extends State<HomePage> {
       _isLoadingSearchSuggestions = false;
       _searchSuggestions.clear();
       _hasSearched = false;
+      _isSearchButtonActive = false;
+      _isSearchButtonPressed = false;
       if (clearText) {
         _searchController.clear();
       }
@@ -294,11 +301,13 @@ class _HomePageState extends State<HomePage> {
         _hasSearched;
 
     if (query.length < 2) {
-      if (shouldReset) {
+      if (shouldReset || _isSearchButtonActive || _isSearchButtonPressed) {
         setState(() {
           _isLoadingSearchSuggestions = false;
           _searchSuggestions.clear();
           _hasSearched = false;
+          _isSearchButtonActive = false;
+          _isSearchButtonPressed = false;
         });
       }
       if (!_searchFocusNode.hasFocus) {
@@ -315,6 +324,24 @@ class _HomePageState extends State<HomePage> {
       });
     }
 
+    if (!_searchFocusNode.hasFocus) {
+      _searchFocusNode.requestFocus();
+    }
+  }
+
+  void _handleSearchTap() {
+    final query = _searchController.text.trim();
+    final canActivate = query.length >= 2;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSearchButtonActive = canActivate;
+    });
+
+    _fetchAutocompleteSuggestions(query);
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
@@ -1049,7 +1076,7 @@ class _HomePageState extends State<HomePage> {
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 60).',
+                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 120).',
                                   style: TextStyle(
                                     color: Colors.white54,
                                     fontSize: 12,
@@ -2860,6 +2887,174 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildWelcomeItem({
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: _primaryColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(text: description),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _maybeShowWelcomeTab() async {
+    if (_welcomeTabShown) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final shouldShow = prefs.getBool(_welcomePrefsKey) ?? false;
+    if (!shouldShow || !mounted) {
+      return;
+    }
+
+    _welcomeTabShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _showWelcomeTab();
+    });
+  }
+
+  Future<void> _dismissWelcomeTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_welcomePrefsKey, false);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _showWelcomeTab() {
+    const subtitle =
+        'Esta app sobre negocios de peluquería y barbería contiene múltiples herramientas para ayudar a descubrir infinidad de locales, observar sus ofertas desde cualquier lugar y poder reservar en locales registrados.';
+
+    final items = <Map<String, dynamic>>[
+      {
+        'title': 'Calendario',
+        'description': 'Consulta y gestiona tus reservas.',
+        'icon': Icons.calendar_month,
+      },
+      {
+        'title': 'Favoritos',
+        'description': 'Guarda locales para acceder rápido a ellos.',
+        'icon': Icons.bookmark_rounded,
+      },
+      {
+        'title': 'Mapa',
+        'description': 'Descubre negocios cercanos y sus ofertas.',
+        'icon': Icons.map,
+      },
+      {
+        'title': 'Notificaciones',
+        'description': 'Recibe avisos de reservas y novedades.',
+        'icon': Icons.notifications,
+      },
+      {
+        'title': 'Perfil',
+        'description': 'Actualiza tus datos y preferencias.',
+        'icon': Icons.person,
+      },
+    ];
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color.fromARGB(255, 23, 23, 23),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Stack(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 6),
+                      const Text(
+                        '¡Bienvenid@ a BarbApp!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        subtitle,
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        textAlign: TextAlign.justify,
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Guía rápida',
+                        style: TextStyle(
+                          color: _primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...items.map((item) {
+                        return _buildWelcomeItem(
+                          title: item['title'] ?? '',
+                          description: item['description'] ?? '',
+                          icon: item['icon'] as IconData? ?? Icons.info,
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: IconButton(
+                  onPressed: _dismissWelcomeTab,
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Cerrar',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   List<Widget> _buildRatingStars(double rating, {double size = 22}) {
     final clamped = rating.clamp(0, 5);
     final fullStars = clamped.floor();
@@ -3004,6 +3199,7 @@ class _HomePageState extends State<HomePage> {
     initNotifications();
     _initializeNearbySearch();
     _loadFavoriteBusinessIds();
+    _maybeShowWelcomeTab();
   }
 
   void initNotifications() async {
@@ -3017,7 +3213,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isSearchActive = _searchFocusNode.hasFocus;
+    final isSearchActive = _isSearchButtonActive;
+    final isSearchPressed = _isSearchButtonPressed;
     return Scaffold(
       // BARRA INFERIOR CON LOS ICONOS
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -3183,7 +3380,7 @@ class _HomePageState extends State<HomePage> {
                       textInputAction: TextInputAction.search,
                       onChanged: _onSearchQueryChanged,
                       onSubmitted: (value) {
-                        _fetchAutocompleteSuggestions(value.trim());
+                        _handleSearchTap();
                         if (!_searchFocusNode.hasFocus) {
                           _searchFocusNode.requestFocus();
                         }
@@ -3206,35 +3403,54 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
-                  const SizedBox(width: 8),
-
                   GestureDetector(
-                    onTap: () {
-                      _fetchAutocompleteSuggestions(
-                        _searchController.text.trim(),
-                      );
-                      if (!_searchFocusNode.hasFocus) {
-                        _searchFocusNode.requestFocus();
+                    onTap: _handleSearchTap,
+                    onLongPress: _handleSearchTap,
+                    onLongPressStart: (_) {
+                      final query = _searchController.text.trim();
+                      if (query.length < 2 || !mounted) {
+                        return;
                       }
+                      setState(() {
+                        _isSearchButtonPressed = true;
+                      });
+                    },
+                    onLongPressEnd: (_) {
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _isSearchButtonPressed = false;
+                      });
+                    },
+                    onLongPressCancel: () {
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _isSearchButtonPressed = false;
+                      });
                     },
                     child: Container(
-                      width: 34,
-                      height: 34,
+                      width: 64,
+                      height: double.infinity,
                       decoration: BoxDecoration(
-                        color: isSearchActive
-                            ? _primaryColor
-                            : const Color.fromARGB(255, 200, 200, 200),
-                        borderRadius: BorderRadius.circular(17),
+                        color: isSearchPressed
+                            ? _searchButtonHoldColor
+                            : (isSearchActive
+                                ? _primaryColor
+                                : const Color.fromARGB(255, 215, 216, 219)),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(30),
+                        ),
                       ),
                       child: const Icon(
                         Icons.search,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),
-
-                  const SizedBox(width: 12),
                 ],
               ),
             ),

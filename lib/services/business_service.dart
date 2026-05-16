@@ -196,6 +196,95 @@ class BusinessService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  static Future<BookingBusinessDetails> getBusinessDetails({
+    required String businessId,
+  }) async {
+    final token = await _getRequiredToken();
+
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/businesses/$businessId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener negocio: ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return BookingBusinessDetails.fromJson(decoded);
+  }
+
+  static Future<Map<String, dynamic>> getBusinessDetailsPayload({
+    required String businessId,
+  }) async {
+    final token = await _getRequiredToken();
+
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/businesses/$businessId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener negocio: ${response.body}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getBusinessRevenue({
+    required String businessId,
+  }) async {
+    final token = await _getRequiredToken();
+
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/businesses/$businessId/revenue'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al obtener ingresos: ${response.body}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<List<String>> updateBusinessVacationDays({
+    required String businessId,
+    required List<String> vacationDays,
+  }) async {
+    final token = await _getRequiredToken();
+
+    final response = await http.put(
+      Uri.parse('$_apiBaseUrl/businesses/$businessId/vacations'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'vacationDays': vacationDays,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error al actualizar vacaciones: ${response.body}',
+      );
+    }
+
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawDays = payload['vacationDays'] as List<dynamic>? ?? const [];
+    return rawDays.map((day) => day.toString()).toList();
+  }
+
   static Future<void> deleteBusiness({required String businessId}) async {
     final token = await _getRequiredToken();
 
@@ -270,32 +359,6 @@ class BusinessService {
         .whereType<Map<String, dynamic>>()
         .map((item) => BookingBusinessSummary.fromJson(item))
         .toList(growable: false);
-  }
-
-  static Future<BookingBusinessDetails> getBusinessDetails({
-    required String businessId,
-  }) async {
-    final token = await _getRequiredToken();
-    final normalizedId = businessId.trim();
-
-    if (normalizedId.isEmpty) {
-      throw Exception('businessId es obligatorio');
-    }
-
-    final response = await http.get(
-      Uri.parse('$_apiBaseUrl/businesses/$normalizedId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Error al obtener negocio: ${response.body}');
-    }
-
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    return BookingBusinessDetails.fromJson(decoded);
   }
 
   static Future<BookingAvailability> getBusinessAvailability({
