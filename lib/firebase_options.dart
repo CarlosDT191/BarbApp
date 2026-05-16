@@ -23,11 +23,20 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        return ios;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for iOS - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macOS - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -58,6 +67,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'barbapp-ff512.firebasestorage.app',
   );
 
+/*
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBF-WpUJjqDmlSiKG8shUfeiR18N4DaMzA',
     appId: '1:512164057072:ios:de0ddcdfba6918d4aa5735',
@@ -85,4 +95,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'barbapp-ff512.firebasestorage.app',
     measurementId: 'G-883KMNWVZ5',
   );
+  );*/
 }

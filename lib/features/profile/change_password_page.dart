@@ -100,14 +100,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
                 if (mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Contraseña actualizada exitosamente")),
+                  InputDecorations.showTopSnackBarSuccess(
+                    context,
+                    'Contraseña actualizada exitosamente',
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Error: $e")),
+                  InputDecorations.showTopSnackBarError(
+                    context,
+                    "Error: $e",
                   );
                 }
               }
@@ -134,8 +136,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al cargar datos: $e")),
+      InputDecorations.showTopSnackBarError(
+        context,
+        "Error al cargar datos: $e",
       );
     }
   }
