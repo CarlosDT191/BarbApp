@@ -2187,10 +2187,14 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
   static const _primaryColor = Color.fromARGB(255, 200, 156, 125);
   static const _backgroundColor = Color.fromARGB(255, 23, 23, 23);
   static const _cardColor = Color.fromARGB(255, 30, 30, 30);
+  static const _weeklyChartColor = Color.fromARGB(255, 156, 191, 174);
 
   bool _isLoading = true;
   String? _error;
   List<_BusinessRevenueMonth> _months = [];
+  int _selectedMonthIndex = 0;
+  final NumberFormat _amountFormatter = NumberFormat('#,##0.##', 'es_ES');
+  final NumberFormat _compactFormatter = NumberFormat.compact(locale: 'es_ES');
 
   @override
   void initState() {
@@ -2211,14 +2215,31 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
             }
             final year = (item['year'] as num?)?.toInt();
             final month = (item['month'] as num?)?.toInt();
-            final total = (item['total'] as num?)?.toDouble() ?? 0;
+            final total = (item['total'] as num?)?.toDouble();
+            final rawWeeks = item['weeks'];
+            List<double> weeks = [];
+            if (rawWeeks is List) {
+              weeks = rawWeeks
+                  .map((value) => (value as num?)?.toDouble() ?? 0.0)
+                  .toList();
+            }
+            if (weeks.isEmpty) {
+              weeks = List.filled(5, 0.0);
+            } else if (weeks.length < 5) {
+              weeks = [...weeks, ...List.filled(5 - weeks.length, 0.0)];
+            } else if (weeks.length > 5) {
+              weeks = weeks.sublist(0, 5);
+            }
             if (year == null || month == null) {
               return null;
             }
+            final double resolvedTotal =
+                total ?? weeks.fold(0.0, (sum, value) => sum + value);
             return _BusinessRevenueMonth(
               year: year,
               month: month,
-              total: total,
+              total: resolvedTotal,
+              weeklyTotals: weeks,
             );
           })
           .whereType<_BusinessRevenueMonth>()
@@ -2228,8 +2249,15 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
         return;
       }
 
+      final nextIndex = months.isEmpty
+          ? 0
+          : (_months.isEmpty
+              ? months.length - 1
+              : _selectedMonthIndex.clamp(0, months.length - 1));
+
       setState(() {
         _months = months;
+        _selectedMonthIndex = nextIndex;
         _isLoading = false;
         _error = null;
       });
@@ -2245,6 +2273,123 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
     }
   }
 
+  String _formatAmount(double amount) {
+    return '${_amountFormatter.format(amount)} EUR';
+  }
+
+  String _formatCompactAmount(double amount) {
+    return _compactFormatter.format(amount);
+  }
+
+  Widget _buildRevenueCard({
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (trailing == null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                trailing,
+              ],
+            ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ToggleButtons(
+        isSelected: List<bool>.generate(
+          _months.length,
+          (index) => index == _selectedMonthIndex,
+        ),
+        onPressed: (index) {
+          setState(() {
+            _selectedMonthIndex = index;
+          });
+        },
+        borderRadius: BorderRadius.circular(14),
+        selectedBorderColor: _primaryColor,
+        borderColor: Colors.white24,
+        selectedColor: Colors.white,
+        fillColor: _primaryColor,
+        color: Colors.white70,
+        constraints: const BoxConstraints(minHeight: 38, minWidth: 52),
+        children: _months
+            .map(
+              (month) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  month.shortLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2258,69 +2403,120 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
           ? const Center(
               child: CircularProgressIndicator(color: _primaryColor),
             )
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
+              children: [
+                Text(
+                  widget.business.name,
+                  style: const TextStyle(
+                    color: _primaryColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Estos ingresos se calculan para los meses ya completados, con las citas registradas en la app. Si alguna cita no se realizó, puedes eliminarla y el total se ajustará.',
+                  style: TextStyle(color: Colors.white70),
+                  textAlign: TextAlign.justify,
+                ),
+                const SizedBox(height: 20),
+                if (_error != null)
                   Text(
-                    widget.business.name,
-                    style: const TextStyle(
-                      color: _primaryColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                    _error!,
+                    style: const TextStyle(color: Colors.redAccent),
+                  )
+                else if (_months.isEmpty)
                   const Text(
-                    'Esta cantidad monetaria ha sido obtenida a través del conjunto de las citas registradas en la app de BarbApp. Si ha habido alguna cita que no se haya realizado finalmente, intenta eliminarla y se actualizará correctamente la cantidad.',
+                    'Aun no hay ingresos registrados en los ultimos meses.',
                     style: TextStyle(color: Colors.white70),
-                    textAlign: TextAlign.justify
-                  ),
-                  const SizedBox(height: 20),
-                  if (_error != null)
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.redAccent),
-                    )
-                  else
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: _months.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final month = _months[index];
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: _cardColor,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  month.label,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  '${month.total.toStringAsFixed(2)} EUR',
-                                  style: const TextStyle(
-                                    color: _primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                  )
+                else ...[
+                  _buildRevenueCard(
+                    title: 'Ingresos en los ultimos 6 meses',
+                    subtitle: 'Total estimado por mes.',
+                    trailing: Text(
+                      _formatAmount(
+                        _months.fold(0.0, (sum, month) => sum + month.total),
+                      ),
+                      style: const TextStyle(
+                        color: _primaryColor,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                    child: _RevenueLineChart(
+                      values: _months.map((month) => month.total).toList(),
+                      labels: _months.map((month) => month.shortLabel).toList(),
+                      lineColor: _primaryColor,
+                        maxValue: _months.isEmpty
+                          ? 0.0
+                          : _months
+                              .map((month) => month.total)
+                            .reduce((a, b) => a > b ? a : b),
+                      valueFormatter: _formatCompactAmount,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildRevenueCard(
+                    title: 'Ingresos semanales por mes',
+                    subtitle: 'Selecciona un mes para ver el detalle semanal.',
+                    trailing: Text(
+                      _formatAmount(
+                        _months[_selectedMonthIndex.clamp(
+                          0,
+                          _months.length - 1,
+                        )]
+                            .total,
+                      ),
+                      style: const TextStyle(
+                        color: _weeklyChartColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMonthSelector(),
+                        const SizedBox(height: 16),
+                        Text(
+                          _months[_selectedMonthIndex.clamp(
+                            0,
+                            _months.length - 1,
+                          )]
+                              .label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _RevenueLineChart(
+                          values: _months[_selectedMonthIndex.clamp(
+                            0,
+                            _months.length - 1,
+                          )]
+                              .weeklyTotals,
+                          labels: const [
+                            'Sem 1',
+                            'Sem 2',
+                            'Sem 3',
+                            'Sem 4',
+                            'Sem 5'
+                          ],
+                          lineColor: _weeklyChartColor,
+                          maxValue: _months[_selectedMonthIndex.clamp(
+                            0,
+                            _months.length - 1,
+                          )]
+                              .weeklyTotals
+                              .reduce((a, b) => a > b ? a : b),
+                          valueFormatter: _formatCompactAmount,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
+              ],
             ),
     );
   }
@@ -2537,16 +2733,228 @@ class _BusinessRevenueMonth {
     required this.year,
     required this.month,
     required this.total,
+    required this.weeklyTotals,
   });
 
   final int year;
   final int month;
   final double total;
+  final List<double> weeklyTotals;
 
   String get label {
     final date = DateTime.utc(year, month, 1);
     final formatter = DateFormat('MMMM yyyy', 'es_ES');
     return formatter.format(date);
+  }
+
+  String get shortLabel {
+    final date = DateTime.utc(year, month, 1);
+    final formatter = DateFormat('MMM', 'es_ES');
+    final raw = formatter.format(date).replaceAll('.', '');
+    if (raw.isEmpty) {
+      return raw;
+    }
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+}
+
+class _RevenueLineChart extends StatelessWidget {
+  const _RevenueLineChart({
+    required this.values,
+    required this.labels,
+    required this.lineColor,
+    required this.maxValue,
+    required this.valueFormatter,
+    this.height = 180,
+  });
+
+  final List<double> values;
+  final List<String> labels;
+  final Color lineColor;
+  final double maxValue;
+  final String Function(double value) valueFormatter;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (values.isEmpty) {
+      return SizedBox(
+        height: height,
+        child: const Center(
+          child: Text(
+            'Sin datos',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
+
+    final safeMax = maxValue <= 0 ? 1.0 : maxValue;
+
+    return SizedBox(
+      height: height,
+      child: Column(
+        children: [
+          Row(
+            children: List.generate(values.length, (index) {
+              return Expanded(
+                child: Text(
+                  valueFormatter(values[index]),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: CustomPaint(
+                    painter: _LineChartPainter(
+                      values: values,
+                      maxValue: safeMax,
+                      lineColor: lineColor,
+                      fillColor: lineColor.withOpacity(0.18),
+                      gridColor: Colors.white10,
+                      horizontalPadding: 14,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(labels.length, (index) {
+              return Expanded(
+                child: Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LineChartPainter extends CustomPainter {
+  _LineChartPainter({
+    required this.values,
+    required this.maxValue,
+    required this.lineColor,
+    required this.fillColor,
+    required this.gridColor,
+    this.horizontalPadding = 0,
+  });
+
+  final List<double> values;
+  final double maxValue;
+  final Color lineColor;
+  final Color fillColor;
+  final Color gridColor;
+  final double horizontalPadding;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) {
+      return;
+    }
+
+    const paddingTop = 8.0;
+    const paddingBottom = 10.0;
+    final chartHeight = size.height - paddingTop - paddingBottom;
+    if (chartHeight <= 0) {
+      return;
+    }
+
+    final safeMax = maxValue <= 0 ? 1.0 : maxValue;
+    final leftPadding = horizontalPadding;
+    final rightPadding = horizontalPadding;
+    final availableWidth = size.width - leftPadding - rightPadding;
+    if (availableWidth <= 0) {
+      return;
+    }
+    final step = values.length > 1
+        ? (availableWidth / (values.length - 1))
+        : 0.0;
+
+    final points = <Offset>[];
+    for (var index = 0; index < values.length; index += 1) {
+      final value = values[index];
+      final ratio = value <= 0 ? 0.0 : (value / safeMax).clamp(0.0, 1.0);
+        final dx = values.length > 1
+          ? (leftPadding + (step * index))
+          : (size.width / 2);
+      final dy = paddingTop + ((1 - ratio) * chartHeight);
+      points.add(Offset(dx, dy));
+    }
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 1; i <= 3; i += 1) {
+      final y = paddingTop + (chartHeight * (i / 4));
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final areaPath = Path()
+      ..moveTo(points.first.dx, size.height - paddingBottom);
+    for (final point in points) {
+      areaPath.lineTo(point.dx, point.dy);
+    }
+    areaPath.lineTo(points.last.dx, size.height - paddingBottom);
+    areaPath.close();
+
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(areaPath, fillPaint);
+
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i += 1) {
+      linePath.lineTo(points[i].dx, points[i].dy);
+    }
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(linePath, linePaint);
+
+    final pointPaint = Paint()..color = lineColor;
+    final pointBorderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.7)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    for (final point in points) {
+      canvas.drawCircle(point, 3.5, pointPaint);
+      canvas.drawCircle(point, 3.5, pointBorderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.maxValue != maxValue ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.fillColor != fillColor ||
+        oldDelegate.gridColor != gridColor;
   }
 }
 

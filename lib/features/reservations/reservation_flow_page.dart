@@ -7,6 +7,7 @@ import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReservationFlowPage extends StatefulWidget {
   final String? initialBusinessId;
@@ -37,10 +38,14 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
   bool _isLoadingBusinessDetails = false;
   bool _isLoadingAvailability = false;
   bool _isSaving = false;
+  bool _ownedBusinessesLoaded = false;
+  bool _isOwner = false;
 
   List<BookingBusinessSummary> _businesses = [];
   BookingBusinessSummary? _selectedBusiness;
   BookingBusinessDetails? _selectedBusinessDetails;
+
+  final Set<String> _ownedBusinessIds = <String>{};
 
   int? _selectedOfferIndex;
   BookingAvailability? _availability;
@@ -76,22 +81,61 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     super.dispose();
   }
 
+  Future<void> _loadOwnedBusinessesIfNeeded() async {
+    if (_ownedBusinessesLoaded) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getInt('role') ?? 0;
+    _isOwner = role == 1;
+
+    if (!_isOwner) {
+      _ownedBusinessesLoaded = true;
+      return;
+    }
+
+    try {
+      final businesses = await BusinessService.getMyBusinesses();
+      _ownedBusinessIds.clear();
+
+      for (final business in businesses) {
+        final rawId = business['_id'] ?? business['id'] ?? business['businessId'];
+        final id = rawId?.toString().trim() ?? '';
+        if (id.isEmpty) {
+          continue;
+        }
+        _ownedBusinessIds.add(id);
+      }
+    } catch (_) {
+      _ownedBusinessIds.clear();
+    } finally {
+      _ownedBusinessesLoaded = true;
+    }
+  }
+
   Future<void> _loadBusinesses([String query = '']) async {
     setState(() {
       _isLoadingBusinesses = true;
     });
 
     try {
+      await _loadOwnedBusinessesIfNeeded();
       final businesses = await BusinessService.listRegisteredBusinesses(
         query: query,
       );
+      final filteredBusinesses = _isOwner
+          ? businesses
+              .where((business) => !_ownedBusinessIds.contains(business.id))
+              .toList()
+          : businesses;
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _businesses = businesses;
+        _businesses = filteredBusinesses;
         _isLoadingBusinesses = false;
       });
     } catch (e) {

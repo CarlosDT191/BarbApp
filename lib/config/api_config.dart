@@ -12,7 +12,7 @@ String getApiBaseUrl() {
   if (kReleaseMode) {
     // App compilada en modo release (APK o IPA)
     // Usa la IP de tu PC en la misma red Wi-Fi
-    return dotenv.env['URL_LAN']!;
+    return dotenv.env['URL_NGROK']!; // Cambia a URL_LAN si no usas ngrok
   } else {
     // App corriendo en modo debug (emulador)
     if (Platform.isAndroid) {

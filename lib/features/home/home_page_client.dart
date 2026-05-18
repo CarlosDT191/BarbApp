@@ -61,8 +61,32 @@ class _HomePageState extends State<HomePage> {
 
   static const String _mapStatePrefsKey = 'home_page_client_map_state_v1';
   static const double _defaultMapZoom = 14;
-  static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
+  static const List<String> _businessKeywordsEs = ['peluqueria', 'barberia'];
+  static const List<String> _businessKeywordsEn = ['hair salon', 'barber shop'];
   static const List<String> _placeTypes = ['barber_shop', 'hair_care'];
+  static const Set<String> _spanishCountryCodes = {
+    'AR',
+    'BO',
+    'CL',
+    'CO',
+    'CR',
+    'CU',
+    'DO',
+    'EC',
+    'ES',
+    'GQ',
+    'GT',
+    'HN',
+    'MX',
+    'NI',
+    'PA',
+    'PE',
+    'PR',
+    'PY',
+    'SV',
+    'UY',
+    'VE',
+  };
 
   // Hues personalizables para pines: registrado y no registrado.
   static const double _pinHueRegistered = 50; // AMARILLO ES 60, apagado es 50
@@ -100,6 +124,10 @@ class _HomePageState extends State<HomePage> {
   double? _filterMinPrice;
   double? _filterMaxPrice;
   final Map<String, BookingBusinessDetails> _businessDetailsCache = {};
+  bool _useEnglishKeywords = false;
+  String? _lastCountryCode;
+  LatLng? _lastCountryOrigin;
+  DateTime? _lastCountryLookupAt;
   // RADIO DEL CÍRCULO
   double _searchCircleRadiusMeters = _defaultSearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
@@ -327,6 +355,16 @@ class _HomePageState extends State<HomePage> {
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSearchButtonActive = query.length >= 2;
+      });
+      _fetchAutocompleteSuggestions(query);
+    });
   }
 
   void _handleSearchTap() {
@@ -1548,7 +1586,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  _HairBusiness? _resolveBusinessForRoute() {
+  _HairBusiness? _resolveBusinessForRoute({LatLng? origin}) {
+    final base = origin ?? _searchCenter;
     if (_selectedBusinessForRoute != null) {
       return _selectedBusinessForRoute;
     }
@@ -1561,8 +1600,8 @@ class _HomePageState extends State<HomePage> {
 
     for (final business in _hairBusinessesById.values) {
       final distance = Geolocator.distanceBetween(
-        _searchCenter.latitude,
-        _searchCenter.longitude,
+        base.latitude,
+        base.longitude,
         business.location.latitude,
         business.location.longitude,
       );
@@ -1576,8 +1615,57 @@ class _HomePageState extends State<HomePage> {
     return nearest;
   }
 
+  Future<LatLng?> _getUserLocationOrigin() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Activa la ubicacion para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Permiso de ubicacion requerido para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (_) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener la ubicacion actual.',
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _openGoogleMapsRoute({_HairBusiness? targetBusiness}) async {
-    final business = targetBusiness ?? _resolveBusinessForRoute();
+    final origin = await _getUserLocationOrigin();
+    if (origin == null) {
+      return;
+    }
+
+    final business = targetBusiness ?? _resolveBusinessForRoute(origin: origin);
 
     if (business == null) {
       if (mounted) {
@@ -1591,7 +1679,7 @@ class _HomePageState extends State<HomePage> {
 
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
-      'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
+      'origin': '${origin.latitude},${origin.longitude}',
       'destination':
           '${business.location.latitude},${business.location.longitude}',
       'travelmode': 'driving',
@@ -1650,16 +1738,108 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  bool _shouldUseEnglishForLocale() {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    return locale.languageCode.toLowerCase() != 'es';
+  }
+
+  bool _shouldUseEnglishForCountry(String? countryCode) {
+    if (countryCode == null || countryCode.trim().isEmpty) {
+      return _shouldUseEnglishForLocale();
+    }
+    return !_spanishCountryCodes.contains(countryCode.toUpperCase());
+  }
+
+  Future<String?> _fetchCountryCodeForSearchCenter(String apiKey) async {
+    final lat = _searchCenter.latitude;
+    final lng = _searchCenter.longitude;
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json'
+      '?latlng=$lat,$lng'
+      '&result_type=country'
+      '&key=$apiKey',
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = jsonDecode(response.body);
+      final results = body is Map<String, dynamic>
+          ? body['results'] as List<dynamic>?
+          : null;
+      if (results == null) {
+        return null;
+      }
+
+      for (final result in results) {
+        final components = result is Map<String, dynamic>
+            ? result['address_components'] as List<dynamic>?
+            : null;
+        if (components == null) {
+          continue;
+        }
+        for (final component in components) {
+          final map = component is Map<String, dynamic> ? component : null;
+          final types = map?['types'] as List<dynamic>?;
+          if (types == null || !types.contains('country')) {
+            continue;
+          }
+          final shortName = map?['short_name']?.toString().trim();
+          if (shortName != null && shortName.isNotEmpty) {
+            return shortName;
+          }
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  Future<void> _syncKeywordLocaleForSearch() async {
+    final apiKey = dotenv.env['google_maps_api_key'];
+    if (apiKey == null || apiKey.isEmpty) {
+      _useEnglishKeywords = _shouldUseEnglishForLocale();
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastCountryOrigin != null && _lastCountryLookupAt != null) {
+      final distance = Geolocator.distanceBetween(
+        _lastCountryOrigin!.latitude,
+        _lastCountryOrigin!.longitude,
+        _searchCenter.latitude,
+        _searchCenter.longitude,
+      );
+      if (distance < 50000 && now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
+        return;
+      }
+    }
+
+    final countryCode = await _fetchCountryCodeForSearchCenter(apiKey);
+    final resolvedCountryCode = countryCode ?? _lastCountryCode;
+    _lastCountryCode = resolvedCountryCode;
+    _lastCountryOrigin = _searchCenter;
+    _lastCountryLookupAt = now;
+    _useEnglishKeywords = _shouldUseEnglishForCountry(resolvedCountryCode);
+  }
+
   List<String> _activeBusinessKeywords() {
     final keywords = <String>[];
     if (_filterPeluqueria) {
-      keywords.add('peluqueria');
+      keywords.add(_useEnglishKeywords ? 'hair salon' : 'peluqueria');
     }
     if (_filterBarberia) {
-      keywords.add('barberia');
+      keywords.add(_useEnglishKeywords ? 'barber shop' : 'barberia');
     }
 
-    return keywords.isEmpty ? _businessKeywords : keywords;
+    return keywords.isEmpty
+        ? (_useEnglishKeywords ? _businessKeywordsEn : _businessKeywordsEs)
+        : keywords;
   }
 
   List<String> _activePlaceTypes() {
@@ -1872,6 +2052,8 @@ class _HomePageState extends State<HomePage> {
     if (apiKey == null || apiKey.isEmpty) {
       return;
     }
+
+    await _syncKeywordLocaleForSearch();
 
     final searchOrigin = _searchCenter;
     if (mounted) {
@@ -2250,7 +2432,7 @@ class _HomePageState extends State<HomePage> {
 
                 /// MÁXIMO DE TARJETA
                 final maxSheetHeight =
-                    MediaQuery.of(context).size.height * 0.9;
+                    MediaQuery.of(context).size.height * 0.8;
 
                 return SafeArea(
                   top: false,

@@ -60,8 +60,32 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
   static const String _mapStatePrefsKey = 'home_page_owner_map_state_v1';
   static const double _defaultMapZoom = 14;
-  static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
+  static const List<String> _businessKeywordsEs = ['peluqueria', 'barberia'];
+  static const List<String> _businessKeywordsEn = ['hair salon', 'barber shop'];
   static const List<String> _placeTypes = ['barber_shop', 'hair_care'];
+  static const Set<String> _spanishCountryCodes = {
+    'AR',
+    'BO',
+    'CL',
+    'CO',
+    'CR',
+    'CU',
+    'DO',
+    'EC',
+    'ES',
+    'GQ',
+    'GT',
+    'HN',
+    'MX',
+    'NI',
+    'PA',
+    'PE',
+    'PR',
+    'PY',
+    'SV',
+    'UY',
+    'VE',
+  };
 
   // Hues personalizables para pines: registrado y no registrado.
   static const double _pinHueRegistered = 60; // AMARILLO ES 60, apagado es 50
@@ -98,6 +122,14 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   double? _filterMinPrice;
   double? _filterMaxPrice;
   final Map<String, BookingBusinessDetails> _businessDetailsCache = {};
+  final Map<String, OwnerBusiness> _ownedBusinessesById = {};
+  final Set<String> _ownedBusinessIds = <String>{};
+  bool _ownedBusinessesLoaded = false;
+  bool _isLoadingOwnedBusinesses = false;
+  bool _useEnglishKeywords = false;
+  String? _lastCountryCode;
+  LatLng? _lastCountryOrigin;
+  DateTime? _lastCountryLookupAt;
   // RADIO DEL CÍRCULO
   double _searchCircleRadiusMeters = _defaultSearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
@@ -218,6 +250,94 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         _registeredBusinessesByPlaceId.clear();
       });
     }
+  }
+
+  Future<void> _loadOwnedBusinesses({bool force = false}) async {
+    if (_isLoadingOwnedBusinesses || (_ownedBusinessesLoaded && !force)) {
+      return;
+    }
+
+    _isLoadingOwnedBusinesses = true;
+
+    try {
+      final businesses = await BusinessService.getMyBusinesses();
+      final ownedById = <String, OwnerBusiness>{};
+
+      for (final rawBusiness in businesses) {
+        final business = OwnerBusiness.fromJson(rawBusiness);
+        final id = business.id.trim();
+        if (id.isEmpty) {
+          continue;
+        }
+        ownedById[id] = business;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _ownedBusinessesById
+          ..clear()
+          ..addAll(ownedById);
+        _ownedBusinessIds
+          ..clear()
+          ..addAll(ownedById.keys);
+      });
+
+      _ownedBusinessesLoaded = true;
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _ownedBusinessesById.clear();
+        _ownedBusinessIds.clear();
+      });
+    } finally {
+      _isLoadingOwnedBusinesses = false;
+    }
+  }
+
+  Future<void> _openOwnedBusinessDetails(String businessId) async {
+    final normalizedId = businessId.trim();
+    if (normalizedId.isEmpty) {
+      InputDecorations.showTopSnackBarError(
+        context,
+        'No se pudo abrir el negocio.',
+      );
+      return;
+    }
+
+    if (!_ownedBusinessesById.containsKey(normalizedId)) {
+      await _loadOwnedBusinesses(force: true);
+    }
+
+    final business = _ownedBusinessesById[normalizedId];
+    if (business == null) {
+      if (!mounted) {
+        return;
+      }
+      InputDecorations.showTopSnackBarError(
+        context,
+        'No se pudo abrir el negocio.',
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerBusinessDetailPage(
+          initialBusiness: business,
+        ),
+      ),
+    );
   }
 
   bool get _isSearchOverlayVisible {
@@ -344,6 +464,16 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSearchButtonActive = query.length >= 2;
+      });
+      _fetchAutocompleteSuggestions(query);
+    });
   }
 
   void _handleSearchTap() {
@@ -1504,7 +1634,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     );
   }
 
-  _HairBusiness? _resolveBusinessForRoute() {
+  _HairBusiness? _resolveBusinessForRoute({LatLng? origin}) {
+    final base = origin ?? _searchCenter;
     if (_selectedBusinessForRoute != null) {
       return _selectedBusinessForRoute;
     }
@@ -1517,8 +1648,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
     for (final business in _hairBusinessesById.values) {
       final distance = Geolocator.distanceBetween(
-        _searchCenter.latitude,
-        _searchCenter.longitude,
+        base.latitude,
+        base.longitude,
         business.location.latitude,
         business.location.longitude,
       );
@@ -1532,8 +1663,57 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     return nearest;
   }
 
+  Future<LatLng?> _getUserLocationOrigin() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Activa la ubicacion para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Permiso de ubicacion requerido para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (_) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener la ubicacion actual.',
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _openGoogleMapsRoute({_HairBusiness? targetBusiness}) async {
-    final business = targetBusiness ?? _resolveBusinessForRoute();
+    final origin = await _getUserLocationOrigin();
+    if (origin == null) {
+      return;
+    }
+
+    final business = targetBusiness ?? _resolveBusinessForRoute(origin: origin);
 
     if (business == null) {
       if (mounted) {
@@ -1547,7 +1727,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
-      'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
+      'origin': '${origin.latitude},${origin.longitude}',
       'destination':
           '${business.location.latitude},${business.location.longitude}',
       'travelmode': 'driving',
@@ -1606,16 +1786,108 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     }
   }
 
+  bool _shouldUseEnglishForLocale() {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    return locale.languageCode.toLowerCase() != 'es';
+  }
+
+  bool _shouldUseEnglishForCountry(String? countryCode) {
+    if (countryCode == null || countryCode.trim().isEmpty) {
+      return _shouldUseEnglishForLocale();
+    }
+    return !_spanishCountryCodes.contains(countryCode.toUpperCase());
+  }
+
+  Future<String?> _fetchCountryCodeForSearchCenter(String apiKey) async {
+    final lat = _searchCenter.latitude;
+    final lng = _searchCenter.longitude;
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json'
+      '?latlng=$lat,$lng'
+      '&result_type=country'
+      '&key=$apiKey',
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = jsonDecode(response.body);
+      final results = body is Map<String, dynamic>
+          ? body['results'] as List<dynamic>?
+          : null;
+      if (results == null) {
+        return null;
+      }
+
+      for (final result in results) {
+        final components = result is Map<String, dynamic>
+            ? result['address_components'] as List<dynamic>?
+            : null;
+        if (components == null) {
+          continue;
+        }
+        for (final component in components) {
+          final map = component is Map<String, dynamic> ? component : null;
+          final types = map?['types'] as List<dynamic>?;
+          if (types == null || !types.contains('country')) {
+            continue;
+          }
+          final shortName = map?['short_name']?.toString().trim();
+          if (shortName != null && shortName.isNotEmpty) {
+            return shortName;
+          }
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  Future<void> _syncKeywordLocaleForSearch() async {
+    final apiKey = dotenv.env['google_maps_api_key'];
+    if (apiKey == null || apiKey.isEmpty) {
+      _useEnglishKeywords = _shouldUseEnglishForLocale();
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastCountryOrigin != null && _lastCountryLookupAt != null) {
+      final distance = Geolocator.distanceBetween(
+        _lastCountryOrigin!.latitude,
+        _lastCountryOrigin!.longitude,
+        _searchCenter.latitude,
+        _searchCenter.longitude,
+      );
+      if (distance < 50000 && now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
+        return;
+      }
+    }
+
+    final countryCode = await _fetchCountryCodeForSearchCenter(apiKey);
+    final resolvedCountryCode = countryCode ?? _lastCountryCode;
+    _lastCountryCode = resolvedCountryCode;
+    _lastCountryOrigin = _searchCenter;
+    _lastCountryLookupAt = now;
+    _useEnglishKeywords = _shouldUseEnglishForCountry(resolvedCountryCode);
+  }
+
   List<String> _activeBusinessKeywords() {
     final keywords = <String>[];
     if (_filterPeluqueria) {
-      keywords.add('peluqueria');
+      keywords.add(_useEnglishKeywords ? 'hair salon' : 'peluqueria');
     }
     if (_filterBarberia) {
-      keywords.add('barberia');
+      keywords.add(_useEnglishKeywords ? 'barber shop' : 'barberia');
     }
 
-    return keywords.isEmpty ? _businessKeywords : keywords;
+    return keywords.isEmpty
+        ? (_useEnglishKeywords ? _businessKeywordsEn : _businessKeywordsEs)
+        : keywords;
   }
 
   List<String> _activePlaceTypes() {
@@ -1828,6 +2100,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     if (apiKey == null || apiKey.isEmpty) {
       return;
     }
+
+    await _syncKeywordLocaleForSearch();
 
     final searchOrigin = _searchCenter;
     if (mounted) {
@@ -2175,7 +2449,9 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
             final business = snapshot.data!;
             final businessId =
-              registeredBusiness?['businessId']?.toString().trim() ?? '';
+                registeredBusiness?['businessId']?.toString().trim() ?? '';
+            final isOwnedBusiness =
+                businessId.isNotEmpty && _ownedBusinessIds.contains(businessId);
             final shouldShowOffers = isRegistered && businessId.isNotEmpty;
             final firstHoursLine =
                 (business.openingHours != null &&
@@ -2194,9 +2470,14 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                 : (business.openNow! ? Colors.green : Colors.red);
 
             final photos = business.photoReferences ?? const <String>[];
+            final actionLabel =
+              isOwnedBusiness ? 'Ver detalles' : 'Reservar';
+            final actionIcon = isOwnedBusiness
+              ? Icons.storefront_outlined
+              : Icons.calendar_month_rounded;
 
             /// MÁXIMO DE TARJETA
-            final maxSheetHeight = MediaQuery.of(context).size.height * 0.9;
+            final maxSheetHeight = MediaQuery.of(context).size.height * 0.8;
 
             return SafeArea(
               top: false,
@@ -2423,66 +2704,68 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                     ),
                                   ),
                                 ),
-                                if (isRegistered) ...[
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 48,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          final businessId =
-                                              registeredBusiness?['businessId']
-                                                  ?.toString()
-                                                  .trim() ??
-                                              '';
+                                    if (isRegistered) ...[
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 48,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              if (isOwnedBusiness) {
+                                                _openOwnedBusinessDetails(
+                                                  businessId,
+                                                );
+                                                return;
+                                              }
 
-                                          if (businessId.isEmpty) {
-                                            InputDecorations.showTopSnackBarError(
-                                              context,
-                                              'No se pudo abrir la reserva.',
-                                            );
-                                            return;
-                                          }
+                                              if (businessId.isEmpty) {
+                                                InputDecorations.showTopSnackBarError(
+                                                  context,
+                                                  'No se pudo abrir la reserva.',
+                                                );
+                                                return;
+                                              }
 
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => ReservationFlowPage(
-                                                initialBusinessId: businessId,
-                                                initialBusinessName:
-                                                    registeredBusiness?['name']
-                                                        ?.toString(),
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => ReservationFlowPage(
+                                                    initialBusinessId: businessId,
+                                                    initialBusinessName:
+                                                        registeredBusiness?['name']
+                                                            ?.toString(),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: _primaryColor,
+                                              foregroundColor: Colors.white,
+                                              disabledBackgroundColor:
+                                                  _primaryColor,
+                                              disabledForegroundColor: Colors.white,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(
+                                                  14,
+                                                ),
+                                                side: const BorderSide(color: Colors.white, width: 1.5),
                                               ),
                                             ),
-                                          );
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _primaryColor,
-                                          foregroundColor: Colors.white,
-                                          disabledBackgroundColor:
-                                              _primaryColor,
-                                          disabledForegroundColor: Colors.white,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              14,
+                                            icon: Icon(
+                                              actionIcon,
+                                              size: 20,
                                             ),
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.calendar_month_rounded,
-                                          size: 20,
-                                        ),
-                                        label: const Text(
-                                          'Reservar',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
+                                            label: Text(
+                                              actionLabel,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ],
+                                    ],
                               ],
                             ),
                               ],
@@ -3082,6 +3365,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
     initNotifications();
     _initializeNearbySearch();
+    _loadOwnedBusinesses();
     _maybeShowWelcomeTab();
   }
 

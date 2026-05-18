@@ -638,7 +638,7 @@ class _CalendarPageState extends State<CalendarPage> {
                   _isExporting
                       ? 'Exportando eventos...'
                       : 'Exportar eventos a Google Calendar',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
                 ),
               ),
             ),

@@ -26,18 +26,42 @@ class _RegisterRoleState extends State<RegisterRole> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text('Bienvenido/a a BarbApp', style: TextStyle( fontSize: 33, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Bienvenido/a a BarbApp',
+                            style: TextStyle(
+                              fontSize: 33,
+                              color: Color.fromARGB(255, 200, 156, 125),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30),
-            child: Form(
-              child: Column(
-                children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30),
+                            child: Form(
+                              child: Column(
+                                children: [
 
                   // TEXTO DE BIENVENIDA
                   Padding(
@@ -125,12 +149,20 @@ class _RegisterRoleState extends State<RegisterRole> {
                   )
                 ),
 
-                SizedBox(height: 40)]
+                                SizedBox(height: 40)]
 
+                              ),
+                            ),
+                          )
+                          ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          )
-          ],
+            );
+          },
+        ),
       ),
     );
   }

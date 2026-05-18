@@ -948,7 +948,7 @@ exports.updateBusinessVacationDays = async (req, res) => {
 };
 
 /**
- * Obtiene ingresos de los ultimos 3 meses cerrados de un negocio
+ * Obtiene ingresos de los ultimos 6 meses cerrados de un negocio
  * @param string req.user.userId ID del usuario autenticado (del token)
  * @param string req.params.businessId ID del negocio
  * @return json {months: object[]}
@@ -985,7 +985,7 @@ exports.getBusinessRevenue = async (req, res) => {
     ));
     const startRange = new Date(Date.UTC(
       now.getUTCFullYear(),
-      now.getUTCMonth() - 3,
+      now.getUTCMonth() - 6,
       1,
     ));
 
@@ -997,10 +997,30 @@ exports.getBusinessRevenue = async (req, res) => {
         },
       },
       {
+        $addFields: {
+          year: { $year: "$date" },
+          month: { $month: "$date" },
+          week: {
+            $add: [
+              {
+                $floor: {
+                  $divide: [
+                    { $subtract: [{ $dayOfMonth: "$date" }, 1] },
+                    7,
+                  ],
+                },
+              },
+              1,
+            ],
+          },
+        },
+      },
+      {
         $group: {
           _id: {
-            year: { $year: "$date" },
-            month: { $month: "$date" },
+            year: "$year",
+            month: "$month",
+            week: "$week",
           },
           total: { $sum: "$service.price" },
         },
@@ -1011,15 +1031,28 @@ exports.getBusinessRevenue = async (req, res) => {
     rawTotals.forEach((row) => {
       const year = Number(row?._id?.year);
       const month = Number(row?._id?.month);
+      const week = Number(row?._id?.week);
       if (!Number.isInteger(year) || !Number.isInteger(month)) {
         return;
       }
+
       const key = `${year}-${month}`;
-      totalsByKey.set(key, Number(row.total) || 0);
+      const entry = totalsByKey.get(key) || {
+        total: 0,
+        weeks: [0, 0, 0, 0, 0],
+      };
+
+      const rowTotal = Number(row.total) || 0;
+      entry.total += rowTotal;
+      if (Number.isInteger(week) && week >= 1 && week <= 5) {
+        entry.weeks[week - 1] += rowTotal;
+      }
+
+      totalsByKey.set(key, entry);
     });
 
     const months = [];
-    for (let offset = 3; offset >= 1; offset -= 1) {
+    for (let offset = 6; offset >= 1; offset -= 1) {
       const targetDate = new Date(Date.UTC(
         now.getUTCFullYear(),
         now.getUTCMonth() - offset,
@@ -1028,10 +1061,15 @@ exports.getBusinessRevenue = async (req, res) => {
       const year = targetDate.getUTCFullYear();
       const month = targetDate.getUTCMonth() + 1;
       const key = `${year}-${month}`;
+      const entry = totalsByKey.get(key) || {
+        total: 0,
+        weeks: [0, 0, 0, 0, 0],
+      };
       months.push({
         year,
         month,
-        total: totalsByKey.get(key) || 0,
+        total: entry.total,
+        weeks: entry.weeks,
       });
     }
 
