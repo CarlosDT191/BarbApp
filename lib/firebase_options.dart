@@ -67,7 +67,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'barbapp-ff512.firebasestorage.app',
   );
 
-  /*
+/*
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBF-WpUJjqDmlSiKG8shUfeiR18N4DaMzA',
     appId: '1:512164057072:ios:de0ddcdfba6918d4aa5735',
@@ -94,5 +94,6 @@ class DefaultFirebaseOptions {
     authDomain: 'barbapp-ff512.firebaseapp.com',
     storageBucket: 'barbapp-ff512.firebasestorage.app',
     measurementId: 'G-883KMNWVZ5',
+  );
   );*/
 }

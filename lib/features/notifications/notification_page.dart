@@ -67,6 +67,10 @@ class _NotificationPageState extends State<NotificationPage> {
     });
   }
 
+  Future<void> _refreshNotifications() async {
+    await fetchNotifications();
+  }
+
   /// Marca una notificación como leída.
   ///
   /// [id] es el ID único de la notificación a marcar como leída (`String`).
@@ -383,16 +387,26 @@ class _NotificationPageState extends State<NotificationPage> {
                       color: Color.fromARGB(255, 200, 156, 125),
                     ),
                   )
-                : notifications.isEmpty
-                ? Center(
-                    child: Text(
-                      "No tienes notificaciones",
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    children: _buildNotificationListWidgets(),
+                : RefreshIndicator(
+                    color: primaryColor,
+                    onRefresh: _refreshNotifications,
+                    child: notifications.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 32),
+                            children: const [
+                              Center(
+                                child: Text(
+                                  "No tienes notificaciones",
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            children: _buildNotificationListWidgets(),
+                          ),
                   ),
           ),
         ],

@@ -39,6 +39,14 @@ class _RegisterPageState extends State<RegisterPage> {
     confirmPassword.isNotEmpty && (password == confirmPassword);
 
   Future<void> registerUser() async {
+    if (password.trim().length < 8) {
+      InputDecorations.showTopSnackBarWarning(
+        context,
+        'La contraseña debe tener al menos 8 caracteres.',
+      );
+      return;
+    }
+
     setState(() => isSent = true);
     final apiBaseUrl = getApiBaseUrl();
     final url = Uri.parse("$apiBaseUrl/auth/register");
@@ -62,6 +70,8 @@ class _RegisterPageState extends State<RegisterPage> {
         String userToken = data["token"];
         int role = data["user"]["role"];
         saveUserSessions(userToken, role);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool("show_welcome_tab", true);
 
         setState(() {
           errorMessage = null;

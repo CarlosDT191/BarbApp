@@ -4,6 +4,7 @@ const User = require("../models/user.model");
 const Business = require("../models/business.model");
 const Favorite = require("../models/favorite.model");
 const BusinessCreationRequest = require("../models/business_creation_request.model");
+const { sendPushToUser } = require("../services/push_notifications");
 const { formatDate } = require('../config/date');
 const {
   GOOGLE_PLACES_TEXT_SEARCH_URL,
@@ -26,6 +27,38 @@ const {
   normalizeBusinessScheduleDayPayload,
   normalizeBusinessScheduleMode,
 } = require('../config/features');
+
+const normalizeVacationDays = (rawDays) => {
+  const days = Array.isArray(rawDays) ? rawDays : [];
+  const normalized = days.map(normalizeReservationDate).filter(Boolean);
+  const uniqueByTime = new Map();
+  normalized.forEach((day) => {
+    uniqueByTime.set(day.getTime(), day);
+  });
+  return Array.from(uniqueByTime.values()).sort((a, b) => a - b);
+};
+
+const isVacationDay = (vacationDays, normalizedDate) => {
+  if (!normalizedDate || !Array.isArray(vacationDays)) {
+    return false;
+  }
+  const targetTime = normalizedDate.getTime();
+  return vacationDays.some((day) => {
+    const time = new Date(day).getTime();
+    return Number.isFinite(time) && time === targetTime;
+  });
+};
+
+const serializeVacationDays = (vacationDays) => {
+  if (!Array.isArray(vacationDays)) {
+    return [];
+  }
+
+  return vacationDays
+    .map((day) => new Date(day))
+    .filter((day) => Number.isFinite(day.getTime()))
+    .map((day) => day.toISOString().slice(0, 10));
+};
 
 /**
  * Obtiene todos los negocios del usuario autenticado
@@ -643,6 +676,7 @@ exports.getBusinessDetails = async (req, res) => {
       employeeCount: Number(business.employeeCount) || 0,
       offers: Array.isArray(business.offers) ? business.offers : [],
       schedule: Array.isArray(business.schedule) ? business.schedule : [],
+      vacationDays: serializeVacationDays(business.vacationDays),
       scheduleMode: toTrimmedString(business.scheduleMode) || "single",
       googlePlace: business.googlePlace || {},
     });
@@ -704,12 +738,29 @@ exports.getBusinessAvailability = async (req, res) => {
       return res.status(400).json({ error: "Servicio invalido" });
     }
 
+    if (isVacationDay(business.vacationDays, normalizedDate)) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 200 (Dia vacacional)`);
+      return res.json({
+        businessId: String(business._id),
+        date: normalizedDate.toISOString().slice(0, 10),
+        offer: {
+          name: toTrimmedString(selectedOffer.name),
+          serviceType: toTrimmedString(selectedOffer.serviceType),
+          price: Number(selectedOffer.price),
+          durationMinutes: Number(selectedOffer.durationMinutes),
+        },
+        capacity: 0,
+        slots: [],
+      });
+    }
+
     const scheduleDay = resolveScheduleForDate(business.schedule, normalizedDate);
     const slotTimes = buildSlotTimesForSchedule(scheduleDay, selectedOffer.durationMinutes);
 
-    const capacity = Number.isInteger(business.employeeCount) && business.employeeCount >= 0
-      ? business.employeeCount + 1
+    const rawEmployeeCount = Number.isInteger(business.employeeCount)
+      ? business.employeeCount
       : 1;
+    const capacity = Math.max(1, rawEmployeeCount);
 
     const { start: dayStart, end: dayEnd } = getReservationDayRange(normalizedDate);
     const existingReservations = await Reservation.find({
@@ -771,6 +822,279 @@ exports.getBusinessAvailability = async (req, res) => {
     }
 
     console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/availability" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Actualiza los dias de vacaciones de un negocio del propietario
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param string req.params.businessId ID del negocio
+ * @param Array req.body.vacationDays Lista de fechas (YYYY-MM-DD)
+ * @return json {vacationDays: string[]} Lista de fechas normalizadas
+ */
+exports.updateBusinessVacationDays = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    const userId = req.user.userId;
+    const businessId = toTrimmedString(req.params.businessId);
+
+    if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId/vacations" 400 (businessId es obligatorio)`);
+      return res.status(400).json({ error: "businessId es obligatorio" });
+    }
+
+    const normalizedVacationDays = normalizeVacationDays(req.body?.vacationDays);
+
+    const business = await Business.findOne({ _id: businessId, owner: userId });
+    if (!business) {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId/vacations" 404 (Negocio no encontrado)`);
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    const previousDays = Array.isArray(business.vacationDays)
+      ? business.vacationDays
+      : [];
+    const previousSet = new Set(
+      previousDays.map((day) => new Date(day).getTime()),
+    );
+    const updatedSet = new Set(
+      normalizedVacationDays.map((day) => day.getTime()),
+    );
+    const newlyAddedTimes = [...updatedSet].filter(
+      (time) => !previousSet.has(time),
+    );
+
+    business.vacationDays = normalizedVacationDays;
+    await business.save();
+
+    if (newlyAddedTimes.length > 0) {
+      const ranges = newlyAddedTimes.map((time) => {
+        const normalized = new Date(time);
+        return getReservationDayRange(normalized);
+      });
+
+      const reservations = await Reservation.find({
+        business: business._id,
+        $or: ranges.map((range) => ({
+          date: { $gte: range.start, $lt: range.end },
+        })),
+      });
+
+      if (reservations.length > 0) {
+        const reservationIds = reservations.map((item) => item._id);
+        await Reservation.deleteMany({ _id: { $in: reservationIds } });
+
+        const message =
+          "El propietario ha seleccionado el día de su reserva como periodo vacacional. Realice de nuevo otra reserva dentro de un horario disponible";
+
+        const notifications = reservations.map((reservation) => ({
+          user: reservation.user,
+          type: "cancel",
+          message,
+          relatedId: reservation._id,
+        }));
+
+        if (notifications.length > 0) {
+          await Notification.insertMany(notifications);
+        }
+
+        await Promise.all(
+          reservations.map(async (reservation) => {
+            try {
+              await sendPushToUser(reservation.user, {
+                title: "Reserva cancelada",
+                body: message,
+                data: {
+                  type: "cancel",
+                  reservationId: reservation._id.toString(),
+                },
+              });
+            } catch (_) {
+            }
+          }),
+        );
+      }
+    }
+
+    console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId/vacations" 200`);
+    return res.json({ vacationDays: serializeVacationDays(business.vacationDays) });
+  } catch (err) {
+    console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    if (err?.name === "CastError") {
+      console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId/vacations" 400 (businessId invalido)`);
+      return res.status(400).json({ error: "businessId invalido" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId/vacations" 500`);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Obtiene ingresos de los ultimos 6 meses cerrados de un negocio
+ * @param string req.user.userId ID del usuario autenticado (del token)
+ * @param string req.params.businessId ID del negocio
+ * @return json {months: object[]}
+ */
+exports.getBusinessRevenue = async (req, res) => {
+  try {
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    const userId = req.user.userId;
+    const businessId = toTrimmedString(req.params.businessId);
+
+    if (!businessId) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/revenue" 400 (businessId es obligatorio)`);
+      return res.status(400).json({ error: "businessId es obligatorio" });
+    }
+
+    const business = await Business.findOne({ _id: businessId, owner: userId });
+    if (!business) {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/revenue" 404 (Negocio no encontrado)`);
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    const now = new Date();
+    const currentMonthStart = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      1,
+    ));
+    const startRange = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() - 6,
+      1,
+    ));
+
+    const rawTotals = await Reservation.aggregate([
+      {
+        $match: {
+          business: business._id,
+          date: { $gte: startRange, $lt: currentMonthStart },
+        },
+      },
+      {
+        $addFields: {
+          year: { $year: "$date" },
+          month: { $month: "$date" },
+          week: {
+            $add: [
+              {
+                $floor: {
+                  $divide: [
+                    { $subtract: [{ $dayOfMonth: "$date" }, 1] },
+                    7,
+                  ],
+                },
+              },
+              1,
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: "$year",
+            month: "$month",
+            week: "$week",
+          },
+          total: { $sum: "$service.price" },
+        },
+      },
+    ]);
+
+    const totalsByKey = new Map();
+    rawTotals.forEach((row) => {
+      const year = Number(row?._id?.year);
+      const month = Number(row?._id?.month);
+      const week = Number(row?._id?.week);
+      if (!Number.isInteger(year) || !Number.isInteger(month)) {
+        return;
+      }
+
+      const key = `${year}-${month}`;
+      const entry = totalsByKey.get(key) || {
+        total: 0,
+        weeks: [0, 0, 0, 0, 0],
+      };
+
+      const rowTotal = Number(row.total) || 0;
+      entry.total += rowTotal;
+      if (Number.isInteger(week) && week >= 1 && week <= 5) {
+        entry.weeks[week - 1] += rowTotal;
+      }
+
+      totalsByKey.set(key, entry);
+    });
+
+    const months = [];
+    for (let offset = 6; offset >= 1; offset -= 1) {
+      const targetDate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth() - offset,
+        1,
+      ));
+      const year = targetDate.getUTCFullYear();
+      const month = targetDate.getUTCMonth() + 1;
+      const key = `${year}-${month}`;
+      const entry = totalsByKey.get(key) || {
+        total: 0,
+        weeks: [0, 0, 0, 0, 0],
+      };
+      months.push({
+        year,
+        month,
+        total: entry.total,
+        weeks: entry.weeks,
+      });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/revenue" 200`);
+    return res.json({
+      businessId: String(business._id),
+      months,
+    });
+  } catch (err) {
+    console.error(err);
+
+    let originalIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (originalIp.includes(',')) {
+      originalIp = originalIp.split(',')[0].trim();
+    }
+
+    const ip = originalIp.includes(':') ? originalIp.split(':').pop() : originalIp;
+    const date = formatDate();
+
+    if (err?.name === "CastError") {
+      console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/revenue" 400 (businessId invalido)`);
+      return res.status(400).json({ error: "businessId invalido" });
+    }
+
+    console.log(`${ip} - - [ ${date} ] "GET /businesses/:businessId/revenue" 500`);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 };

@@ -9,7 +9,8 @@ class DayTimelineView extends StatefulWidget {
   final List<CalendarEntry> entries;
   final VoidCallback? onHourTap;
   final Function(int hour)? onHourSelected;
-  final Function(String reservationId)? onDeleteReservation;
+  final void Function(String reservationId, bool isAppointment)?
+      onDeleteReservation;
   final Color reservationColor;
   final Color appointmentColor;
   final double hourHeight;
@@ -122,7 +123,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
                               _showReservationDetails(layout.entry);
                             },
                             onDelete: () {
-                              _confirmDeleteReservation(layout.entry.reservation);
+                              _confirmDeleteReservation(layout.entry);
                             },
                           );
                         },
@@ -165,6 +166,7 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   void _showReservationDetails(CalendarEntry entry) {
     final reservation = entry.reservation;
     final isAppointment = entry.isAppointment;
+    final deleteLabel = isAppointment ? 'Eliminar cita' : 'Eliminar reserva';
     final details = <Map<String, String>>[
       {'Tipo:': isAppointment ? 'Cita' : 'Reserva'},
       {'Local:': reservation.businessDisplayName},
@@ -205,15 +207,15 @@ class _DayTimelineViewState extends State<DayTimelineView> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  _confirmDeleteReservation(reservation);
+                      _confirmDeleteReservation(entry);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red[700],
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text(
-                  'Eliminar',
-                  style: TextStyle(color: Colors.white),
+                child: Text(
+                  deleteLabel,
+                  style: const TextStyle(color: Colors.white),
                 ),
               ),
             ),
@@ -251,17 +253,19 @@ class _DayTimelineViewState extends State<DayTimelineView> {
   }
 
   /// Confirma la eliminación de una reserva
-  void _confirmDeleteReservation(Reservation reservation) {
+  void _confirmDeleteReservation(CalendarEntry entry) {
+    final reservation = entry.reservation;
+    final isAppointment = entry.isAppointment;
+    final noun = isAppointment ? 'cita' : 'reserva';
+    final title = isAppointment ? '¿Eliminar cita?' : '¿Eliminar reserva?';
+    final confirmLabel = isAppointment ? 'Eliminar cita' : 'Eliminar reserva';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color.fromARGB(255, 35, 35, 35),
-        title: const Text(
-          '¿Eliminar reserva?',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
         content: Text(
-          'Se eliminará la reserva en ${reservation.localName} a las ${reservation.time}',
+          'Se eliminará la $noun en ${reservation.localName} a las ${reservation.time}',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
@@ -275,16 +279,16 @@ class _DayTimelineViewState extends State<DayTimelineView> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              widget.onDeleteReservation?.call(reservation.id);
+              widget.onDeleteReservation?.call(reservation.id, isAppointment);
             },
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(100, 40),
               foregroundColor: Colors.white,
               backgroundColor: Color.fromARGB(255, 30, 30, 30), // color de fondo
             ),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: Colors.red),
+            child: Text(
+              confirmLabel,
+              style: const TextStyle(color: Colors.red),
             ),
           ),
         ],

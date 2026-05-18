@@ -30,6 +30,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
+  static const Color _searchButtonHoldColor = Color.fromARGB(255, 173, 124, 92);
   static const Color _registeredSheetBackgroundColor = Color.fromARGB(
     255,
     23,
@@ -37,6 +38,7 @@ class _HomePageState extends State<HomePage> {
     23,
   );
   static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
+  static const String _welcomePrefsKey = "show_welcome_tab";
 
   int _selectedIndex = 2;
   int unread = 0;
@@ -59,8 +61,32 @@ class _HomePageState extends State<HomePage> {
 
   static const String _mapStatePrefsKey = 'home_page_client_map_state_v1';
   static const double _defaultMapZoom = 14;
-  static const List<String> _businessKeywords = ['peluqueria', 'barberia'];
+  static const List<String> _businessKeywordsEs = ['peluqueria', 'barberia'];
+  static const List<String> _businessKeywordsEn = ['hair salon', 'barber shop'];
   static const List<String> _placeTypes = ['barber_shop', 'hair_care'];
+  static const Set<String> _spanishCountryCodes = {
+    'AR',
+    'BO',
+    'CL',
+    'CO',
+    'CR',
+    'CU',
+    'DO',
+    'EC',
+    'ES',
+    'GQ',
+    'GT',
+    'HN',
+    'MX',
+    'NI',
+    'PA',
+    'PE',
+    'PR',
+    'PY',
+    'SV',
+    'UY',
+    'VE',
+  };
 
   // Hues personalizables para pines: registrado y no registrado.
   static const double _pinHueRegistered = 50; // AMARILLO ES 60, apagado es 50
@@ -84,6 +110,9 @@ class _HomePageState extends State<HomePage> {
   bool _isLoadingNearbyBusinesses = false;
   bool _isLoadingSearchSuggestions = false;
   bool _hasSearched = false;
+  bool _isSearchButtonActive = false;
+  bool _isSearchButtonPressed = false;
+  bool _welcomeTabShown = false;
   bool _filterBarberia = true;
   bool _filterPeluqueria = true;
   bool _filterRegisteredOnly = false;
@@ -95,6 +124,10 @@ class _HomePageState extends State<HomePage> {
   double? _filterMinPrice;
   double? _filterMaxPrice;
   final Map<String, BookingBusinessDetails> _businessDetailsCache = {};
+  bool _useEnglishKeywords = false;
+  String? _lastCountryCode;
+  LatLng? _lastCountryOrigin;
+  DateTime? _lastCountryLookupAt;
   // RADIO DEL CÍRCULO
   double _searchCircleRadiusMeters = _defaultSearchRadiusMeters.toDouble();
   CameraPosition _lastCameraPosition = const CameraPosition(
@@ -274,6 +307,8 @@ class _HomePageState extends State<HomePage> {
       _isLoadingSearchSuggestions = false;
       _searchSuggestions.clear();
       _hasSearched = false;
+      _isSearchButtonActive = false;
+      _isSearchButtonPressed = false;
       if (clearText) {
         _searchController.clear();
       }
@@ -294,11 +329,13 @@ class _HomePageState extends State<HomePage> {
         _hasSearched;
 
     if (query.length < 2) {
-      if (shouldReset) {
+      if (shouldReset || _isSearchButtonActive || _isSearchButtonPressed) {
         setState(() {
           _isLoadingSearchSuggestions = false;
           _searchSuggestions.clear();
           _hasSearched = false;
+          _isSearchButtonActive = false;
+          _isSearchButtonPressed = false;
         });
       }
       if (!_searchFocusNode.hasFocus) {
@@ -315,6 +352,34 @@ class _HomePageState extends State<HomePage> {
       });
     }
 
+    if (!_searchFocusNode.hasFocus) {
+      _searchFocusNode.requestFocus();
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSearchButtonActive = query.length >= 2;
+      });
+      _fetchAutocompleteSuggestions(query);
+    });
+  }
+
+  void _handleSearchTap() {
+    final query = _searchController.text.trim();
+    final canActivate = query.length >= 2;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSearchButtonActive = canActivate;
+    });
+
+    _fetchAutocompleteSuggestions(query);
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
@@ -1049,7 +1114,7 @@ class _HomePageState extends State<HomePage> {
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 60).',
+                                  'Si aumentas mucho el radio, es posible que no se encuentren todos los locales disponibles (máximo 120).',
                                   style: TextStyle(
                                     color: Colors.white54,
                                     fontSize: 12,
@@ -1521,7 +1586,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  _HairBusiness? _resolveBusinessForRoute() {
+  _HairBusiness? _resolveBusinessForRoute({LatLng? origin}) {
+    final base = origin ?? _searchCenter;
     if (_selectedBusinessForRoute != null) {
       return _selectedBusinessForRoute;
     }
@@ -1534,8 +1600,8 @@ class _HomePageState extends State<HomePage> {
 
     for (final business in _hairBusinessesById.values) {
       final distance = Geolocator.distanceBetween(
-        _searchCenter.latitude,
-        _searchCenter.longitude,
+        base.latitude,
+        base.longitude,
         business.location.latitude,
         business.location.longitude,
       );
@@ -1549,8 +1615,57 @@ class _HomePageState extends State<HomePage> {
     return nearest;
   }
 
+  Future<LatLng?> _getUserLocationOrigin() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Activa la ubicacion para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Permiso de ubicacion requerido para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (_) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener la ubicacion actual.',
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _openGoogleMapsRoute({_HairBusiness? targetBusiness}) async {
-    final business = targetBusiness ?? _resolveBusinessForRoute();
+    final origin = await _getUserLocationOrigin();
+    if (origin == null) {
+      return;
+    }
+
+    final business = targetBusiness ?? _resolveBusinessForRoute(origin: origin);
 
     if (business == null) {
       if (mounted) {
@@ -1564,7 +1679,7 @@ class _HomePageState extends State<HomePage> {
 
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
-      'origin': '${_searchCenter.latitude},${_searchCenter.longitude}',
+      'origin': '${origin.latitude},${origin.longitude}',
       'destination':
           '${business.location.latitude},${business.location.longitude}',
       'travelmode': 'driving',
@@ -1623,16 +1738,108 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  bool _shouldUseEnglishForLocale() {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    return locale.languageCode.toLowerCase() != 'es';
+  }
+
+  bool _shouldUseEnglishForCountry(String? countryCode) {
+    if (countryCode == null || countryCode.trim().isEmpty) {
+      return _shouldUseEnglishForLocale();
+    }
+    return !_spanishCountryCodes.contains(countryCode.toUpperCase());
+  }
+
+  Future<String?> _fetchCountryCodeForSearchCenter(String apiKey) async {
+    final lat = _searchCenter.latitude;
+    final lng = _searchCenter.longitude;
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json'
+      '?latlng=$lat,$lng'
+      '&result_type=country'
+      '&key=$apiKey',
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = jsonDecode(response.body);
+      final results = body is Map<String, dynamic>
+          ? body['results'] as List<dynamic>?
+          : null;
+      if (results == null) {
+        return null;
+      }
+
+      for (final result in results) {
+        final components = result is Map<String, dynamic>
+            ? result['address_components'] as List<dynamic>?
+            : null;
+        if (components == null) {
+          continue;
+        }
+        for (final component in components) {
+          final map = component is Map<String, dynamic> ? component : null;
+          final types = map?['types'] as List<dynamic>?;
+          if (types == null || !types.contains('country')) {
+            continue;
+          }
+          final shortName = map?['short_name']?.toString().trim();
+          if (shortName != null && shortName.isNotEmpty) {
+            return shortName;
+          }
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  Future<void> _syncKeywordLocaleForSearch() async {
+    final apiKey = dotenv.env['google_maps_api_key'];
+    if (apiKey == null || apiKey.isEmpty) {
+      _useEnglishKeywords = _shouldUseEnglishForLocale();
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastCountryOrigin != null && _lastCountryLookupAt != null) {
+      final distance = Geolocator.distanceBetween(
+        _lastCountryOrigin!.latitude,
+        _lastCountryOrigin!.longitude,
+        _searchCenter.latitude,
+        _searchCenter.longitude,
+      );
+      if (distance < 50000 && now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
+        return;
+      }
+    }
+
+    final countryCode = await _fetchCountryCodeForSearchCenter(apiKey);
+    final resolvedCountryCode = countryCode ?? _lastCountryCode;
+    _lastCountryCode = resolvedCountryCode;
+    _lastCountryOrigin = _searchCenter;
+    _lastCountryLookupAt = now;
+    _useEnglishKeywords = _shouldUseEnglishForCountry(resolvedCountryCode);
+  }
+
   List<String> _activeBusinessKeywords() {
     final keywords = <String>[];
     if (_filterPeluqueria) {
-      keywords.add('peluqueria');
+      keywords.add(_useEnglishKeywords ? 'hair salon' : 'peluqueria');
     }
     if (_filterBarberia) {
-      keywords.add('barberia');
+      keywords.add(_useEnglishKeywords ? 'barber shop' : 'barberia');
     }
 
-    return keywords.isEmpty ? _businessKeywords : keywords;
+    return keywords.isEmpty
+        ? (_useEnglishKeywords ? _businessKeywordsEn : _businessKeywordsEs)
+        : keywords;
   }
 
   List<String> _activePlaceTypes() {
@@ -1845,6 +2052,8 @@ class _HomePageState extends State<HomePage> {
     if (apiKey == null || apiKey.isEmpty) {
       return;
     }
+
+    await _syncKeywordLocaleForSearch();
 
     final searchOrigin = _searchCenter;
     if (mounted) {
@@ -2223,7 +2432,7 @@ class _HomePageState extends State<HomePage> {
 
                 /// MÁXIMO DE TARJETA
                 final maxSheetHeight =
-                    MediaQuery.of(context).size.height * 0.9;
+                    MediaQuery.of(context).size.height * 0.8;
 
                 return SafeArea(
                   top: false,
@@ -2860,6 +3069,174 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildWelcomeItem({
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: _primaryColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(text: description),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _maybeShowWelcomeTab() async {
+    if (_welcomeTabShown) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final shouldShow = prefs.getBool(_welcomePrefsKey) ?? false;
+    if (!shouldShow || !mounted) {
+      return;
+    }
+
+    _welcomeTabShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _showWelcomeTab();
+    });
+  }
+
+  Future<void> _dismissWelcomeTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_welcomePrefsKey, false);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _showWelcomeTab() {
+    const subtitle =
+        'Esta app sobre negocios de peluquería y barbería contiene múltiples herramientas para ayudar a descubrir infinidad de locales, observar sus ofertas desde cualquier lugar y poder reservar en locales registrados.';
+
+    final items = <Map<String, dynamic>>[
+      {
+        'title': 'Calendario',
+        'description': 'Consulta y gestiona tus reservas.',
+        'icon': Icons.calendar_month,
+      },
+      {
+        'title': 'Favoritos',
+        'description': 'Guarda locales para acceder rápido a ellos.',
+        'icon': Icons.bookmark_rounded,
+      },
+      {
+        'title': 'Mapa',
+        'description': 'Descubre negocios cercanos y sus ofertas.',
+        'icon': Icons.map,
+      },
+      {
+        'title': 'Notificaciones',
+        'description': 'Recibe avisos de reservas y novedades.',
+        'icon': Icons.notifications,
+      },
+      {
+        'title': 'Perfil',
+        'description': 'Actualiza tus datos y preferencias.',
+        'icon': Icons.person,
+      },
+    ];
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color.fromARGB(255, 23, 23, 23),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Stack(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 6),
+                      const Text(
+                        '¡Bienvenid@ a BarbApp!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        subtitle,
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        textAlign: TextAlign.justify,
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Guía rápida',
+                        style: TextStyle(
+                          color: _primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...items.map((item) {
+                        return _buildWelcomeItem(
+                          title: item['title'] ?? '',
+                          description: item['description'] ?? '',
+                          icon: item['icon'] as IconData? ?? Icons.info,
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: IconButton(
+                  onPressed: _dismissWelcomeTab,
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Cerrar',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   List<Widget> _buildRatingStars(double rating, {double size = 22}) {
     final clamped = rating.clamp(0, 5);
     final fullStars = clamped.floor();
@@ -3004,6 +3381,7 @@ class _HomePageState extends State<HomePage> {
     initNotifications();
     _initializeNearbySearch();
     _loadFavoriteBusinessIds();
+    _maybeShowWelcomeTab();
   }
 
   void initNotifications() async {
@@ -3017,7 +3395,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isSearchActive = _searchFocusNode.hasFocus;
+    final isSearchActive = _isSearchButtonActive;
+    final isSearchPressed = _isSearchButtonPressed;
     return Scaffold(
       // BARRA INFERIOR CON LOS ICONOS
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -3183,7 +3562,7 @@ class _HomePageState extends State<HomePage> {
                       textInputAction: TextInputAction.search,
                       onChanged: _onSearchQueryChanged,
                       onSubmitted: (value) {
-                        _fetchAutocompleteSuggestions(value.trim());
+                        _handleSearchTap();
                         if (!_searchFocusNode.hasFocus) {
                           _searchFocusNode.requestFocus();
                         }
@@ -3206,35 +3585,54 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
-                  const SizedBox(width: 8),
-
                   GestureDetector(
-                    onTap: () {
-                      _fetchAutocompleteSuggestions(
-                        _searchController.text.trim(),
-                      );
-                      if (!_searchFocusNode.hasFocus) {
-                        _searchFocusNode.requestFocus();
+                    onTap: _handleSearchTap,
+                    onLongPress: _handleSearchTap,
+                    onLongPressStart: (_) {
+                      final query = _searchController.text.trim();
+                      if (query.length < 2 || !mounted) {
+                        return;
                       }
+                      setState(() {
+                        _isSearchButtonPressed = true;
+                      });
+                    },
+                    onLongPressEnd: (_) {
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _isSearchButtonPressed = false;
+                      });
+                    },
+                    onLongPressCancel: () {
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _isSearchButtonPressed = false;
+                      });
                     },
                     child: Container(
-                      width: 34,
-                      height: 34,
+                      width: 64,
+                      height: double.infinity,
                       decoration: BoxDecoration(
-                        color: isSearchActive
-                            ? _primaryColor
-                            : const Color.fromARGB(255, 200, 200, 200),
-                        borderRadius: BorderRadius.circular(17),
+                        color: isSearchPressed
+                            ? _searchButtonHoldColor
+                            : (isSearchActive
+                                ? _primaryColor
+                                : const Color.fromARGB(255, 215, 216, 219)),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(30),
+                        ),
                       ),
                       child: const Icon(
                         Icons.search,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),
-
-                  const SizedBox(width: 12),
                 ],
               ),
             ),

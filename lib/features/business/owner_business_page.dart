@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
@@ -10,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/models/service_types.dart';
 import 'package:flutter_application_1/services/business_service.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class OwnerBusinessPage extends StatefulWidget {
   const OwnerBusinessPage({super.key});
@@ -355,7 +357,7 @@ class _OwnerBusinessSetupFlowPageState
   final List<BusinessGooglePlace> _googlePlaceResults = [];
 
   int _currentStep = 0;
-  int _employeeCount = 0;
+  int _employeeCount = 1;
   bool _isSearchingGooglePlaces = false;
   bool _useSameDurationForAllOffers = false;
   bool _useScheduleByDays = false;
@@ -850,13 +852,14 @@ class _OwnerBusinessSetupFlowPageState
       );
     }).toList();
 
+    final normalizedEmployeeCount = _employeeCount < 1 ? 1 : _employeeCount;
     final newBusiness = OwnerBusiness(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: selectedGooglePlace.name,
       offers: offers,
       schedule: schedule,
       scheduleMode: _useScheduleByDays ? 'by_day' : 'single',
-      employeeCount: _employeeCount,
+      employeeCount: normalizedEmployeeCount,
       googlePlace: selectedGooglePlace,
     );
 
@@ -1660,7 +1663,7 @@ class _OwnerBusinessSetupFlowPageState
     return _buildCard(
       title: '4. Cantidad de empleados',
       subtitle:
-          'Define cuántos empleados trabajan en tu negocio. Si simplemente trabaja usted, no agregue empleados.',
+          'La cantidad de trabajadores disponibles para cortar el pelo de manera concurrente. Si trabaja solo, indique 1.',
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1680,7 +1683,7 @@ class _OwnerBusinessSetupFlowPageState
             children: [
               IconButton(
                 onPressed: () {
-                  if (_employeeCount <= 0) {
+                  if (_employeeCount <= 1) {
                     return;
                   }
                   setState(() {
@@ -1792,6 +1795,33 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
 
     setState(() {
       _business = updatedBusiness;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _openRevenuePage() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerBusinessRevenuePage(business: _business),
+      ),
+    );
+  }
+
+  Future<void> _openVacationPage() async {
+    final updatedDays = await Navigator.push<List<DateTime>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerBusinessVacationPage(business: _business),
+      ),
+    );
+
+    if (updatedDays == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _business = _business.copyWith(vacationDays: updatedDays);
       _hasChanges = true;
     });
   }
@@ -2082,6 +2112,36 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
               label: const Text('Editar negocio'),
             ),
             const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openRevenuePage,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white30),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.bar_chart_rounded),
+                label: const Text('Ingresos estimados'),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openVacationPage,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white30),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.event_busy_rounded),
+                label: const Text('Incluir días de vacaciones'),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
             OutlinedButton.icon(
               onPressed: _isDeleting
                   ? null
@@ -2113,6 +2173,791 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
   }
 }
 
+class OwnerBusinessRevenuePage extends StatefulWidget {
+  const OwnerBusinessRevenuePage({super.key, required this.business});
+
+  final OwnerBusiness business;
+
+  @override
+  State<OwnerBusinessRevenuePage> createState() =>
+      _OwnerBusinessRevenuePageState();
+}
+
+class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
+  static const _primaryColor = Color.fromARGB(255, 200, 156, 125);
+  static const _backgroundColor = Color.fromARGB(255, 23, 23, 23);
+  static const _cardColor = Color.fromARGB(255, 30, 30, 30);
+  static const _weeklyChartColor = Color.fromARGB(255, 156, 191, 174);
+
+  bool _isLoading = true;
+  String? _error;
+  List<_BusinessRevenueMonth> _months = [];
+  int _selectedMonthIndex = 0;
+  final NumberFormat _amountFormatter = NumberFormat('#,##0.##', 'es_ES');
+  final NumberFormat _compactFormatter = NumberFormat.compact(locale: 'es_ES');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRevenue();
+  }
+
+  Future<void> _loadRevenue() async {
+    try {
+      final payload = await BusinessService.getBusinessRevenue(
+        businessId: widget.business.id,
+      );
+      final rawMonths = payload['months'] as List<dynamic>? ?? const [];
+      final months = rawMonths
+          .map((item) {
+            if (item is! Map<String, dynamic>) {
+              return null;
+            }
+            final year = (item['year'] as num?)?.toInt();
+            final month = (item['month'] as num?)?.toInt();
+            final total = (item['total'] as num?)?.toDouble();
+            final rawWeeks = item['weeks'];
+            List<double> weeks = [];
+            if (rawWeeks is List) {
+              weeks = rawWeeks
+                  .map((value) => (value as num?)?.toDouble() ?? 0.0)
+                  .toList();
+            }
+            if (weeks.isEmpty) {
+              weeks = List.filled(5, 0.0);
+            } else if (weeks.length < 5) {
+              weeks = [...weeks, ...List.filled(5 - weeks.length, 0.0)];
+            } else if (weeks.length > 5) {
+              weeks = weeks.sublist(0, 5);
+            }
+            if (year == null || month == null) {
+              return null;
+            }
+            final double resolvedTotal =
+                total ?? weeks.fold(0.0, (sum, value) => sum + value);
+            return _BusinessRevenueMonth(
+              year: year,
+              month: month,
+              total: resolvedTotal,
+              weeklyTotals: weeks,
+            );
+          })
+          .whereType<_BusinessRevenueMonth>()
+          .toList();
+
+      if (!mounted) {
+        return;
+      }
+
+      final nextIndex = months.isEmpty
+          ? 0
+          : (_months.isEmpty
+              ? months.length - 1
+              : _selectedMonthIndex.clamp(0, months.length - 1));
+
+      setState(() {
+        _months = months;
+        _selectedMonthIndex = nextIndex;
+        _isLoading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _formatAmount(double amount) {
+    return '${_amountFormatter.format(amount)} EUR';
+  }
+
+  String _formatCompactAmount(double amount) {
+    return _compactFormatter.format(amount);
+  }
+
+  Widget _buildRevenueCard({
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (trailing == null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                trailing,
+              ],
+            ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ToggleButtons(
+        isSelected: List<bool>.generate(
+          _months.length,
+          (index) => index == _selectedMonthIndex,
+        ),
+        onPressed: (index) {
+          setState(() {
+            _selectedMonthIndex = index;
+          });
+        },
+        borderRadius: BorderRadius.circular(14),
+        selectedBorderColor: _primaryColor,
+        borderColor: Colors.white24,
+        selectedColor: Colors.white,
+        fillColor: _primaryColor,
+        color: Colors.white70,
+        constraints: const BoxConstraints(minHeight: 38, minWidth: 52),
+        children: _months
+            .map(
+              (month) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  month.shortLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        backgroundColor: _backgroundColor,
+        foregroundColor: Colors.white,
+        title: const Text('Ingresos estimados'),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: _primaryColor),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
+              children: [
+                Text(
+                  widget.business.name,
+                  style: const TextStyle(
+                    color: _primaryColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Estos ingresos se calculan para los meses ya completados, con las citas registradas en la app. Si alguna cita no se realizó, puedes eliminarla y el total se ajustará.',
+                  style: TextStyle(color: Colors.white70),
+                  textAlign: TextAlign.justify,
+                ),
+                const SizedBox(height: 20),
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.redAccent),
+                  )
+                else if (_months.isEmpty)
+                  const Text(
+                    'Aun no hay ingresos registrados en los ultimos meses.',
+                    style: TextStyle(color: Colors.white70),
+                  )
+                else ...[
+                  _buildRevenueCard(
+                    title: 'Ingresos en los ultimos 6 meses',
+                    subtitle: 'Total estimado por mes.',
+                    trailing: Text(
+                      _formatAmount(
+                        _months.fold(0.0, (sum, month) => sum + month.total),
+                      ),
+                      style: const TextStyle(
+                        color: _primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: _RevenueLineChart(
+                      values: _months.map((month) => month.total).toList(),
+                      labels: _months.map((month) => month.shortLabel).toList(),
+                      lineColor: _primaryColor,
+                        maxValue: _months.isEmpty
+                          ? 0.0
+                          : _months
+                              .map((month) => month.total)
+                            .reduce((a, b) => a > b ? a : b),
+                      valueFormatter: _formatCompactAmount,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildRevenueCard(
+                    title: 'Ingresos semanales por mes',
+                    subtitle: 'Selecciona un mes para ver el detalle semanal.',
+                    trailing: Text(
+                      _formatAmount(
+                        _months[_selectedMonthIndex.clamp(
+                          0,
+                          _months.length - 1,
+                        )]
+                            .total,
+                      ),
+                      style: const TextStyle(
+                        color: _weeklyChartColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMonthSelector(),
+                        const SizedBox(height: 16),
+                        Text(
+                          _months[_selectedMonthIndex.clamp(
+                            0,
+                            _months.length - 1,
+                          )]
+                              .label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _RevenueLineChart(
+                          values: _months[_selectedMonthIndex.clamp(
+                            0,
+                            _months.length - 1,
+                          )]
+                              .weeklyTotals,
+                          labels: const [
+                            'Sem 1',
+                            'Sem 2',
+                            'Sem 3',
+                            'Sem 4',
+                            'Sem 5'
+                          ],
+                          lineColor: _weeklyChartColor,
+                          maxValue: _months[_selectedMonthIndex.clamp(
+                            0,
+                            _months.length - 1,
+                          )]
+                              .weeklyTotals
+                              .reduce((a, b) => a > b ? a : b),
+                          valueFormatter: _formatCompactAmount,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class OwnerBusinessVacationPage extends StatefulWidget {
+  const OwnerBusinessVacationPage({super.key, required this.business});
+
+  final OwnerBusiness business;
+
+  @override
+  State<OwnerBusinessVacationPage> createState() =>
+      _OwnerBusinessVacationPageState();
+}
+
+class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
+  static const _primaryColor = Color.fromARGB(255, 200, 156, 125);
+  static const _backgroundColor = Color.fromARGB(255, 23, 23, 23);
+
+  DateTime _focusedDay = DateTime.now();
+  final Set<String> _selectedDays = {};
+  bool _isSaving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final day in widget.business.vacationDays) {
+      _selectedDays.add(_dateKey(day));
+    }
+  }
+
+  String _dateKey(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  bool _isSelected(DateTime date) {
+    return _selectedDays.contains(_dateKey(date));
+  }
+
+  void _toggleDay(DateTime date) {
+    final key = _dateKey(date);
+    if (_selectedDays.contains(key)) {
+      _selectedDays.remove(key);
+    } else {
+      _selectedDays.add(key);
+    }
+  }
+
+  Future<void> _saveVacationDays() async {
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
+    try {
+      final updatedDays = await BusinessService.updateBusinessVacationDays(
+        businessId: widget.business.id,
+        vacationDays: _selectedDays.toList()..sort(),
+      );
+
+      final parsedDays = updatedDays
+          .map((rawDay) => DateTime.tryParse(rawDay))
+          .whereType<DateTime>()
+          .map((day) => DateTime.utc(day.year, day.month, day.day))
+          .toList();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context, parsedDays);
+      InputDecorations.showTopSnackBarSuccess(
+        context,
+        'Días de vacaciones incluidos exitosamente',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = e.toString();
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        backgroundColor: _backgroundColor,
+        foregroundColor: Colors.white,
+        title: const Text('Días de vacaciones'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Seleccione los días de vacaciones los cuales, según el horario de apertura del negocio, entre en conflicto con tus periodos vacacionales',
+              style: TextStyle(color: Colors.white70),
+              textAlign: TextAlign.justify,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 30, 30, 30),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: TableCalendar(
+                  daysOfWeekHeight: 40,
+                  locale: 'es_ES',
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: _focusedDay,
+                  selectedDayPredicate: _isSelected,
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _focusedDay = focusedDay;
+                      _toggleDay(selectedDay);
+                    });
+                  },
+                  headerStyle: HeaderStyle(
+                    titleCentered: true,
+                    titleTextStyle:
+                        const TextStyle(color: Colors.white, fontSize: 18),
+                    formatButtonVisible: false,
+                    leftChevronIcon:
+                        const Icon(Icons.chevron_left, color: _primaryColor),
+                    rightChevronIcon:
+                        const Icon(Icons.chevron_right, color: _primaryColor),
+                  ),
+                  daysOfWeekStyle: const DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(color: Colors.white),
+                    weekendStyle: TextStyle(color: _primaryColor),
+                  ),
+                  calendarStyle: CalendarStyle(
+                    defaultTextStyle: const TextStyle(color: Colors.white),
+                    weekendTextStyle: const TextStyle(color: _primaryColor),
+                    selectedDecoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: _primaryColor.withOpacity(0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    outsideTextStyle: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveVacationDays,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    side: const BorderSide(color: Colors.white, width: 1),
+                  ),
+                ),
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Icon(Icons.save_rounded),
+                label: Text(
+                  _isSaving ? 'Guardando...' : 'Guardar vacaciones',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BusinessRevenueMonth {
+  const _BusinessRevenueMonth({
+    required this.year,
+    required this.month,
+    required this.total,
+    required this.weeklyTotals,
+  });
+
+  final int year;
+  final int month;
+  final double total;
+  final List<double> weeklyTotals;
+
+  String get label {
+    final date = DateTime.utc(year, month, 1);
+    final formatter = DateFormat('MMMM yyyy', 'es_ES');
+    return formatter.format(date);
+  }
+
+  String get shortLabel {
+    final date = DateTime.utc(year, month, 1);
+    final formatter = DateFormat('MMM', 'es_ES');
+    final raw = formatter.format(date).replaceAll('.', '');
+    if (raw.isEmpty) {
+      return raw;
+    }
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+}
+
+class _RevenueLineChart extends StatelessWidget {
+  const _RevenueLineChart({
+    required this.values,
+    required this.labels,
+    required this.lineColor,
+    required this.maxValue,
+    required this.valueFormatter,
+    this.height = 180,
+  });
+
+  final List<double> values;
+  final List<String> labels;
+  final Color lineColor;
+  final double maxValue;
+  final String Function(double value) valueFormatter;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (values.isEmpty) {
+      return SizedBox(
+        height: height,
+        child: const Center(
+          child: Text(
+            'Sin datos',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
+
+    final safeMax = maxValue <= 0 ? 1.0 : maxValue;
+
+    return SizedBox(
+      height: height,
+      child: Column(
+        children: [
+          Row(
+            children: List.generate(values.length, (index) {
+              return Expanded(
+                child: Text(
+                  valueFormatter(values[index]),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: CustomPaint(
+                    painter: _LineChartPainter(
+                      values: values,
+                      maxValue: safeMax,
+                      lineColor: lineColor,
+                      fillColor: lineColor.withOpacity(0.18),
+                      gridColor: Colors.white10,
+                      horizontalPadding: 14,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(labels.length, (index) {
+              return Expanded(
+                child: Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LineChartPainter extends CustomPainter {
+  _LineChartPainter({
+    required this.values,
+    required this.maxValue,
+    required this.lineColor,
+    required this.fillColor,
+    required this.gridColor,
+    this.horizontalPadding = 0,
+  });
+
+  final List<double> values;
+  final double maxValue;
+  final Color lineColor;
+  final Color fillColor;
+  final Color gridColor;
+  final double horizontalPadding;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) {
+      return;
+    }
+
+    const paddingTop = 8.0;
+    const paddingBottom = 10.0;
+    final chartHeight = size.height - paddingTop - paddingBottom;
+    if (chartHeight <= 0) {
+      return;
+    }
+
+    final safeMax = maxValue <= 0 ? 1.0 : maxValue;
+    final leftPadding = horizontalPadding;
+    final rightPadding = horizontalPadding;
+    final availableWidth = size.width - leftPadding - rightPadding;
+    if (availableWidth <= 0) {
+      return;
+    }
+    final step = values.length > 1
+        ? (availableWidth / (values.length - 1))
+        : 0.0;
+
+    final points = <Offset>[];
+    for (var index = 0; index < values.length; index += 1) {
+      final value = values[index];
+      final ratio = value <= 0 ? 0.0 : (value / safeMax).clamp(0.0, 1.0);
+        final dx = values.length > 1
+          ? (leftPadding + (step * index))
+          : (size.width / 2);
+      final dy = paddingTop + ((1 - ratio) * chartHeight);
+      points.add(Offset(dx, dy));
+    }
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 1; i <= 3; i += 1) {
+      final y = paddingTop + (chartHeight * (i / 4));
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final areaPath = Path()
+      ..moveTo(points.first.dx, size.height - paddingBottom);
+    for (final point in points) {
+      areaPath.lineTo(point.dx, point.dy);
+    }
+    areaPath.lineTo(points.last.dx, size.height - paddingBottom);
+    areaPath.close();
+
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(areaPath, fillPaint);
+
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i += 1) {
+      linePath.lineTo(points[i].dx, points[i].dy);
+    }
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(linePath, linePaint);
+
+    final pointPaint = Paint()..color = lineColor;
+    final pointBorderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.7)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    for (final point in points) {
+      canvas.drawCircle(point, 3.5, pointPaint);
+      canvas.drawCircle(point, 3.5, pointBorderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.maxValue != maxValue ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.fillColor != fillColor ||
+        oldDelegate.gridColor != gridColor;
+  }
+}
+
 class OwnerBusinessEditFlowPage extends StatefulWidget {
   const OwnerBusinessEditFlowPage({super.key, required this.initialBusiness});
 
@@ -2132,7 +2977,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
   final List<_OfferDraft> _offers = [];
 
   int _currentStep = 0;
-  int _employeeCount = 0;
+  int _employeeCount = 1;
   bool _isSaving = false;
   bool _useSameDurationForAllOffers = false;
   bool _useScheduleByDays = false;
@@ -2179,7 +3024,8 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
       for (final day in _weekDays) day: _defaultSecondCloseTime,
     };
 
-    _employeeCount = widget.initialBusiness.employeeCount;
+    final initialEmployeeCount = widget.initialBusiness.employeeCount;
+    _employeeCount = initialEmployeeCount < 1 ? 1 : initialEmployeeCount;
     _useScheduleByDays = widget.initialBusiness.scheduleMode == 'by_day';
 
     _hydrateOffers();
@@ -2643,11 +3489,12 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
       );
     }).toList();
 
+    final normalizedEmployeeCount = _employeeCount < 1 ? 1 : _employeeCount;
     final draftBusiness = widget.initialBusiness.copyWith(
       offers: offers,
       schedule: schedule,
       scheduleMode: _useScheduleByDays ? 'by_day' : 'single',
-      employeeCount: _employeeCount,
+      employeeCount: normalizedEmployeeCount,
     );
 
     setState(() {
@@ -2741,7 +3588,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
                           side: const BorderSide(color: Colors.white30),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text('Atras'),
+                        child: const Text('Atrás'),
                       ),
                     ),
                   if (_currentStep > 0) const SizedBox(width: 10),
@@ -3316,7 +4163,8 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
   Widget _buildEmployeesStep() {
     return _buildCard(
       title: '3. Cantidad de empleados',
-      subtitle: 'Define cuantas personas atienden en el negocio.',
+      subtitle:
+          'La cantidad de trabajadores disponibles para cortar el pelo de manera concurrente. Si trabaja solo, indique 1.',
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -3336,7 +4184,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
             children: [
               IconButton(
                 onPressed: () {
-                  if (_employeeCount <= 0) {
+                  if (_employeeCount <= 1) {
                     return;
                   }
                   setState(() {
@@ -3483,6 +4331,7 @@ class OwnerBusiness {
     required this.schedule,
     required this.scheduleMode,
     required this.employeeCount,
+    this.vacationDays = const [],
     this.googlePlace,
   });
 
@@ -3492,16 +4341,24 @@ class OwnerBusiness {
   final List<BusinessDaySchedule> schedule;
   final String scheduleMode;
   final int employeeCount;
+  final List<DateTime> vacationDays;
   final BusinessGooglePlace? googlePlace;
 
   factory OwnerBusiness.fromJson(Map<String, dynamic> json) {
     final googlePlaceData = json['googlePlace'];
     final rawOffers = json['offers'] as List<dynamic>? ?? const <dynamic>[];
     final rawSchedule = json['schedule'] as List<dynamic>? ?? const <dynamic>[];
+    final rawVacationDays =
+      json['vacationDays'] as List<dynamic>? ?? const <dynamic>[];
     final rawEmployeeCount = json['employeeCount'];
     final normalizedEmployeeCount = rawEmployeeCount is num
         ? rawEmployeeCount.toInt()
         : int.tryParse(rawEmployeeCount?.toString() ?? '') ?? 0;
+    final vacationDays = rawVacationDays
+      .map((rawDay) => DateTime.tryParse(rawDay.toString()))
+      .whereType<DateTime>()
+      .map((day) => DateTime.utc(day.year, day.month, day.day))
+      .toList();
 
     return OwnerBusiness(
       id: (json['_id'] ?? json['id'])?.toString() ?? '',
@@ -3519,6 +4376,7 @@ class OwnerBusiness {
           ? 'by_day'
           : 'single',
       employeeCount: normalizedEmployeeCount,
+        vacationDays: vacationDays,
       googlePlace: googlePlaceData is Map<String, dynamic>
           ? BusinessGooglePlace.fromJson(googlePlaceData)
           : null,
@@ -3554,6 +4412,7 @@ class OwnerBusiness {
     List<BusinessDaySchedule>? schedule,
     String? scheduleMode,
     int? employeeCount,
+    List<DateTime>? vacationDays,
     BusinessGooglePlace? googlePlace,
   }) {
     return OwnerBusiness(
@@ -3563,6 +4422,7 @@ class OwnerBusiness {
       schedule: schedule ?? this.schedule,
       scheduleMode: scheduleMode ?? this.scheduleMode,
       employeeCount: employeeCount ?? this.employeeCount,
+      vacationDays: vacationDays ?? this.vacationDays,
       googlePlace: googlePlace ?? this.googlePlace,
     );
   }

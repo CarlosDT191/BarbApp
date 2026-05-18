@@ -324,7 +324,10 @@ class _DayDetailPageState extends State<DayDetailPage> {
   }
 
   /// Elimina una reserva
-  Future<void> _deleteReservation(String reservationId) async {
+  Future<void> _deleteReservation(
+    String reservationId,
+    bool isAppointment,
+  ) async {
     try {
       await _reservationService.deleteReservation(reservationId);
 
@@ -341,7 +344,10 @@ class _DayDetailPageState extends State<DayDetailPage> {
       setState(() {});
 
       if (mounted) {
-        InputDecorations.showTopSnackBarInfo(context, "Reserva eliminada");
+        final successMessage = isAppointment
+            ? "Eliminación de cita confirmada"
+            : "Eliminación de reserva confirmada";
+        InputDecorations.showTopSnackBarInfo(context, successMessage);
       }
     } catch (e) {
       if (mounted) {
