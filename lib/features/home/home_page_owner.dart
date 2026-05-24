@@ -794,7 +794,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                     child: SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _primaryColor,
+                      ),
                     ),
                   ),
                 )
@@ -2439,7 +2442,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 80),
                 child: const Text(
                   'No se pudo cargar el detalle del local.',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -3548,13 +3551,16 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                     child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocusNode,
+                      cursorColor: const Color.fromARGB(255, 23, 23, 23),
                       textInputAction: TextInputAction.search,
                       onChanged: _onSearchQueryChanged,
-                      onSubmitted: (value) {
+                      onSubmitted: (_) {
                         _handleSearchTap();
-                        if (!_searchFocusNode.hasFocus) {
-                          _searchFocusNode.requestFocus();
-                        }
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _searchFocusNode.requestFocus();
+                          }
+                        });
                       },
                       style: const TextStyle(color: Colors.black, fontSize: 16),
                       decoration: const InputDecoration(

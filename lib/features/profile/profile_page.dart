@@ -255,7 +255,7 @@ class _ProfilePageState extends State<ProfilePage> {
               controller: _controller,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "Escribe 'eliminar' para confirmar",
+                hintText: 'Escribe "eliminar" para confirmar',
                 hintStyle: TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: const Color.fromARGB(255, 38, 38, 38),
@@ -279,6 +279,9 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+            ),
             child: const Text(
               "Cancelar",
               style: TextStyle(color: Color.fromARGB(255, 200, 156, 125)),

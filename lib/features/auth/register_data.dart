@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
 import 'package:flutter_application_1/features/home/home_page_owner.dart';
@@ -117,162 +115,173 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
+    return TextSelectionTheme(
+      data: const TextSelectionThemeData(
+        cursorColor: Color.fromARGB(255, 200, 156, 125),
+        selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+        selectionColor: Color.fromARGB(80, 200, 156, 125),
+      ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: IntrinsicHeight(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
 
-                    Text(
-                      'Datos de la cuenta',
-                      style: TextStyle(
-                        fontSize: 35,
-                        color: Color.fromARGB(255, 200, 156, 125),
-                        fontWeight: FontWeight.bold
-                      )
-                    ),
+                      Text(
+                        'Datos de la cuenta',
+                        style: TextStyle(
+                          fontSize: 35,
+                          color: Color.fromARGB(255, 200, 156, 125),
+                          fontWeight: FontWeight.bold
+                        )
+                      ),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 30),
-                      child: Form(
-                        child: Column(
-                          children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30),
+                        child: Form(
+                          child: Column(
+                            children: [
 
-                            // TEXTO DE BIENVENIDA
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 30),
-                              child: Text(
-                                'Especifica todos tus datos correctamente para comenzar en BarbApp',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Color.fromARGB(255, 200, 156, 125)
-                                )
-                              ),
-                            ),
-
-                            SizedBox(height: 50),
-
-                            // USERNAME
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 35),
-                              child: TextFormField(
-                                controller: firstnameController,
-                                decoration: InputDecorations.defaultInputDecoration(
-                                  labelText: "Nombre",
-                                  hintText: "Escribe tu nombre",
-                                  icon: Icons.person
+                              // TEXTO DE BIENVENIDA
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 30),
+                                child: Text(
+                                  'Especifica todos tus datos correctamente para comenzar en BarbApp',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Color.fromARGB(255, 200, 156, 125)
+                                  )
                                 ),
-                                onChanged: (value) => setState(() => firstname = value),
                               ),
-                            ),
 
-                            SizedBox(height: 40),
+                              SizedBox(height: 50),
 
-                            // EMAIL
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 35),
-                              child: TextFormField(
-                                controller: lastnameController,
-                                decoration: InputDecorations.defaultInputDecoration(
-                                  labelText: "Apellidos",
-                                  hintText: "Escribe tus apellidos",
-                                  icon: Icons.person
-                                ),
-                                onChanged: (value) => setState(() => lastname = value),
-                              ),
-                            ),
-
-
-                            SizedBox(height: 40),
-
-                            // PASSWORD
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 35),
-                              child: TextFormField(
-                                controller: passwordController,
-                                obscureText: _obscurePassword,
-                                decoration: InputDecorations.defaultInputDecoration(
-                                  labelText: "Contraseña",
-                                  hintText: "Contraseña",
-                                  icon: Icons.password_rounded,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_rounded
-                                          : Icons.visibility_off_rounded,
-                                      color: Color.fromARGB(255, 200, 156, 125),
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
-                                    },
+                              // USERNAME
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 35),
+                                child: TextFormField(
+                                  controller: firstnameController,
+                                  cursorColor: const Color.fromARGB(255, 200, 156, 125),
+                                  decoration: InputDecorations.defaultInputDecoration(
+                                    labelText: "Nombre",
+                                    hintText: "Escribe tu nombre",
+                                    icon: Icons.person
                                   ),
+                                  onChanged: (value) => setState(() => firstname = value),
                                 ),
-                                onChanged: (value) => setState(() => password = value),
                               ),
-                            ),
 
-                            SizedBox(height: 40),
+                              SizedBox(height: 40),
 
-                            // CONFIRM PASSWORD
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 35),
-                              child: TextFormField(
-                                controller: confirmPasswordController,
-                                obscureText: true,
-                                decoration: InputDecorations.defaultInputDecoration(
-                                  labelText: "Repita la contraseña",
-                                  hintText: "Repita la contraseña",
-                                  icon: Icons.password_rounded,
-                                  suffixIcon: confirmPassword.isEmpty
-                                    ? null
-                                    : (password == confirmPassword)
-                                      ? Icon(Icons.check_circle, color: Colors.green)
-                                      : Icon(Icons.cancel, color: Colors.red),
+                              // EMAIL
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 35),
+                                child: TextFormField(
+                                  controller: lastnameController,
+                                  cursorColor: const Color.fromARGB(255, 200, 156, 125),
+                                  decoration: InputDecorations.defaultInputDecoration(
+                                    labelText: "Apellidos",
+                                    hintText: "Escribe tus apellidos",
+                                    icon: Icons.person
+                                  ),
+                                  onChanged: (value) => setState(() => lastname = value),
                                 ),
-                                onChanged: (value) => setState(() => confirmPassword = value),
                               ),
-                            ),
 
-                            SizedBox(height: 60),
 
-                            // BOTÓN
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 50),
-                              child: InputDecorations.loadingButton(
-                                isSent: isSent,
-                                isEnabled: isFormValid,
-                                text: "Continuar",
-                                onPressed: registerUser,
+                              SizedBox(height: 40),
+
+                              // PASSWORD
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 35),
+                                child: TextFormField(
+                                  controller: passwordController,
+                                  obscureText: _obscurePassword,
+                                  cursorColor: const Color.fromARGB(255, 200, 156, 125),
+                                  decoration: InputDecorations.defaultInputDecoration(
+                                    labelText: "Contraseña",
+                                    hintText: "Contraseña",
+                                    icon: Icons.password_rounded,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_rounded
+                                            : Icons.visibility_off_rounded,
+                                        color: Color.fromARGB(255, 200, 156, 125),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscurePassword = !_obscurePassword;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  onChanged: (value) => setState(() => password = value),
+                                ),
                               ),
-                            ),
 
-                            SizedBox(height: 40),
+                              SizedBox(height: 40),
 
-                          ],
+                              // CONFIRM PASSWORD
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 35),
+                                child: TextFormField(
+                                  controller: confirmPasswordController,
+                                  obscureText: true,
+                                  cursorColor: const Color.fromARGB(255, 200, 156, 125),
+                                  decoration: InputDecorations.defaultInputDecoration(
+                                    labelText: "Repita la contraseña",
+                                    hintText: "Repita la contraseña",
+                                    icon: Icons.password_rounded,
+                                    suffixIcon: confirmPassword.isEmpty
+                                      ? null
+                                      : (password == confirmPassword)
+                                        ? Icon(Icons.check_circle, color: Colors.green)
+                                        : Icon(Icons.cancel, color: Colors.red),
+                                  ),
+                                  onChanged: (value) => setState(() => confirmPassword = value),
+                                ),
+                              ),
+
+                              SizedBox(height: 60),
+
+                              // BOTÓN
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 50),
+                                child: InputDecorations.loadingButton(
+                                  isSent: isSent,
+                                  isEnabled: isFormValid,
+                                  text: "Continuar",
+                                  onPressed: registerUser,
+                                ),
+                              ),
+
+                              SizedBox(height: 40),
+
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:convert';
-import 'package:flutter_application_1/features/home/home_page_client.dart';
-import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
-import 'package:flutter_application_1/config/api_config.dart';
-import 'package:another_flushbar/flushbar.dart';
 import '../../services/user_service.dart';
-import 'package:http/http.dart' as http;
 
 
 class ChangePasswordPage extends StatefulWidget {  
@@ -178,7 +170,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   @override
   Widget build(BuildContext context) {
 
-    return Scaffold(
+    return TextSelectionTheme(
+      data: const TextSelectionThemeData(
+        cursorColor: Color.fromARGB(255, 200, 156, 125),
+        selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+        selectionColor: Color.fromARGB(80, 200, 156, 125),
+      ),
+      child: Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
       body: LayoutBuilder(
@@ -332,6 +330,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           );
         },
       ),
+    ),
     );
   }
 }

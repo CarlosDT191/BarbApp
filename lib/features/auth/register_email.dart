@@ -173,119 +173,127 @@ class _RegisterEmailState extends State<RegisterEmail> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text('Asigna un correo', style: TextStyle( fontSize: 33, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
+    return TextSelectionTheme(
+      data: const TextSelectionThemeData(
+        cursorColor: Color.fromARGB(255, 200, 156, 125),
+        selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+        selectionColor: Color.fromARGB(80, 200, 156, 125),
+      ),
+      child: Scaffold(
+        appBar: AppBar(foregroundColor: Colors.white, backgroundColor: Color.fromARGB(255, 23, 23, 23)),
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text('Asigna un correo', style: TextStyle( fontSize: 33, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30),
-            child: Form(
-              child: Column(
-                children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 30),
+              child: Form(
+                child: Column(
+                  children: [
 
-                  // TEXTO DE BIENVENIDA
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: Text('Escriba el correo con el que quiera vincular su cuenta, o prosiga con un correo de Google', 
-                      style: TextStyle( fontSize: 20, color: Color.fromARGB(255, 200, 156, 125)),
-                      textAlign: TextAlign.justify),
-                  ),
-
-                  SizedBox(height: 50),
-
-                  // EMAIL
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: TextFormField(
-                      controller: emailController,
-                      decoration: InputDecorations.defaultInputDecoration(
-                        labelText: "Correo electrónico",
-                        hintText: "Correo electrónico",
-                        icon: Icons.mail_rounded
-                      ),
-                      onChanged: (value) => setState(() => email = value),
+                    // TEXTO DE BIENVENIDA
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 35),
+                      child: Text('Escriba el correo con el que quiera vincular su cuenta, o prosiga con un correo de Google', 
+                        style: TextStyle( fontSize: 20, color: Color.fromARGB(255, 200, 156, 125)),
+                        textAlign: TextAlign.justify),
                     ),
-                  ),
 
-                  SizedBox(height: 40),
+                    SizedBox(height: 50),
 
-                  // BOTÓN DE CONTINUAR
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: InputDecorations.loadingButton(
-                      isSent: isSent,
-                      isEnabled: isFormValid,
-                      text: "Continuar",
-                      onPressed: searchEmail,
-                    ),
-                  ),
-
-                  SizedBox(height: 40),
-
-                  // HR y O
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: Color.fromARGB(255, 200, 156, 125),
-                            thickness: 2,
-                          ),
+                    // EMAIL
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 35),
+                      child: TextFormField(
+                        controller: emailController,
+                        cursorColor: const Color.fromARGB(255, 200, 156, 125),
+                        decoration: InputDecorations.defaultInputDecoration(
+                          labelText: "Correo electrónico",
+                          hintText: "Correo electrónico",
+                          icon: Icons.mail_rounded
                         ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            "O",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                        onChanged: (value) => setState(() => email = value),
+                      ),
+                    ),
+
+                    SizedBox(height: 40),
+
+                    // BOTÓN DE CONTINUAR
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 50),
+                      child: InputDecorations.loadingButton(
+                        isSent: isSent,
+                        isEnabled: isFormValid,
+                        text: "Continuar",
+                        onPressed: searchEmail,
+                      ),
+                    ),
+
+                    SizedBox(height: 40),
+
+                    // HR y O
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
                               color: Color.fromARGB(255, 200, 156, 125),
+                              thickness: 2,
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: Color.fromARGB(255, 200, 156, 125),
-                            thickness: 2,
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              "O",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromARGB(255, 200, 156, 125),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: 40),
-                  
-                  // Botón de inicio de sesión con Google.
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: ElevatedButton(
-                      onPressed: () {signInWithGoogle();},
-                      style: InputDecorations.borderButton(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-
-                          FaIcon(
-                            FontAwesomeIcons.google,
-                            color: Color.fromARGB(255, 200, 156, 125),
+                          Expanded(
+                            child: Divider(
+                              color: Color.fromARGB(255, 200, 156, 125),
+                              thickness: 2,
+                            ),
                           ),
-
-                          SizedBox(width: 13), // 👈 CONTROL TOTAL DEL ESPACIO
-
-                          Text("Registrarse con Google"),
                         ],
                       ),
                     ),
-                  ),
-                ]
+
+                    SizedBox(height: 40),
+                    
+                    // Botón de inicio de sesión con Google.
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 50),
+                      child: ElevatedButton(
+                        onPressed: () {signInWithGoogle();},
+                        style: InputDecorations.borderButton(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+
+                            FaIcon(
+                              FontAwesomeIcons.google,
+                              color: Color.fromARGB(255, 200, 156, 125),
+                            ),
+
+                            SizedBox(width: 13), // 👈 CONTROL TOTAL DEL ESPACIO
+
+                            Text("Registrarse con Google"),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ]
+                ),
               ),
-            ),
-          )
-          ],
+            )
+            ],
+        ),
       ),
     );
   }

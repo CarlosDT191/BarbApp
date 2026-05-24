@@ -774,7 +774,13 @@ class _AppointmentFlowPageState extends State<AppointmentFlowPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return TextSelectionTheme(
+      data: const TextSelectionThemeData(
+        cursorColor: Color.fromARGB(255, 200, 156, 125),
+        selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+        selectionColor: Color.fromARGB(80, 200, 156, 125),
+      ),
+      child: Scaffold(
       backgroundColor: const Color.fromARGB(255, 23, 23, 23),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 23, 23, 23),
@@ -810,6 +816,7 @@ class _AppointmentFlowPageState extends State<AppointmentFlowPage> {
                       child: TextButton(
                         onPressed: _isSaving ? null : _handleBack,
                         style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           side: const BorderSide(color: Colors.white54),
                         ),
@@ -866,6 +873,7 @@ class _AppointmentFlowPageState extends State<AppointmentFlowPage> {
           ),
         ),
       ),
+    ),
     );
   }
 }

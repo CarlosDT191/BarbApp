@@ -13,6 +13,20 @@ import 'package:flutter_application_1/models/service_types.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+const Color _selectionPrimaryColor = Color.fromARGB(255, 200, 156, 125);
+const Color _selectionHighlightColor = Color.fromARGB(80, 200, 156, 125);
+
+TextSelectionTheme _wrapPrimarySelectionTheme(Widget child) {
+  return TextSelectionTheme(
+    data: const TextSelectionThemeData(
+      cursorColor: _selectionPrimaryColor,
+      selectionHandleColor: _selectionPrimaryColor,
+      selectionColor: _selectionHighlightColor,
+    ),
+    child: child,
+  );
+}
+
 class OwnerBusinessPage extends StatefulWidget {
   const OwnerBusinessPage({super.key});
 
@@ -147,7 +161,8 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
     const primaryColor = Color.fromARGB(255, 200, 156, 125);
 
     if (_isLoading) {
-      return Scaffold(
+      return _wrapPrimarySelectionTheme(
+        Scaffold(
         backgroundColor: backgroundColor,
 
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -159,10 +174,12 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
         ),
 
         body: Center(child: CircularProgressIndicator(color: primaryColor)),
+        ),
       );
     }
 
-    return Scaffold(
+    return _wrapPrimarySelectionTheme(
+      Scaffold(
       backgroundColor: backgroundColor,
 
       bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -332,6 +349,7 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -884,7 +902,8 @@ class _OwnerBusinessSetupFlowPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return _wrapPrimarySelectionTheme(
+      Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
         backgroundColor: _backgroundColor,
@@ -984,6 +1003,7 @@ class _OwnerBusinessSetupFlowPageState
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -1875,10 +1895,15 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+            ),
+            
             child: const Text(
               "Cancelar",
-              style: TextStyle(color: Color.fromARGB(255, 200, 156, 125)),
+              style: TextStyle(color: Color.fromARGB(255, 200, 156, 125),),
             ),
+
           ),
           ElevatedButton(
             onPressed: () {
@@ -2392,7 +2417,8 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return _wrapPrimarySelectionTheme(
+      Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
         backgroundColor: _backgroundColor,
@@ -2518,6 +2544,7 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
                 ],
               ],
             ),
+      ),
     );
   }
 }
@@ -2614,7 +2641,8 @@ class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return _wrapPrimarySelectionTheme(
+      Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
         backgroundColor: _backgroundColor,
@@ -2724,6 +2752,7 @@ class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -3531,7 +3560,8 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return _wrapPrimarySelectionTheme(
+      Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
         backgroundColor: _backgroundColor,
@@ -3634,6 +3664,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -80,7 +80,7 @@ class PushNotificationService {
   }
 
   static Future<void> _configureLocalNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@drawable/barbapp_logo');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(
       android: androidSettings,
@@ -121,7 +121,7 @@ class PushNotificationService {
         channelDescription: _defaultChannel.description,
         importance: Importance.high,
         priority: Priority.high,
-        icon: notification.android?.smallIcon ?? '@mipmap/ic_launcher',
+        icon: notification.android?.smallIcon ?? '@drawable/barbapp_logo',
         largeIcon: largeIcon,
       ),
       iOS: const DarwinNotificationDetails(),
