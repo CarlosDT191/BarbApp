@@ -232,6 +232,67 @@ exports.deleteMyBusiness = async (req, res) => {
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    ));
+
+    const futureReservations = await Reservation.find({
+      business: deletedBusiness._id,
+      date: { $gt: todayUtc },
+    });
+
+    if (futureReservations.length > 0) {
+      const cancelNotifications = [];
+      const pushTasks = [];
+
+      futureReservations.forEach((reservation) => {
+        const formattedDate = reservation.date.toLocaleDateString('es-ES', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+        const businessName = toTrimmedString(reservation.local_name) || "el negocio";
+        const serviceName = toTrimmedString(reservation?.service?.name);
+        const serviceLabel = serviceName
+          ? `${businessName} (${serviceName})`
+          : businessName;
+        const timeLabel = toTrimmedString(reservation.time);
+        const detailsLabel = `${serviceLabel} del ${formattedDate} a las ${timeLabel}`;
+        const message = `Tu reserva en ${detailsLabel} fue cancelada porque el negocio se ha dado de baja de la aplicación.`;
+
+        cancelNotifications.push({
+          user: reservation.user,
+          type: "cancel",
+          message,
+          relatedId: reservation._id,
+        });
+
+        pushTasks.push(
+          sendPushToUser(reservation.user, {
+            title: "Reserva cancelada",
+            body: message,
+            data: {
+              type: "cancel",
+              reservationId: reservation._id.toString(),
+            },
+          }).catch(() => {})
+        );
+      });
+
+      if (cancelNotifications.length > 0) {
+        await Notification.insertMany(cancelNotifications);
+      }
+
+      if (pushTasks.length > 0) {
+        await Promise.all(pushTasks);
+      }
+    }
+
+    await Reservation.deleteMany({ business: deletedBusiness._id });
+
     const linkedPlaceId = toTrimmedString(deletedBusiness.googlePlace?.placeId);
 
     const cleanupTasks = [

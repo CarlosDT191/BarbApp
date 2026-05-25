@@ -356,7 +356,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 80),
                 child: const Text(
                   'No se pudo cargar el detalle del local.',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

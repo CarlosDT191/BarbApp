@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:convert';
-import 'package:flutter_application_1/features/home/home_page_client.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/features/auth/register_email.dart';
-import 'package:flutter_application_1/features/auth/register_data.dart';
-import 'package:http/http.dart' as http;
 
 
 class RegisterRole extends StatefulWidget {

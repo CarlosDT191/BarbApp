@@ -1,4 +1,11 @@
 const User = require("../models/user.model");
+const Reservation = require("../models/reservation.model");
+const Notification = require("../models/notification.model");
+const Business = require("../models/business.model");
+const Favorite = require("../models/favorite.model");
+const BusinessCreationRequest = require("../models/business_creation_request.model");
+const { sendPushToUser } = require("../services/push_notifications");
+const { toTrimmedString } = require("../config/features");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { formatDate } = require('../config/date');
@@ -201,12 +208,155 @@ exports.deleteProfile = async (req, res) => {
 
     const userId = req.user.userId;
 
-    const user = await User.findByIdAndDelete(userId);
+    const user = await User.findById(userId);
 
     if (!user) {
       console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 404 (Usuario no encontrado)`);
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
+
+    const clientLabel = [user.firstname, user.lastname]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "El cliente";
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    ));
+
+    const buildReservationDetails = (reservation) => {
+      const formattedDate = reservation.date.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      const businessName = toTrimmedString(reservation.local_name) || "el negocio";
+      const serviceName = toTrimmedString(reservation?.service?.name);
+      const serviceLabel = serviceName
+        ? `${businessName} (${serviceName})`
+        : businessName;
+      const timeLabel = toTrimmedString(reservation.time);
+      return `${serviceLabel} del ${formattedDate} a las ${timeLabel}`;
+    };
+
+    const futureUserReservations = await Reservation.find({
+      user: userId,
+      date: { $gt: todayUtc },
+    });
+
+    if (futureUserReservations.length > 0) {
+      const cancelNotifications = [];
+      const pushTasks = [];
+
+      futureUserReservations.forEach((reservation) => {
+        if (String(reservation.owner) === String(userId)) {
+          return;
+        }
+
+        const detailsLabel = buildReservationDetails(reservation);
+        const reservationClientLabel = toTrimmedString(reservation.clientName) || clientLabel;
+        const message = `La reserva de ${reservationClientLabel} en ${detailsLabel} se canceló porque el usuario se ha dado de baja de la aplicación.`;
+
+        cancelNotifications.push({
+          user: reservation.owner,
+          type: "cancel",
+          message,
+          relatedId: reservation._id,
+        });
+
+        pushTasks.push(
+          sendPushToUser(reservation.owner, {
+            title: "Reserva cancelada",
+            body: message,
+            data: {
+              type: "cancel",
+              reservationId: reservation._id.toString(),
+            },
+          }).catch(() => {})
+        );
+      });
+
+      if (cancelNotifications.length > 0) {
+        await Notification.insertMany(cancelNotifications);
+      }
+
+      if (pushTasks.length > 0) {
+        await Promise.all(pushTasks);
+      }
+    }
+
+    await Reservation.deleteMany({ user: userId });
+
+    const ownedBusinesses = await Business.find({ owner: userId });
+
+    if (ownedBusinesses.length > 0) {
+      const businessIds = ownedBusinesses.map((business) => business._id);
+      const linkedPlaceIds = ownedBusinesses
+        .map((business) => toTrimmedString(business.googlePlace?.placeId))
+        .filter((placeId) => placeId);
+
+      const futureBusinessReservations = await Reservation.find({
+        business: { $in: businessIds },
+        date: { $gt: todayUtc },
+      });
+
+      if (futureBusinessReservations.length > 0) {
+        const cancelNotifications = [];
+        const pushTasks = [];
+
+        futureBusinessReservations.forEach((reservation) => {
+          if (String(reservation.user) === String(userId)) {
+            return;
+          }
+
+          const detailsLabel = buildReservationDetails(reservation);
+          const message = `Tu reserva en ${detailsLabel} fue cancelada porque el negocio se ha dado de baja de la aplicación.`;
+
+          cancelNotifications.push({
+            user: reservation.user,
+            type: "cancel",
+            message,
+            relatedId: reservation._id,
+          });
+
+          pushTasks.push(
+            sendPushToUser(reservation.user, {
+              title: "Reserva cancelada",
+              body: message,
+              data: {
+                type: "cancel",
+                reservationId: reservation._id.toString(),
+              },
+            }).catch(() => {})
+          );
+        });
+
+        if (cancelNotifications.length > 0) {
+          await Notification.insertMany(cancelNotifications);
+        }
+
+        if (pushTasks.length > 0) {
+          await Promise.all(pushTasks);
+        }
+      }
+
+      await Reservation.deleteMany({ business: { $in: businessIds } });
+
+      const cleanupTasks = [
+        BusinessCreationRequest.deleteMany({ business: { $in: businessIds } }),
+        Business.deleteMany({ _id: { $in: businessIds } }),
+      ];
+
+      if (linkedPlaceIds.length > 0) {
+        cleanupTasks.push(Favorite.deleteMany({ businessId: { $in: linkedPlaceIds } }));
+      }
+
+      await Promise.all(cleanupTasks);
+    }
+
+    await User.deleteOne({ _id: userId });
 
     console.log(`${ip} - - [ ${date} ] "DELETE /users/profile" 200`);
 
