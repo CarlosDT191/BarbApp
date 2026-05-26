@@ -333,9 +333,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => OwnerBusinessDetailPage(
-          initialBusiness: business,
-        ),
+        builder: (_) => OwnerBusinessDetailPage(initialBusiness: business),
       ),
     );
   }
@@ -435,45 +433,30 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     final shouldReset =
         _isLoadingSearchSuggestions ||
         _searchSuggestions.isNotEmpty ||
-        _hasSearched;
-
-    if (query.length < 2) {
-      if (shouldReset || _isSearchButtonActive || _isSearchButtonPressed) {
-        setState(() {
-          _isLoadingSearchSuggestions = false;
-          _searchSuggestions.clear();
-          _hasSearched = false;
-          _isSearchButtonActive = false;
-          _isSearchButtonPressed = false;
-        });
-      }
-      if (!_searchFocusNode.hasFocus) {
-        _searchFocusNode.requestFocus();
-      }
-      return;
-    }
+        _hasSearched ||
+        _isSearchButtonActive ||
+        _isSearchButtonPressed;
 
     if (shouldReset) {
       setState(() {
         _isLoadingSearchSuggestions = false;
         _searchSuggestions.clear();
         _hasSearched = false;
+        _isSearchButtonActive = false;
+        _isSearchButtonPressed = false;
       });
+    }
+
+    if (query.length < 2) {
+      if (!_searchFocusNode.hasFocus) {
+        _searchFocusNode.requestFocus();
+      }
+      return;
     }
 
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
-
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isSearchButtonActive = query.length >= 2;
-      });
-      _fetchAutocompleteSuggestions(query);
-    });
   }
 
   void _handleSearchTap() {
@@ -1329,7 +1312,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
-                                  side: const BorderSide(color: Colors.white, width: 1),
+                                  side: const BorderSide(
+                                    color: Colors.white,
+                                    width: 1,
+                                  ),
                                 ),
                               ),
                               child: const Text('Aplicar filtros'),
@@ -1586,6 +1572,16 @@ class _HomePageOwnerState extends State<HomePageOwner> {
   }
 
   Future<void> _refreshBusinessesAroundCurrentView() async {
+    if (_isLoadingNearbyBusinesses) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarWarning(
+          context,
+          'Debes de esperar a que calcule todos los negocios cercanos para volver a utilizarlo.',
+        );
+      }
+      return;
+    }
+
     setState(() {
       _searchCenter = _currentMapTarget;
       _selectedBusinessForRoute = null;
@@ -1866,7 +1862,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
         _searchCenter.latitude,
         _searchCenter.longitude,
       );
-      if (distance < 50000 && now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
+      if (distance < 50000 &&
+          now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
         return;
       }
     }
@@ -2473,11 +2470,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                 : (business.openNow! ? Colors.green : Colors.red);
 
             final photos = business.photoReferences ?? const <String>[];
-            final actionLabel =
-              isOwnedBusiness ? 'Ver detalles' : 'Reservar';
+            final actionLabel = isOwnedBusiness ? 'Ver detalles' : 'Reservar';
             final actionIcon = isOwnedBusiness
-              ? Icons.storefront_outlined
-              : Icons.calendar_month_rounded;
+                ? Icons.storefront_outlined
+                : Icons.calendar_month_rounded;
 
             /// MÁXIMO DE TARJETA
             final maxSheetHeight = MediaQuery.of(context).size.height * 0.8;
@@ -2497,10 +2493,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                       border: isRegistered
                           ? Border(
                               top: BorderSide(color: _primaryColor, width: 3),
-                              left:
-                                  BorderSide(color: _primaryColor, width: 3),
-                              right:
-                                  BorderSide(color: _primaryColor, width: 3),
+                              left: BorderSide(color: _primaryColor, width: 3),
+                              right: BorderSide(color: _primaryColor, width: 3),
                             )
                           : null,
                     ),
@@ -2522,191 +2516,194 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                             ),
                           ),
                           const SizedBox(height: 14),
-                      if (photos.isNotEmpty)
-                        _buildPhotoCarousel(
-                          placeId: placeId,
-                          photoReferences: photos,
-                          isRegistered: isRegistered,
-                        ),
+                          if (photos.isNotEmpty)
+                            _buildPhotoCarousel(
+                              placeId: placeId,
+                              photoReferences: photos,
+                              isRegistered: isRegistered,
+                            ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    business.name,
-                                    style: TextStyle(
-                                      fontSize: 23,
-                                      fontWeight: FontWeight.w800,
-                                      color: titleColor,
-                                    ),
-                                  ),
-                                ),
-                                if (isRegistered)
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 8, top: 2),
-                                    child: Icon(
-                                      Icons.verified_rounded,
-                                      color: _primaryColor,
-                                      size: 28,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            if (isRegistered) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                'Local registrado en BarbApp',
-                                style: TextStyle(
-                                  color: secondaryTextColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 14),
-                            if (business.rating != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: infoCardColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Row(
-                                      children: _buildRatingStars(
-                                        business.rating!,
-                                        size: 23,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 27),
-                                    Text(
-                                      business.rating!.toStringAsFixed(1),
-                                      style: TextStyle(
-                                        color: titleColor,
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
+                                    Flexible(
                                       child: Text(
-                                        business.reviewCount == null
-                                            ? 'Valoracion basada en usuarios'
-                                            : '${_formatReviewCount(business.reviewCount!)} reseñas',
-                                        textAlign: TextAlign.center,
+                                        business.name,
                                         style: TextStyle(
-                                          color: secondaryTextColor,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 23,
+                                          fontWeight: FontWeight.w800,
+                                          color: titleColor,
                                         ),
                                       ),
                                     ),
+                                    if (isRegistered)
+                                      const Padding(
+                                        padding: EdgeInsets.only(
+                                          left: 8,
+                                          top: 2,
+                                        ),
+                                        child: Icon(
+                                          Icons.verified_rounded,
+                                          color: _primaryColor,
+                                          size: 28,
+                                        ),
+                                      ),
                                   ],
                                 ),
-                              ),
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: infoCardColor,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildDetailRow(
-                                    icon: Icons.location_on_outlined,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: business.address,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    icon: Icons.access_time,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: firstHoursLine,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    icon: Icons.storefront_outlined,
-                                    iconColor: stateColor,
-                                    textColor: stateColor,
-                                    text: business.openNow == null
-                                        ? 'Estado: no disponible'
-                                        : (business.openNow!
-                                              ? 'Abierto ahora'
-                                              : 'Cerrado ahora'),
-                                  ),
-                                  if (business.phone != null) ...[
-                                    const SizedBox(height: 10),
-                                    _buildDetailRow(
-                                      icon: Icons.phone_outlined,
-                                      iconColor: iconColor,
-                                      textColor: secondaryTextColor,
-                                      text: business.phone!,
+                                if (isRegistered) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Local registrado en BarbApp',
+                                    style: TextStyle(
+                                      color: secondaryTextColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
                                     ),
-                                  ],
+                                  ),
                                 ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            if (shouldShowOffers) ...[
-                              _buildOffersSection(
-                                businessId: businessId,
-                                cardColor: infoCardColor,
-                                titleColor: titleColor,
-                                subtitleColor: secondaryTextColor,
-                                iconColor: iconColor,
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 48,
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        _selectedBusinessForRoute = business;
-                                        await _openGoogleMapsRoute(
-                                          targetBusiness: business,
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.white,
-                                        side: const BorderSide(
-                                          color: Colors.white54,
+                                const SizedBox(height: 14),
+                                if (business.rating != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: infoCardColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Row(
+                                          children: _buildRatingStars(
+                                            business.rating!,
+                                            size: 23,
+                                          ),
                                         ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
+                                        const SizedBox(width: 27),
+                                        Text(
+                                          business.rating!.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            color: titleColor,
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            business.reviewCount == null
+                                                ? 'Valoracion basada en usuarios'
+                                                : '${_formatReviewCount(business.reviewCount!)} reseñas',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                const SizedBox(height: 14),
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: infoCardColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _buildDetailRow(
+                                        icon: Icons.location_on_outlined,
+                                        iconColor: iconColor,
+                                        textColor: secondaryTextColor,
+                                        text: business.address,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildDetailRow(
+                                        icon: Icons.access_time,
+                                        iconColor: iconColor,
+                                        textColor: secondaryTextColor,
+                                        text: firstHoursLine,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildDetailRow(
+                                        icon: Icons.storefront_outlined,
+                                        iconColor: stateColor,
+                                        textColor: stateColor,
+                                        text: business.openNow == null
+                                            ? 'Estado: no disponible'
+                                            : (business.openNow!
+                                                  ? 'Abierto ahora'
+                                                  : 'Cerrado ahora'),
+                                      ),
+                                      if (business.phone != null) ...[
+                                        const SizedBox(height: 10),
+                                        _buildDetailRow(
+                                          icon: Icons.phone_outlined,
+                                          iconColor: iconColor,
+                                          textColor: secondaryTextColor,
+                                          text: business.phone!,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                if (shouldShowOffers) ...[
+                                  _buildOffersSection(
+                                    businessId: businessId,
+                                    cardColor: infoCardColor,
+                                    titleColor: titleColor,
+                                    subtitleColor: secondaryTextColor,
+                                    iconColor: iconColor,
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 48,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () async {
+                                            _selectedBusinessForRoute =
+                                                business;
+                                            await _openGoogleMapsRoute(
+                                              targetBusiness: business,
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.white,
+                                            side: const BorderSide(
+                                              color: Colors.white54,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.directions_rounded,
+                                            size: 20,
+                                          ),
+                                          label: const Text(
+                                            'Calcular ruta',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      icon: const Icon(
-                                        Icons.directions_rounded,
-                                        size: 20,
-                                      ),
-                                      label: const Text(
-                                        'Calcular ruta',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
                                     ),
-                                  ),
-                                ),
                                     if (isRegistered) ...[
                                       const SizedBox(width: 12),
                                       Expanded(
@@ -2732,12 +2729,14 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
-                                                  builder: (_) => ReservationFlowPage(
-                                                    initialBusinessId: businessId,
-                                                    initialBusinessName:
-                                                        registeredBusiness?['name']
-                                                            ?.toString(),
-                                                  ),
+                                                  builder: (_) =>
+                                                      ReservationFlowPage(
+                                                        initialBusinessId:
+                                                            businessId,
+                                                        initialBusinessName:
+                                                            registeredBusiness?['name']
+                                                                ?.toString(),
+                                                      ),
                                                 ),
                                               );
                                             },
@@ -2746,19 +2745,19 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                               foregroundColor: Colors.white,
                                               disabledBackgroundColor:
                                                   _primaryColor,
-                                              disabledForegroundColor: Colors.white,
+                                              disabledForegroundColor:
+                                                  Colors.white,
                                               elevation: 0,
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  14,
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                                side: const BorderSide(
+                                                  color: Colors.white,
+                                                  width: 1.5,
                                                 ),
-                                                side: const BorderSide(color: Colors.white, width: 1.5),
                                               ),
                                             ),
-                                            icon: Icon(
-                                              actionIcon,
-                                              size: 20,
-                                            ),
+                                            icon: Icon(actionIcon, size: 20),
                                             label: Text(
                                               actionLabel,
                                               style: const TextStyle(
@@ -2769,8 +2768,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                         ),
                                       ),
                                     ],
-                              ],
-                            ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
@@ -2940,7 +2939,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
               Row(
                 children: [
                   Text(
-                    '${offer.price.toStringAsFixed(2)} EUR',
+                    '${offer.price.toStringAsFixed(2)} €',
                     style: TextStyle(
                       color: titleColor,
                       fontWeight: FontWeight.w700,
@@ -3178,7 +3177,10 @@ class _HomePageOwnerState extends State<HomePageOwner> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: Stack(
             children: [
               ConstrainedBox(
@@ -3241,6 +3243,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       },
     );
   }
+
   List<Widget> _buildRatingStars(double rating, {double size = 22}) {
     final clamped = rating.clamp(0, 5);
     final fullStars = clamped.floor();
@@ -3416,6 +3419,13 @@ class _HomePageOwnerState extends State<HomePageOwner> {
             onCameraIdle: () {
               _persistMapState();
             },
+            onTap: (_) {
+              if (!mounted) {
+                return;
+              }
+              _searchFocusNode.unfocus();
+              _clearSearchSuggestions();
+            },
             initialCameraPosition: _lastCameraPosition,
             markers: _hairSalonMarkers,
             circles: _searchAreaCircles,
@@ -3548,30 +3558,38 @@ class _HomePageOwnerState extends State<HomePageOwner> {
 
                   // 👉 INPUT
                   Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      cursorColor: const Color.fromARGB(255, 23, 23, 23),
-                      textInputAction: TextInputAction.search,
-                      onChanged: _onSearchQueryChanged,
-                      onSubmitted: (_) {
-                        _handleSearchTap();
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            _searchFocusNode.requestFocus();
-                          }
-                        });
-                      },
-                      style: const TextStyle(color: Colors.black, fontSize: 16),
-                      decoration: const InputDecoration(
-                        hintText: "Buscar locales",
-                        hintStyle: TextStyle(color: Colors.grey),
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: 12,
+                    child: TextSelectionTheme(
+                      data: const TextSelectionThemeData(
+                        cursorColor: Color.fromARGB(255, 23, 23, 23),
+                        selectionHandleColor: Color.fromARGB(255, 23, 23, 23),
+                        selectionColor: Color.fromARGB(80, 23, 23, 23),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        cursorColor: const Color.fromARGB(255, 23, 23, 23),
+                        textInputAction: TextInputAction.search,
+                        onChanged: _onSearchQueryChanged,
+                        onSubmitted: (_) {
+                          _handleSearchTap();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              _searchFocusNode.requestFocus();
+                            }
+                          });
+                        },
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: "Buscar locales",
+                          hintStyle: TextStyle(color: Colors.grey),
+                          isDense: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
@@ -3612,8 +3630,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                         color: isSearchPressed
                             ? _searchButtonHoldColor
                             : (isSearchActive
-                                ? _primaryColor
-                                : const Color.fromARGB(255, 215, 216, 219)),
+                                  ? _primaryColor
+                                  : const Color.fromARGB(255, 215, 216, 219)),
                         borderRadius: const BorderRadius.horizontal(
                           right: Radius.circular(30),
                         ),

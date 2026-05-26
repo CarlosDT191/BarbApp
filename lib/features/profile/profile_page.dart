@@ -251,26 +251,32 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             const SizedBox(height: 8),
-            TextField(
-              controller: _controller,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Escribe "eliminar" para confirmar',
-                hintStyle: TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: const Color.fromARGB(255, 38, 38, 38),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
+            TextSelectionTheme(
+              data: const TextSelectionThemeData(
+                cursorColor: Color.fromARGB(255, 200, 156, 125),
+                selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+                selectionColor: Color.fromARGB(80, 200, 156, 125),
+              ),
+              child: TextField(
+                controller: _controller,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Escribe "eliminar" para confirmar',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: const Color.fromARGB(255, 38, 38, 38),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                   enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -279,9 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-            ),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
             child: const Text(
               "Cancelar",
               style: TextStyle(color: Color.fromARGB(255, 200, 156, 125)),

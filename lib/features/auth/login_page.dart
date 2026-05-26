@@ -21,12 +21,12 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-
   // Aquí declaras GoogleSignIn
-  late final GoogleSignIn _googleSignIn =
-      buildGoogleSignIn(scopes: const ['email']);
-  String username= "";
-  String password= "";
+  late final GoogleSignIn _googleSignIn = buildGoogleSignIn(
+    scopes: const ['email'],
+  );
+  String username = "";
+  String password = "";
   bool isSent = false;
   bool _obscurePassword = true;
 
@@ -51,10 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": username,
-          "password": password
-        }),
+        body: jsonEncode({"email": username, "password": password}),
       );
 
       if (response.statusCode == 200) {
@@ -110,7 +107,8 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null || idToken.isEmpty) {
         InputDecorations.showTopSnackBarError(
@@ -121,9 +119,14 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       final fullName = googleUser.displayName?.trim() ?? '';
-      final nameParts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+      final nameParts = fullName
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .toList();
       final firstname = nameParts.isNotEmpty ? nameParts.first : '';
-      final lastname = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+      final lastname = nameParts.length > 1
+          ? nameParts.sublist(1).join(' ')
+          : '';
 
       final apiBaseUrl = getApiBaseUrl();
       final response = await http.post(
@@ -166,7 +169,9 @@ class _LoginPageState extends State<LoginPage> {
         }
       } else {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final error = data["error"]?.toString() ?? 'No se pudo iniciar sesión con Google.';
+        final error =
+            data["error"]?.toString() ??
+            'No se pudo iniciar sesión con Google.';
         InputDecorations.showTopSnackBarError(context, error);
       }
     } catch (e) {
@@ -177,7 +182,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return TextSelectionTheme(
@@ -187,169 +191,264 @@ class _LoginPageState extends State<LoginPage> {
         selectionColor: Color.fromARGB(80, 200, 156, 125),
       ),
       child: Scaffold(
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text('Inicio de sesión', style: TextStyle( fontSize: 35, color: Color.fromARGB(255, 200, 156, 125), fontWeight: FontWeight.bold)),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 30),
-              child: Form(
-                child: Column(
-                  children: [
-
-                    SizedBox(height: 50),
-      
-                    // RELLENAR USERNAME
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 35),
-                      child: TextFormField(decoration: InputDecorations.defaultInputDecoration(
-                                      labelText: "Correo electrónico",
-                                      hintText: "Correo electrónico",
-                                      icon: Icons.mail_rounded
-                                    ),
-                                    cursorColor: const Color.fromARGB(255, 200, 156, 125),
-                                    onChanged: (String value) {
-                                      setState(() {
-                                        username = value;
-                                      });
-                                    },
-                                    validator: (value){
-                                      return value!.isEmpty ? "Please entry email" : null;
-                                    },),
-                    ),
-              
-                    SizedBox(height: 50,),
-              
-                    // RELLENAR CONTRASEÑA
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 35),
-                      child: TextFormField(
-                        obscureText: _obscurePassword,
-                        cursorColor: const Color.fromARGB(255, 200, 156, 125),
-                        decoration: InputDecorations.defaultInputDecoration(
-                          labelText: "Contraseña",
-                          hintText: "Contraseña",
-                          icon: Icons.password_rounded,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_rounded
-                                  : Icons.visibility_off_rounded,
-                              color: Color.fromARGB(255, 200, 156, 125),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                        ),
-                        onChanged: (String value) {
-                          setState(() {
-                            password = value;
-                          });
-                        },
-                        validator: (value) {
-                          return value!.isEmpty ? "Please entry password" : null;
-                        },
-                      ),
-                    ),
-
-                  SizedBox(height: 40),
-                  
-                  // Botón de LOGIN
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: InputDecorations.loadingButton(
-                      isSent: isSent,
-                      isEnabled: isFormValid,
-                      text: "Continuar",
-                      onPressed: loginUser,
-                    ),
-                  ),
-
-                  SizedBox(height: 40),
-
-                  // HR y O
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: Color.fromARGB(255, 200, 156, 125),
-                            thickness: 2,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            "O",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color.fromARGB(255, 200, 156, 125),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: Color.fromARGB(255, 200, 156, 125),
-                            thickness: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: 40),
-
-                  // Botón de inicio de sesión con Google.
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: ElevatedButton(
-                      onPressed: loginWithGoogle,
-                      style: InputDecorations.borderButton(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-
-                          FaIcon(
-                            FontAwesomeIcons.google,
-                            color: Color.fromARGB(255, 200, 156, 125),
+                          const Text(
+                            'Inicio de sesión',
+                            style: TextStyle(
+                              fontSize: 35,
+                              color: Color.fromARGB(255, 200, 156, 125),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30),
+                            child: Form(
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 50),
 
-                          SizedBox(width: 13), // 👈 CONTROL TOTAL DEL ESPACIO
+                                  // RELLENAR USERNAME
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 35,
+                                    ),
+                                    child: TextFormField(
+                                      decoration:
+                                          InputDecorations.defaultInputDecoration(
+                                            labelText: "Correo electrónico",
+                                            hintText: "Correo electrónico",
+                                            icon: Icons.mail_rounded,
+                                          ),
+                                      cursorColor: const Color.fromARGB(
+                                        255,
+                                        200,
+                                        156,
+                                        125,
+                                      ),
+                                      onChanged: (String value) {
+                                        setState(() {
+                                          username = value;
+                                        });
+                                      },
+                                      validator: (value) {
+                                        return value!.isEmpty
+                                            ? "Please entry email"
+                                            : null;
+                                      },
+                                    ),
+                                  ),
 
-                          Text("Iniciar sesión con Google"),
+                                  SizedBox(height: 50),
+
+                                  // RELLENAR CONTRASEÑA
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 35,
+                                    ),
+                                    child: TextFormField(
+                                      obscureText: _obscurePassword,
+                                      cursorColor: const Color.fromARGB(
+                                        255,
+                                        200,
+                                        156,
+                                        125,
+                                      ),
+                                      decoration:
+                                          InputDecorations.defaultInputDecoration(
+                                            labelText: "Contraseña",
+                                            hintText: "Contraseña",
+                                            icon: Icons.password_rounded,
+                                            suffixIcon: IconButton(
+                                              icon: Icon(
+                                                _obscurePassword
+                                                    ? Icons.visibility_rounded
+                                                    : Icons
+                                                          .visibility_off_rounded,
+                                                color: Color.fromARGB(
+                                                  255,
+                                                  200,
+                                                  156,
+                                                  125,
+                                                ),
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _obscurePassword =
+                                                      !_obscurePassword;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                      onChanged: (String value) {
+                                        setState(() {
+                                          password = value;
+                                        });
+                                      },
+                                      validator: (value) {
+                                        return value!.isEmpty
+                                            ? "Please entry password"
+                                            : null;
+                                      },
+                                    ),
+                                  ),
+
+                                  SizedBox(height: 40),
+
+                                  // Botón de LOGIN
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 50,
+                                    ),
+                                    child: InputDecorations.loadingButton(
+                                      isSent: isSent,
+                                      isEnabled: isFormValid,
+                                      text: "Continuar",
+                                      onPressed: loginUser,
+                                    ),
+                                  ),
+
+                                  SizedBox(height: 40),
+
+                                  // HR y O
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 30,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Divider(
+                                            color: Color.fromARGB(
+                                              255,
+                                              200,
+                                              156,
+                                              125,
+                                            ),
+                                            thickness: 2,
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          child: Text(
+                                            "O",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Color.fromARGB(
+                                                255,
+                                                200,
+                                                156,
+                                                125,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Divider(
+                                            color: Color.fromARGB(
+                                              255,
+                                              200,
+                                              156,
+                                              125,
+                                            ),
+                                            thickness: 2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  SizedBox(height: 40),
+
+                                  // Botón de inicio de sesión con Google.
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 50,
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: loginWithGoogle,
+                                      style: InputDecorations.borderButton(),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          FaIcon(
+                                            FontAwesomeIcons.google,
+                                            color: Color.fromARGB(
+                                              255,
+                                              200,
+                                              156,
+                                              125,
+                                            ),
+                                          ),
+
+                                          const SizedBox(
+                                            width: 13,
+                                          ), // 👈 CONTROL TOTAL DEL ESPACIO
+
+                                          Flexible(
+                                            child: Text(
+                                              "Iniciar sesión con Google",
+                                              textAlign: TextAlign.center,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  SizedBox(height: 40),
+
+                                  // Botón de Registro
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 50,
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const RegisterRole(),
+                                          ),
+                                        );
+                                      },
+                                      style: InputDecorations.borderButton(),
+                                      child: Text("Registrarse en BarbApp", textAlign: TextAlign.center),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-
-                  SizedBox(height: 40),
-
-                  // Botón de Registro
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RegisterRole()),
-                        );},
-                      style: InputDecorations.borderButton(),
-                      child: Text("Registarse en BarbApp"),
-                    )
-                  ),
-
-
-                  ],
-
                 ),
-              ),
-            )
-            ],
+              );
+            },
+          ),
         ),
       ),
     );

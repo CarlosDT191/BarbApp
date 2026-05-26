@@ -163,6 +163,23 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
     if (_isLoading) {
       return _wrapPrimarySelectionTheme(
         Scaffold(
+          backgroundColor: backgroundColor,
+
+          bottomNavigationBar: InputDecorations.mainBottomNavBar(
+            context: context,
+            currentIndex: 1,
+            owner: true,
+            onTap: _onItemTapped,
+            unreadNotifications: unreadCount,
+          ),
+
+          body: Center(child: CircularProgressIndicator(color: primaryColor)),
+        ),
+      );
+    }
+
+    return _wrapPrimarySelectionTheme(
+      Scaffold(
         backgroundColor: backgroundColor,
 
         bottomNavigationBar: InputDecorations.mainBottomNavBar(
@@ -173,183 +190,167 @@ class _OwnerBusinessPageState extends State<OwnerBusinessPage> {
           unreadNotifications: unreadCount,
         ),
 
-        body: Center(child: CircularProgressIndicator(color: primaryColor)),
-        ),
-      );
-    }
-
-    return _wrapPrimarySelectionTheme(
-      Scaffold(
-      backgroundColor: backgroundColor,
-
-      bottomNavigationBar: InputDecorations.mainBottomNavBar(
-        context: context,
-        currentIndex: 1,
-        owner: true,
-        onTap: _onItemTapped,
-        unreadNotifications: unreadCount,
-      ),
-
-      floatingActionButton: _businesses.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _openSetupFlow,
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15.0),
-                side: BorderSide(
-                  color: Colors.white, // Color del borde
-                  width: 2.0, // Grosor del borde
-                ),
-              ),
-              icon: const Icon(Icons.add_business_rounded),
-              label: const Text('Nuevo negocio'),
-            )
-          : null,
-
-      body: Column(
-        children: [
-          const SizedBox(height: 70),
-
-          const Text(
-            'Mis negocios',
-            style: TextStyle(
-              color: primaryColor,
-              fontSize: 33,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 20),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const SizedBox(height: 30),
-
-                if (_businesses.isEmpty) ...[
-                  const SizedBox(height: 90),
-                  Center(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.storefront_rounded,
-                            size: 62,
-                            color: primaryColor,
-                          ),
-                          const SizedBox(height: 14),
-                          const Text(
-                            'Aun no tienes negocios creados',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 21,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Configura tu primer negocio para definir ofertas, horario y numero de empleados.',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 15,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 35),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 25,
-                              vertical: 16,
-                            ),
-                            child: InputDecorations.loadingButton(
-                              isSent: false,
-                              isEnabled: true,
-                              text: "Empezar configuracion",
-                              onPressed: _openSetupFlow,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+        floatingActionButton: _businesses.isNotEmpty
+            ? FloatingActionButton.extended(
+                onPressed: _openSetupFlow,
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15.0),
+                  side: BorderSide(
+                    color: Colors.white, // Color del borde
+                    width: 2.0, // Grosor del borde
                   ),
-                ] else
-                  ..._businesses.map((business) {
-                    final address =
-                        business.googlePlace?.address.trim().isNotEmpty == true
-                        ? business.googlePlace!.address
-                        : 'Direccion no disponible';
+                ),
+                icon: const Icon(Icons.add_business_rounded),
+                label: const Text('Nuevo negocio'),
+              )
+            : null,
 
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => _openBusinessDetails(business),
+        body: Column(
+          children: [
+            const SizedBox(height: 70),
+
+            const Text(
+              'Mis negocios',
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 33,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 20),
+
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const SizedBox(height: 30),
+
+                  if (_businesses.isEmpty) ...[
+                    const SizedBox(height: 90),
+                    Center(
                       child: Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: cardColor,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: Colors.white10),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Row(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
                               Icons.storefront_rounded,
+                              size: 62,
                               color: primaryColor,
-                              size: 30,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    business.name,
-                                    style: const TextStyle(
-                                      color: primaryColor,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    address,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Aun no tienes negocios creados',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 21,
+                                fontWeight: FontWeight.bold,
                               ),
+                              textAlign: TextAlign.center,
                             ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.white54,
-                              size: 30,
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Configura tu primer negocio para definir ofertas, horario y numero de empleados.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 15,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 35),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 25,
+                                vertical: 16,
+                              ),
+                              child: InputDecorations.loadingButton(
+                                isSent: false,
+                                isEnabled: true,
+                                text: "Empezar configuracion",
+                                onPressed: _openSetupFlow,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }).toList(),
-              ],
+                    ),
+                  ] else
+                    ..._businesses.map((business) {
+                      final address =
+                          business.googlePlace?.address.trim().isNotEmpty ==
+                              true
+                          ? business.googlePlace!.address
+                          : 'Direccion no disponible';
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _openBusinessDetails(business),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.storefront_rounded,
+                                color: primaryColor,
+                                size: 30,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      business.name,
+                                      style: const TextStyle(
+                                        color: primaryColor,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      address,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.white54,
+                                size: 30,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -904,106 +905,106 @@ class _OwnerBusinessSetupFlowPageState
   Widget build(BuildContext context) {
     return _wrapPrimarySelectionTheme(
       Scaffold(
-      backgroundColor: _backgroundColor,
-      appBar: AppBar(
         backgroundColor: _backgroundColor,
-        foregroundColor: Colors.white,
-        title: const Text('Configuración del negocio'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: List.generate(4, (index) {
-                final selected = index <= _currentStep;
-                return Expanded(
-                  child: Container(
-                    height: 6,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: selected ? _primaryColor : Colors.white12,
-                      borderRadius: BorderRadius.circular(20),
+        appBar: AppBar(
+          backgroundColor: _backgroundColor,
+          foregroundColor: Colors.white,
+          title: const Text('Configuración del negocio'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: List.generate(4, (index) {
+                  final selected = index <= _currentStep;
+                  return Expanded(
+                    child: Container(
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: selected ? _primaryColor : Colors.white12,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 18),
-            Expanded(
-              child: IndexedStack(
-                index: _currentStep,
-                children: [
-                  _buildGooglePlaceLinkStep(),
-                  _buildOffersStep(),
-                  _buildScheduleStep(),
-                  _buildEmployeesStep(),
-                ],
+                  );
+                }),
               ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 50), // 👈 ajusta esto
-              child: Row(
-                children: [
-                  if (_currentStep > 0)
+              const SizedBox(height: 18),
+              Expanded(
+                child: IndexedStack(
+                  index: _currentStep,
+                  children: [
+                    _buildGooglePlaceLinkStep(),
+                    _buildOffersStep(),
+                    _buildScheduleStep(),
+                    _buildEmployeesStep(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 50), // 👈 ajusta esto
+                child: Row(
+                  children: [
+                    if (_currentStep > 0)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _currentStep -= 1;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white30),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text('Atrás'),
+                        ),
+                      ),
+                    if (_currentStep > 0) const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (!await _validateCurrentStep()) {
+                            return;
+                          }
+
+                          if (_currentStep == 3) {
+                            _saveBusiness();
+                            return;
+                          }
+
                           setState(() {
-                            _currentStep -= 1;
+                            _currentStep += 1;
                           });
                         },
-                        style: OutlinedButton.styleFrom(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryColor,
                           foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white30),
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text('Atrás'),
-                      ),
-                    ),
-                  if (_currentStep > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        if (!await _validateCurrentStep()) {
-                          return;
-                        }
-
-                        if (_currentStep == 3) {
-                          _saveBusiness();
-                          return;
-                        }
-
-                        setState(() {
-                          _currentStep += 1;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          side: BorderSide(
-                            // borde del botón
-                            color: Colors.white, // color del borde
-                            width: 1, // grosor del borde
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            side: BorderSide(
+                              // borde del botón
+                              color: Colors.white, // color del borde
+                              width: 1, // grosor del borde
+                            ),
                           ),
                         ),
-                      ),
-                      child: Text(
-                        _currentStep == 3 ? 'Guardar negocio' : 'Siguiente',
+                        child: Text(
+                          _currentStep == 3 ? 'Guardar negocio' : 'Siguiente',
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -1341,7 +1342,7 @@ class _OwnerBusinessSetupFlowPageState
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     labelText: 'Precio',
-                    suffixText: 'EUR',
+                    suffixText: '€',
                     labelStyle: TextStyle(color: Colors.white70),
                     border: OutlineInputBorder(),
                     enabledBorder: OutlineInputBorder(
@@ -1867,26 +1868,32 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
             ),
             const SizedBox(height: 16),
             const SizedBox(height: 8),
-            TextField(
-              controller: _controller,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Escriba "desvincular"',
-                hintStyle: TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: const Color.fromARGB(255, 38, 38, 38),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+            TextSelectionTheme(
+              data: const TextSelectionThemeData(
+                cursorColor: Color.fromARGB(255, 200, 156, 125),
+                selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+                selectionColor: Color.fromARGB(80, 200, 156, 125),
+              ),
+              child: TextField(
+                controller: _controller,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Escriba "desvincular"',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: const Color.fromARGB(255, 38, 38, 38),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -1895,15 +1902,12 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-            ),
-            
+            style: ElevatedButton.styleFrom(foregroundColor: Colors.white),
+
             child: const Text(
               "Cancelar",
-              style: TextStyle(color: Color.fromARGB(255, 200, 156, 125),),
+              style: TextStyle(color: Color.fromARGB(255, 200, 156, 125)),
             ),
-
           ),
           ElevatedButton(
             onPressed: () {
@@ -2054,7 +2058,7 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
 
                           Expanded(
                             child: Text(
-                              '(${offer.serviceType}) ${offer.name}: ${offer.price.toStringAsFixed(2)} EUR',
+                              '(${offer.serviceType}) ${offer.name}: ${offer.price.toStringAsFixed(2)} €',
                               style: const TextStyle(color: Colors.white70),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2277,8 +2281,8 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
       final nextIndex = months.isEmpty
           ? 0
           : (_months.isEmpty
-              ? months.length - 1
-              : _selectedMonthIndex.clamp(0, months.length - 1));
+                ? months.length - 1
+                : _selectedMonthIndex.clamp(0, months.length - 1));
 
       setState(() {
         _months = months;
@@ -2299,7 +2303,7 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
   }
 
   String _formatAmount(double amount) {
-    return '${_amountFormatter.format(amount)} EUR';
+    return '${_amountFormatter.format(amount)} €';
   }
 
   String _formatCompactAmount(double amount) {
@@ -2336,10 +2340,7 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.white70),
-                  ),
+                  Text(subtitle, style: const TextStyle(color: Colors.white70)),
                 ],
               ],
             )
@@ -2419,131 +2420,136 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
   Widget build(BuildContext context) {
     return _wrapPrimarySelectionTheme(
       Scaffold(
-      backgroundColor: _backgroundColor,
-      appBar: AppBar(
         backgroundColor: _backgroundColor,
-        foregroundColor: Colors.white,
-        title: const Text('Ingresos estimados'),
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: _primaryColor),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
-              children: [
-                Text(
-                  widget.business.name,
-                  style: const TextStyle(
-                    color: _primaryColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Estos ingresos se calculan para los meses ya completados, con las citas registradas en la app. Si alguna cita no se realizó, puedes eliminarla y el total se ajustará.',
-                  style: TextStyle(color: Colors.white70),
-                  textAlign: TextAlign.justify,
-                ),
-                const SizedBox(height: 20),
-                if (_error != null)
+        appBar: AppBar(
+          backgroundColor: _backgroundColor,
+          foregroundColor: Colors.white,
+          title: const Text('Ingresos estimados'),
+        ),
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: _primaryColor),
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
+                children: [
                   Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.redAccent),
-                  )
-                else if (_months.isEmpty)
+                    widget.business.name,
+                    style: const TextStyle(
+                      color: _primaryColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   const Text(
-                    'Aun no hay ingresos registrados en los ultimos meses.',
+                    'Estos ingresos se calculan para los meses ya completados, con las citas registradas en la app. Si alguna cita no se realizó, puedes eliminarla y el total se ajustará.',
                     style: TextStyle(color: Colors.white70),
-                  )
-                else ...[
-                  _buildRevenueCard(
-                    title: 'Ingresos en los ultimos 6 meses',
-                    subtitle: 'Total estimado por mes.',
-                    trailing: Text(
-                      _formatAmount(
-                        _months.fold(0.0, (sum, month) => sum + month.total),
+                    textAlign: TextAlign.justify,
+                  ),
+                  const SizedBox(height: 20),
+                  if (_error != null)
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.redAccent),
+                    )
+                  else if (_months.isEmpty)
+                    const Text(
+                      'Aun no hay ingresos registrados en los ultimos meses.',
+                      style: TextStyle(color: Colors.white70),
+                    )
+                  else ...[
+                    _buildRevenueCard(
+                      title: 'Ingresos en los ultimos 6 meses',
+                      subtitle: 'Total estimado por mes.',
+                      trailing: Text(
+                        _formatAmount(
+                          _months.fold(0.0, (sum, month) => sum + month.total),
+                        ),
+                        style: const TextStyle(
+                          color: _primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      style: const TextStyle(
-                        color: _primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    child: _RevenueLineChart(
-                      values: _months.map((month) => month.total).toList(),
-                      labels: _months.map((month) => month.shortLabel).toList(),
-                      lineColor: _primaryColor,
+                      child: _RevenueLineChart(
+                        values: _months.map((month) => month.total).toList(),
+                        labels: _months
+                            .map((month) => month.shortLabel)
+                            .toList(),
+                        lineColor: _primaryColor,
                         maxValue: _months.isEmpty
-                          ? 0.0
-                          : _months
-                              .map((month) => month.total)
-                            .reduce((a, b) => a > b ? a : b),
-                      valueFormatter: _formatCompactAmount,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _buildRevenueCard(
-                    title: 'Ingresos semanales por mes',
-                    subtitle: 'Selecciona un mes para ver el detalle semanal.',
-                    trailing: Text(
-                      _formatAmount(
-                        _months[_selectedMonthIndex.clamp(
-                          0,
-                          _months.length - 1,
-                        )]
-                            .total,
-                      ),
-                      style: const TextStyle(
-                        color: _weeklyChartColor,
-                        fontWeight: FontWeight.bold,
+                            ? 0.0
+                            : _months
+                                  .map((month) => month.total)
+                                  .reduce((a, b) => a > b ? a : b),
+                        valueFormatter: _formatCompactAmount,
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildMonthSelector(),
-                        const SizedBox(height: 16),
-                        Text(
+                    const SizedBox(height: 18),
+                    _buildRevenueCard(
+                      title: 'Ingresos semanales por mes',
+                      subtitle:
+                          'Selecciona un mes para ver el detalle semanal.',
+                      trailing: Text(
+                        _formatAmount(
                           _months[_selectedMonthIndex.clamp(
-                            0,
-                            _months.length - 1,
-                          )]
-                              .label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                                0,
+                                _months.length - 1,
+                              )]
+                              .total,
+                        ),
+                        style: const TextStyle(
+                          color: _weeklyChartColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildMonthSelector(),
+                          const SizedBox(height: 16),
+                          Text(
+                            _months[_selectedMonthIndex.clamp(
+                                  0,
+                                  _months.length - 1,
+                                )]
+                                .label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        _RevenueLineChart(
-                          values: _months[_selectedMonthIndex.clamp(
-                            0,
-                            _months.length - 1,
-                          )]
-                              .weeklyTotals,
-                          labels: const [
-                            'Sem 1',
-                            'Sem 2',
-                            'Sem 3',
-                            'Sem 4',
-                            'Sem 5'
-                          ],
-                          lineColor: _weeklyChartColor,
-                          maxValue: _months[_selectedMonthIndex.clamp(
-                            0,
-                            _months.length - 1,
-                          )]
-                              .weeklyTotals
-                              .reduce((a, b) => a > b ? a : b),
-                          valueFormatter: _formatCompactAmount,
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          _RevenueLineChart(
+                            values:
+                                _months[_selectedMonthIndex.clamp(
+                                      0,
+                                      _months.length - 1,
+                                    )]
+                                    .weeklyTotals,
+                            labels: const [
+                              'Sem 1',
+                              'Sem 2',
+                              'Sem 3',
+                              'Sem 4',
+                              'Sem 5',
+                            ],
+                            lineColor: _weeklyChartColor,
+                            maxValue:
+                                _months[_selectedMonthIndex.clamp(
+                                      0,
+                                      _months.length - 1,
+                                    )]
+                                    .weeklyTotals
+                                    .reduce((a, b) => a > b ? a : b),
+                            valueFormatter: _formatCompactAmount,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
-            ),
+              ),
       ),
     );
   }
@@ -2596,6 +2602,18 @@ class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
     }
   }
 
+  String _formatCalendarMonthHeader(DateTime date) {
+    final label = DateFormat.yMMMM('es').format(date);
+    return _capitalizeFirstLetter(label);
+  }
+
+  String _capitalizeFirstLetter(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+    return value.substring(0, 1).toUpperCase() + value.substring(1);
+  }
+
   Future<void> _saveVacationDays() async {
     if (_isSaving) {
       return;
@@ -2643,116 +2661,121 @@ class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
   Widget build(BuildContext context) {
     return _wrapPrimarySelectionTheme(
       Scaffold(
-      backgroundColor: _backgroundColor,
-      appBar: AppBar(
         backgroundColor: _backgroundColor,
-        foregroundColor: Colors.white,
-        title: const Text('Días de vacaciones'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Seleccione los días de vacaciones los cuales, según el horario de apertura del negocio, entre en conflicto con tus periodos vacacionales',
-              style: TextStyle(color: Colors.white70),
-              textAlign: TextAlign.justify,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 30, 30, 30),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: TableCalendar(
-                  daysOfWeekHeight: 40,
-                  locale: 'es_ES',
-                  startingDayOfWeek: StartingDayOfWeek.monday,
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: _focusedDay,
-                  selectedDayPredicate: _isSelected,
-                  onDaySelected: (selectedDay, focusedDay) {
-                    setState(() {
-                      _focusedDay = focusedDay;
-                      _toggleDay(selectedDay);
-                    });
-                  },
-                  headerStyle: HeaderStyle(
-                    titleCentered: true,
-                    titleTextStyle:
-                        const TextStyle(color: Colors.white, fontSize: 18),
-                    formatButtonVisible: false,
-                    leftChevronIcon:
-                        const Icon(Icons.chevron_left, color: _primaryColor),
-                    rightChevronIcon:
-                        const Icon(Icons.chevron_right, color: _primaryColor),
+        appBar: AppBar(
+          backgroundColor: _backgroundColor,
+          foregroundColor: Colors.white,
+          title: const Text('Días de vacaciones'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Seleccione los días de vacaciones los cuales, según el horario de apertura del negocio, entre en conflicto con tus periodos vacacionales',
+                style: TextStyle(color: Colors.white70),
+                textAlign: TextAlign.justify,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 30, 30, 30),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekdayStyle: TextStyle(color: Colors.white),
-                    weekendStyle: TextStyle(color: _primaryColor),
-                  ),
-                  calendarStyle: CalendarStyle(
-                    defaultTextStyle: const TextStyle(color: Colors.white),
-                    weekendTextStyle: const TextStyle(color: _primaryColor),
-                    selectedDecoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.6),
-                      shape: BoxShape.circle,
+                  child: TableCalendar(
+                    daysOfWeekHeight: 40,
+                    locale: 'es_ES',
+                    startingDayOfWeek: StartingDayOfWeek.monday,
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    selectedDayPredicate: _isSelected,
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _focusedDay = focusedDay;
+                        _toggleDay(selectedDay);
+                      });
+                    },
+                    headerStyle: HeaderStyle(
+                      titleCentered: true,
+                      titleTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                      ),
+                      formatButtonVisible: false,
+                      titleTextFormatter: (date, locale) =>
+                          _formatCalendarMonthHeader(date),
+                      leftChevronIcon: const Icon(
+                        Icons.chevron_left,
+                        color: _primaryColor,
+                      ),
+                      rightChevronIcon: const Icon(
+                        Icons.chevron_right,
+                        color: _primaryColor,
+                      ),
                     ),
-                    todayDecoration: BoxDecoration(
-                      color: _primaryColor.withOpacity(0.4),
-                      shape: BoxShape.circle,
+                    daysOfWeekStyle: const DaysOfWeekStyle(
+                      weekdayStyle: TextStyle(color: Colors.white),
+                      weekendStyle: TextStyle(color: _primaryColor),
                     ),
-                    outsideTextStyle: const TextStyle(color: Colors.grey),
+                    calendarStyle: CalendarStyle(
+                      defaultTextStyle: const TextStyle(color: Colors.white),
+                      weekendTextStyle: const TextStyle(color: _primaryColor),
+                      selectedDecoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      todayDecoration: BoxDecoration(
+                        color: _primaryColor.withOpacity(0.4),
+                        shape: BoxShape.circle,
+                      ),
+                      outsideTextStyle: const TextStyle(color: Colors.grey),
+                    ),
                   ),
                 ),
               ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: const TextStyle(color: Colors.redAccent),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+              ],
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveVacationDays,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      side: const BorderSide(color: Colors.white, width: 1),
+                    ),
+                  ),
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.save_rounded),
+                  label: Text(
+                    _isSaving ? 'Guardando...' : 'Guardar vacaciones',
+                  ),
+                ),
               ),
             ],
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveVacationDays,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    side: const BorderSide(color: Colors.white, width: 1),
-                  ),
-                ),
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : const Icon(Icons.save_rounded),
-                label: Text(
-                  _isSaving ? 'Guardando...' : 'Guardar vacaciones',
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
@@ -2810,10 +2833,7 @@ class _RevenueLineChart extends StatelessWidget {
       return SizedBox(
         height: height,
         child: const Center(
-          child: Text(
-            'Sin datos',
-            style: TextStyle(color: Colors.white70),
-          ),
+          child: Text('Sin datos', style: TextStyle(color: Colors.white70)),
         ),
       );
     }
@@ -2830,10 +2850,7 @@ class _RevenueLineChart extends StatelessWidget {
                 child: Text(
                   valueFormatter(values[index]),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2868,10 +2885,7 @@ class _RevenueLineChart extends StatelessWidget {
                 child: Text(
                   labels[index],
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               );
             }),
@@ -2927,7 +2941,7 @@ class _LineChartPainter extends CustomPainter {
     for (var index = 0; index < values.length; index += 1) {
       final value = values[index];
       final ratio = value <= 0 ? 0.0 : (value / safeMax).clamp(0.0, 1.0);
-        final dx = values.length > 1
+      final dx = values.length > 1
           ? (leftPadding + (step * index))
           : (size.width / 2);
       final dy = paddingTop + ((1 - ratio) * chartHeight);
@@ -3562,109 +3576,112 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
   Widget build(BuildContext context) {
     return _wrapPrimarySelectionTheme(
       Scaffold(
-      backgroundColor: _backgroundColor,
-      appBar: AppBar(
         backgroundColor: _backgroundColor,
-        foregroundColor: Colors.white,
-        title: const Text('Editar negocio'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-        child: Column(
-          children: [
-            Row(
-              children: List.generate(3, (index) {
-                final selected = index <= _currentStep;
-                return Expanded(
-                  child: Container(
-                    height: 6,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: selected ? _primaryColor : Colors.white12,
-                      borderRadius: BorderRadius.circular(20),
+        appBar: AppBar(
+          backgroundColor: _backgroundColor,
+          foregroundColor: Colors.white,
+          title: const Text('Editar negocio'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          child: Column(
+            children: [
+              Row(
+                children: List.generate(3, (index) {
+                  final selected = index <= _currentStep;
+                  return Expanded(
+                    child: Container(
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: selected ? _primaryColor : Colors.white12,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 18),
-            Expanded(
-              child: IndexedStack(
-                index: _currentStep,
-                children: [
-                  _buildOffersStep(),
-                  _buildScheduleStep(),
-                  _buildEmployeesStep(),
-                ],
+                  );
+                }),
               ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Row(
-                children: [
-                  if (_currentStep > 0)
+              const SizedBox(height: 18),
+              Expanded(
+                child: IndexedStack(
+                  index: _currentStep,
+                  children: [
+                    _buildOffersStep(),
+                    _buildScheduleStep(),
+                    _buildEmployeesStep(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  children: [
+                    if (_currentStep > 0)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _currentStep -= 1;
+                                  });
+                                },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white30),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text('Atrás'),
+                        ),
+                      ),
+                    if (_currentStep > 0) const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton(
+                      child: ElevatedButton(
                         onPressed: _isSaving
                             ? null
-                            : () {
+                            : () async {
+                                if (!await _validateCurrentStep()) {
+                                  return;
+                                }
+
+                                if (_currentStep == 2) {
+                                  _saveBusiness();
+                                  return;
+                                }
+
                                 setState(() {
-                                  _currentStep -= 1;
+                                  _currentStep += 1;
                                 });
                               },
-                        style: OutlinedButton.styleFrom(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryColor,
                           foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white30),
                           padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            side: const BorderSide(
+                              color: Colors.white,
+                              width: 1,
+                            ),
+                          ),
                         ),
-                        child: const Text('Atrás'),
-                      ),
-                    ),
-                  if (_currentStep > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () async {
-                              if (!await _validateCurrentStep()) {
-                                return;
-                              }
-
-                              if (_currentStep == 2) {
-                                _saveBusiness();
-                                return;
-                              }
-
-                              setState(() {
-                                _currentStep += 1;
-                              });
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          side: const BorderSide(color: Colors.white, width: 1),
+                        child: Text(
+                          _isSaving
+                              ? 'Guardando...'
+                              : _currentStep == 2
+                              ? 'Guardar cambios'
+                              : 'Siguiente',
                         ),
                       ),
-                      child: Text(
-                        _isSaving
-                            ? 'Guardando...'
-                            : _currentStep == 2
-                            ? 'Guardar cambios'
-                            : 'Siguiente',
-                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -3853,7 +3870,7 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     labelText: 'Precio',
-                    suffixText: 'EUR',
+                    suffixText: '€',
                     labelStyle: TextStyle(color: Colors.white70),
                     border: OutlineInputBorder(),
                     enabledBorder: OutlineInputBorder(
@@ -4380,16 +4397,16 @@ class OwnerBusiness {
     final rawOffers = json['offers'] as List<dynamic>? ?? const <dynamic>[];
     final rawSchedule = json['schedule'] as List<dynamic>? ?? const <dynamic>[];
     final rawVacationDays =
-      json['vacationDays'] as List<dynamic>? ?? const <dynamic>[];
+        json['vacationDays'] as List<dynamic>? ?? const <dynamic>[];
     final rawEmployeeCount = json['employeeCount'];
     final normalizedEmployeeCount = rawEmployeeCount is num
         ? rawEmployeeCount.toInt()
         : int.tryParse(rawEmployeeCount?.toString() ?? '') ?? 0;
     final vacationDays = rawVacationDays
-      .map((rawDay) => DateTime.tryParse(rawDay.toString()))
-      .whereType<DateTime>()
-      .map((day) => DateTime.utc(day.year, day.month, day.day))
-      .toList();
+        .map((rawDay) => DateTime.tryParse(rawDay.toString()))
+        .whereType<DateTime>()
+        .map((day) => DateTime.utc(day.year, day.month, day.day))
+        .toList();
 
     return OwnerBusiness(
       id: (json['_id'] ?? json['id'])?.toString() ?? '',
@@ -4407,7 +4424,7 @@ class OwnerBusiness {
           ? 'by_day'
           : 'single',
       employeeCount: normalizedEmployeeCount,
-        vacationDays: vacationDays,
+      vacationDays: vacationDays,
       googlePlace: googlePlaceData is Map<String, dynamic>
           ? BusinessGooglePlace.fromJson(googlePlaceData)
           : null,

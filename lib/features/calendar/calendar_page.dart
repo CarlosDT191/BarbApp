@@ -8,6 +8,7 @@ import 'package:flutter_application_1/features/business/owner_business_page.dart
 import 'package:flutter_application_1/features/calendar/pages/day_detail_page.dart';
 import 'package:flutter_application_1/features/calendar/models/calendar_entry.dart';
 import 'package:flutter_application_1/models/reservation.dart';
+import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_application_1/services/business_service.dart';
@@ -317,6 +318,18 @@ class _CalendarPageState extends State<CalendarPage> {
         : primaryColor;
   }
 
+  String _formatCalendarMonthHeader(DateTime date) {
+    final label = DateFormat.yMMMM('es').format(date);
+    return _capitalizeFirstLetter(label);
+  }
+
+  String _capitalizeFirstLetter(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+    return value.substring(0, 1).toUpperCase() + value.substring(1);
+  }
+
   void _mergeEntries(
     Map<DateTime, List<CalendarEntry>> target,
     Map<DateTime, List<Reservation>> source,
@@ -565,6 +578,8 @@ class _CalendarPageState extends State<CalendarPage> {
                   titleCentered: true,
                   titleTextStyle: TextStyle(color: textColor, fontSize: 18),
                   formatButtonVisible: false,
+                  titleTextFormatter: (date, locale) =>
+                      _formatCalendarMonthHeader(date),
                   leftChevronIcon: Icon(
                     Icons.chevron_left,
                     color: primaryColor,
