@@ -326,45 +326,30 @@ class _HomePageState extends State<HomePage> {
     final shouldReset =
         _isLoadingSearchSuggestions ||
         _searchSuggestions.isNotEmpty ||
-        _hasSearched;
-
-    if (query.length < 2) {
-      if (shouldReset || _isSearchButtonActive || _isSearchButtonPressed) {
-        setState(() {
-          _isLoadingSearchSuggestions = false;
-          _searchSuggestions.clear();
-          _hasSearched = false;
-          _isSearchButtonActive = false;
-          _isSearchButtonPressed = false;
-        });
-      }
-      if (!_searchFocusNode.hasFocus) {
-        _searchFocusNode.requestFocus();
-      }
-      return;
-    }
+        _hasSearched ||
+        _isSearchButtonActive ||
+        _isSearchButtonPressed;
 
     if (shouldReset) {
       setState(() {
         _isLoadingSearchSuggestions = false;
         _searchSuggestions.clear();
         _hasSearched = false;
+        _isSearchButtonActive = false;
+        _isSearchButtonPressed = false;
       });
+    }
+
+    if (query.length < 2) {
+      if (!_searchFocusNode.hasFocus) {
+        _searchFocusNode.requestFocus();
+      }
+      return;
     }
 
     if (!_searchFocusNode.hasFocus) {
       _searchFocusNode.requestFocus();
     }
-
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isSearchButtonActive = query.length >= 2;
-      });
-      _fetchAutocompleteSuggestions(query);
-    });
   }
 
   void _handleSearchTap() {
@@ -1215,7 +1200,10 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
-                                  side: const BorderSide(color: Colors.white, width: 1),
+                                  side: const BorderSide(
+                                    color: Colors.white,
+                                    width: 1,
+                                  ),
                                 ),
                               ),
                               child: const Text('Aplicar filtros'),
@@ -1538,6 +1526,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refreshBusinessesAroundCurrentView() async {
+    if (_isLoadingNearbyBusinesses) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarWarning(
+          context,
+          'Debes de esperar a que calcule todos los negocios cercanos para volver a utilizarlo.',
+        );
+      }
+      return;
+    }
+
     setState(() {
       _searchCenter = _currentMapTarget;
       _selectedBusinessForRoute = null;
@@ -1818,7 +1816,8 @@ class _HomePageState extends State<HomePage> {
         _searchCenter.latitude,
         _searchCenter.longitude,
       );
-      if (distance < 50000 && now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
+      if (distance < 50000 &&
+          now.difference(_lastCountryLookupAt!) < const Duration(hours: 12)) {
         return;
       }
     }
@@ -2412,9 +2411,8 @@ class _HomePageState extends State<HomePage> {
                 final business = snapshot.data!;
                 final isFavorite = _favoriteBusinessIds.contains(business.id);
                 final businessId =
-                  registeredBusiness?['businessId']?.toString().trim() ?? '';
-                final shouldShowOffers =
-                  isRegistered && businessId.isNotEmpty;
+                    registeredBusiness?['businessId']?.toString().trim() ?? '';
+                final shouldShowOffers = isRegistered && businessId.isNotEmpty;
 
                 final firstHoursLine =
                     (business.openingHours != null &&
@@ -2434,8 +2432,7 @@ class _HomePageState extends State<HomePage> {
                 final photos = business.photoReferences ?? const <String>[];
 
                 /// MÁXIMO DE TARJETA
-                final maxSheetHeight =
-                    MediaQuery.of(context).size.height * 0.8;
+                final maxSheetHeight = MediaQuery.of(context).size.height * 0.8;
 
                 return SafeArea(
                   top: false,
@@ -2451,12 +2448,18 @@ class _HomePageState extends State<HomePage> {
                           ),
                           border: isRegistered
                               ? Border(
-                                  top:
-                                      BorderSide(color: _primaryColor, width: 3),
-                                  left:
-                                      BorderSide(color: _primaryColor, width: 3),
-                                  right:
-                                      BorderSide(color: _primaryColor, width: 3),
+                                  top: BorderSide(
+                                    color: _primaryColor,
+                                    width: 3,
+                                  ),
+                                  left: BorderSide(
+                                    color: _primaryColor,
+                                    width: 3,
+                                  ),
+                                  right: BorderSide(
+                                    color: _primaryColor,
+                                    width: 3,
+                                  ),
                                 )
                               : null,
                         ),
@@ -2484,289 +2487,307 @@ class _HomePageState extends State<HomePage> {
                               ),
                               const SizedBox(height: 14),
 
-                          if (photos.isNotEmpty)
-                            _buildPhotoCarousel(
-                              placeId: placeId,
-                              photoReferences: photos,
-                              isRegistered: isRegistered,
-                            ),
+                              if (photos.isNotEmpty)
+                                _buildPhotoCarousel(
+                                  placeId: placeId,
+                                  photoReferences: photos,
+                                  isRegistered: isRegistered,
+                                ),
 
                               Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  18,
+                                  20,
+                                  24,
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              business.name,
-                                              style: TextStyle(
-                                                fontSize: 23,
-                                                fontWeight: FontWeight.w800,
-                                                color: titleColor,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  business.name,
+                                                  style: TextStyle(
+                                                    fontSize: 23,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: titleColor,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
+                                              if (isRegistered)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(
+                                                    left: 8,
+                                                    top: 2,
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.verified_rounded,
+                                                    color: _primaryColor,
+                                                    size: 28,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                          if (isRegistered)
-                                            const Padding(
-                                              padding: EdgeInsets.only(
-                                                left: 8,
-                                                top: 2,
-                                              ),
-                                              child: Icon(
-                                                Icons.verified_rounded,
-                                                color: _primaryColor,
-                                                size: 28,
+                                        ),
+                                        IconButton(
+                                          tooltip: isFavorite
+                                              ? 'Quitar de locales guardados'
+                                              : 'Añadir en locales guardados',
+                                          onPressed: () {
+                                            _toggleFavoriteBusiness(
+                                              business.id,
+                                            );
+
+                                            /// Fuerza rebuild del modal
+                                            setModalState(() {});
+                                          },
+                                          icon: Icon(
+                                            isFavorite
+                                                ? Icons.bookmark_rounded
+                                                : Icons
+                                                      .bookmark_outline_rounded,
+                                            size: 35,
+                                            color: isFavorite
+                                                ? _primaryColor
+                                                : secondaryTextColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (isRegistered) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Local registrado en BarbApp',
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+
+                                    const SizedBox(height: 14),
+
+                                    if (business.rating != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: infoCardColor,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Row(
+                                              children: _buildRatingStars(
+                                                business.rating!,
+                                                size: 23,
                                               ),
                                             ),
+                                            const SizedBox(width: 27),
+                                            Text(
+                                              business.rating!.toStringAsFixed(
+                                                1,
+                                              ),
+                                              style: TextStyle(
+                                                color: titleColor,
+                                                fontSize: 30,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                business.reviewCount == null
+                                                    ? 'Valoracion basada en usuarios'
+                                                    : '${_formatReviewCount(business.reviewCount!)} reseñas',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: secondaryTextColor,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                    const SizedBox(height: 14),
+
+                                    Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: infoCardColor,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          _buildDetailRow(
+                                            icon: Icons.location_on_outlined,
+                                            iconColor: iconColor,
+                                            textColor: secondaryTextColor,
+                                            text: business.address,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _buildDetailRow(
+                                            icon: Icons.access_time,
+                                            iconColor: iconColor,
+                                            textColor: secondaryTextColor,
+                                            text: firstHoursLine,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _buildDetailRow(
+                                            icon: Icons.storefront_outlined,
+                                            iconColor: stateColor,
+                                            textColor: stateColor,
+                                            text: business.openNow == null
+                                                ? 'Estado: no disponible'
+                                                : (business.openNow!
+                                                      ? 'Abierto ahora'
+                                                      : 'Cerrado ahora'),
+                                          ),
+                                          if (business.phone != null) ...[
+                                            const SizedBox(height: 10),
+                                            _buildDetailRow(
+                                              icon: Icons.phone_outlined,
+                                              iconColor: iconColor,
+                                              textColor: secondaryTextColor,
+                                              text: business.phone!,
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),
-                                    IconButton(
-                                      tooltip: isFavorite
-                                          ? 'Quitar de locales guardados'
-                                          : 'Añadir en locales guardados',
-                                      onPressed: () {
-                                        _toggleFavoriteBusiness(business.id);
+                                    const SizedBox(height: 16),
 
-                                        /// Fuerza rebuild del modal
-                                        setModalState(() {});
-                                      },
-                                      icon: Icon(
-                                        isFavorite
-                                            ? Icons.bookmark_rounded
-                                            : Icons.bookmark_outline_rounded,
-                                        size: 35,
-                                        color: isFavorite
-                                            ? _primaryColor
-                                            : secondaryTextColor,
+                                    if (shouldShowOffers) ...[
+                                      _buildOffersSection(
+                                        businessId: businessId,
+                                        cardColor: infoCardColor,
+                                        titleColor: titleColor,
+                                        subtitleColor: secondaryTextColor,
+                                        iconColor: iconColor,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                if (isRegistered) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Local registrado en BarbApp',
-                                    style: TextStyle(
-                                      color: secondaryTextColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
+                                      const SizedBox(height: 16),
+                                    ],
 
-                                const SizedBox(height: 14),
-
-                                if (business.rating != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: infoCardColor,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Row(
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: _buildRatingStars(
-                                            business.rating!,
-                                            size: 23,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 27),
-                                        Text(
-                                          business.rating!.toStringAsFixed(1),
-                                          style: TextStyle(
-                                            color: titleColor,
-                                            fontSize: 30,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
                                         Expanded(
-                                          child: Text(
-                                            business.reviewCount == null
-                                                ? 'Valoracion basada en usuarios'
-                                                : '${_formatReviewCount(business.reviewCount!)} reseñas',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: secondaryTextColor,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                const SizedBox(height: 14),
-
-                                Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: infoCardColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      _buildDetailRow(
-                                        icon: Icons.location_on_outlined,
-                                        iconColor: iconColor,
-                                        textColor: secondaryTextColor,
-                                        text: business.address,
-                                      ),
-                                      const SizedBox(height: 10),
-                                      _buildDetailRow(
-                                        icon: Icons.access_time,
-                                        iconColor: iconColor,
-                                        textColor: secondaryTextColor,
-                                        text: firstHoursLine,
-                                      ),
-                                      const SizedBox(height: 10),
-                                      _buildDetailRow(
-                                        icon: Icons.storefront_outlined,
-                                        iconColor: stateColor,
-                                        textColor: stateColor,
-                                        text: business.openNow == null
-                                            ? 'Estado: no disponible'
-                                            : (business.openNow!
-                                                  ? 'Abierto ahora'
-                                                  : 'Cerrado ahora'),
-                                      ),
-                                      if (business.phone != null) ...[
-                                        const SizedBox(height: 10),
-                                        _buildDetailRow(
-                                          icon: Icons.phone_outlined,
-                                          iconColor: iconColor,
-                                          textColor: secondaryTextColor,
-                                          text: business.phone!,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                if (shouldShowOffers) ...[
-                                  _buildOffersSection(
-                                    businessId: businessId,
-                                    cardColor: infoCardColor,
-                                    titleColor: titleColor,
-                                    subtitleColor: secondaryTextColor,
-                                    iconColor: iconColor,
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 48,
-                                        child: OutlinedButton.icon(
-                                          onPressed: () async {
-                                            _selectedBusinessForRoute =
-                                                business;
-                                            await _openGoogleMapsRoute(
-                                              targetBusiness: business,
-                                            );
-                                          },
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.white,
-                                            side: const BorderSide(
-                                              color: Colors.white54,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                          ),
-                                          icon: const Icon(
-                                            Icons.directions_rounded,
-                                            size: 20,
-                                          ),
-                                          label: const Text(
-                                            'Calcular ruta',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (isRegistered) ...[
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: SizedBox(
-                                          height: 48,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () {
-                                              final businessId =
-                                                  registeredBusiness?['businessId']
-                                                      ?.toString()
-                                                      .trim() ??
-                                                  '';
-
-                                              if (businessId.isEmpty) {
-                                                InputDecorations.showTopSnackBarError(
-                                                  context,
-                                                  'No se pudo abrir la reserva.',
+                                          child: SizedBox(
+                                            height: 48,
+                                            child: OutlinedButton.icon(
+                                              onPressed: () async {
+                                                _selectedBusinessForRoute =
+                                                    business;
+                                                await _openGoogleMapsRoute(
+                                                  targetBusiness: business,
                                                 );
-                                                return;
-                                              }
-
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      ReservationFlowPage(
-                                                        initialBusinessId:
-                                                            businessId,
-                                                        initialBusinessName:
-                                                            registeredBusiness?['name']
-                                                                ?.toString(),
-                                                      ),
+                                              },
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: Colors.white,
+                                                side: const BorderSide(
+                                                  color: Colors.white54,
                                                 ),
-                                              );
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: _primaryColor,
-                                              foregroundColor: Colors.white,
-                                              disabledBackgroundColor:
-                                                  _primaryColor,
-                                              disabledForegroundColor:
-                                                  Colors.white,
-                                              elevation: 0,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                ),
                                               ),
-                                            ),
-                                            icon: const Icon(
-                                              Icons.calendar_month_rounded,
-                                              size: 20,
-                                            ),
-                                            label: const Text(
-                                              'Reservar',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w700,
+                                              icon: const Icon(
+                                                Icons.directions_rounded,
+                                                size: 20,
+                                              ),
+                                              label: const Text(
+                                                'Calcular ruta',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                        if (isRegistered) ...[
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 48,
+                                              child: ElevatedButton.icon(
+                                                onPressed: () {
+                                                  final businessId =
+                                                      registeredBusiness?['businessId']
+                                                          ?.toString()
+                                                          .trim() ??
+                                                      '';
+
+                                                  if (businessId.isEmpty) {
+                                                    InputDecorations.showTopSnackBarError(
+                                                      context,
+                                                      'No se pudo abrir la reserva.',
+                                                    );
+                                                    return;
+                                                  }
+
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          ReservationFlowPage(
+                                                            initialBusinessId:
+                                                                businessId,
+                                                            initialBusinessName:
+                                                                registeredBusiness?['name']
+                                                                    ?.toString(),
+                                                          ),
+                                                    ),
+                                                  );
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      _primaryColor,
+                                                  foregroundColor: Colors.white,
+                                                  disabledBackgroundColor:
+                                                      _primaryColor,
+                                                  disabledForegroundColor:
+                                                      Colors.white,
+                                                  elevation: 0,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                    side: const BorderSide(
+                                                      color: Colors.white,
+                                                      width: 1.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.calendar_month_rounded,
+                                                  size: 20,
+                                                ),
+                                                label: const Text(
+                                                  'Reservar',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
@@ -2884,7 +2905,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  
   IconData _iconForServiceType(String serviceType) {
     for (final option in kServiceTypeOptions) {
       if (option.label == serviceType) {
@@ -2939,7 +2959,7 @@ class _HomePageState extends State<HomePage> {
               Row(
                 children: [
                   Text(
-                    '${offer.price.toStringAsFixed(2)} EUR',
+                    '${offer.price.toStringAsFixed(2)} €',
                     style: TextStyle(
                       color: titleColor,
                       fontWeight: FontWeight.w700,
@@ -3176,7 +3196,10 @@ class _HomePageState extends State<HomePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: Stack(
             children: [
               ConstrainedBox(
@@ -3427,6 +3450,13 @@ class _HomePageState extends State<HomePage> {
             onCameraIdle: () {
               _persistMapState();
             },
+            onTap: (_) {
+              if (!mounted) {
+                return;
+              }
+              _searchFocusNode.unfocus();
+              _clearSearchSuggestions();
+            },
             initialCameraPosition: _lastCameraPosition,
             markers: _hairSalonMarkers,
             circles: _searchAreaCircles,
@@ -3559,33 +3589,38 @@ class _HomePageState extends State<HomePage> {
 
                   // 👉 INPUT
                   Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      cursorColor: const Color.fromARGB(255, 23, 23, 23),
-                      textInputAction: TextInputAction.search,
-                      onChanged: _onSearchQueryChanged,
-                      onSubmitted: (_) {
-                        _handleSearchTap();
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            _searchFocusNode.requestFocus();
-                          }
-                        });
-                      },
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
+                    child: TextSelectionTheme(
+                      data: const TextSelectionThemeData(
+                        cursorColor: Color.fromARGB(255, 23, 23, 23),
+                        selectionHandleColor: Color.fromARGB(255, 23, 23, 23),
+                        selectionColor: Color.fromARGB(80, 23, 23, 23),
                       ),
-                      decoration: const InputDecoration(
-                        hintText: "Buscar locales",
-                        hintStyle: TextStyle(color: Colors.grey),
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: 12,
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        cursorColor: const Color.fromARGB(255, 23, 23, 23),
+                        textInputAction: TextInputAction.search,
+                        onChanged: _onSearchQueryChanged,
+                        onSubmitted: (_) {
+                          _handleSearchTap();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              _searchFocusNode.requestFocus();
+                            }
+                          });
+                        },
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: "Buscar locales",
+                          hintStyle: TextStyle(color: Colors.grey),
+                          isDense: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
@@ -3626,8 +3661,8 @@ class _HomePageState extends State<HomePage> {
                         color: isSearchPressed
                             ? _searchButtonHoldColor
                             : (isSearchActive
-                                ? _primaryColor
-                                : const Color.fromARGB(255, 215, 216, 219)),
+                                  ? _primaryColor
+                                  : const Color.fromARGB(255, 215, 216, 219)),
                         borderRadius: const BorderRadius.horizontal(
                           right: Radius.circular(30),
                         ),
@@ -3651,7 +3686,7 @@ class _HomePageState extends State<HomePage> {
             bottom: 15,
             child: Column(
               children: [
-                const SizedBox(height: 10),                
+                const SizedBox(height: 10),
                 _buildMapControlButton(
                   icon: Icons.sync_rounded,
                   tooltip:

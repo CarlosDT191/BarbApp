@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:flutter_application_1/features/calendar/calendar_page.dart';
 import 'package:flutter_application_1/features/home/home_page_client.dart';
@@ -9,6 +8,8 @@ import 'package:flutter_application_1/features/home/home_page_owner.dart';
 import 'package:flutter_application_1/features/notifications/notification_page.dart';
 import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/models/booking_models.dart';
+import 'package:flutter_application_1/models/service_types.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/favorite_service.dart';
 import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
@@ -16,7 +17,7 @@ import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_application_1/features/home/home_page_client.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,6 +32,13 @@ class _FavoritesPageState extends State<FavoritesPage> {
   static const Color _primaryColor = Color.fromARGB(255, 200, 156, 125);
   static const Color _backgroundColor = Color.fromARGB(255, 23, 23, 23);
   static const Color _cardColor = Color.fromARGB(255, 30, 30, 30);
+  static const Color _registeredSheetBackgroundColor = Color.fromARGB(
+    255,
+    23,
+    23,
+    23,
+  );
+  static const Color _registeredCardColor = Color.fromARGB(255, 30, 30, 30);
 
   int _selectedIndex = 1;
   int unread = 0;
@@ -41,6 +49,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
   final Set<String> _favoriteBusinessIds = <String>{};
   final Map<String, Map<String, dynamic>> _registeredBusinessesByPlaceId = {};
   final Map<String, PageController> _photoControllersByPlaceId = {};
+  final Map<String, BookingBusinessDetails> _businessDetailsCache = {};
 
   @override
   void initState() {
@@ -117,7 +126,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     final uri = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/details/json'
       '?place_id=$placeId'
-      '&fields=name,formatted_address,opening_hours,current_opening_hours,formatted_phone_number,rating,user_ratings_total,photos'
+      '&fields=name,formatted_address,opening_hours,current_opening_hours,formatted_phone_number,rating,user_ratings_total,photos,geometry'
       '&language=es'
       '&key=$apiKey',
     );
@@ -152,12 +161,21 @@ class _FavoritesPageState extends State<FavoritesPage> {
           .where((photoReference) => photoReference.isNotEmpty)
           .toList(growable: false);
 
+      final geometry = result['geometry'] as Map<String, dynamic>?;
+      final location = geometry?['location'] as Map<String, dynamic>?;
+      final lat = location?['lat'];
+      final lng = location?['lng'];
+      final coordinates = (lat is num && lng is num)
+          ? LatLng(lat.toDouble(), lng.toDouble())
+          : null;
+
       return _FavoritePlace(
         id: placeId,
         name: result['name']?.toString() ?? 'Local guardado',
         address:
             result['formatted_address']?.toString() ??
             'Direccion no disponible',
+        location: coordinates,
         openNow:
             (result['opening_hours'] as Map<String, dynamic>?)?['open_now']
                 as bool?,
@@ -246,6 +264,23 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
   }
 
+  Future<BookingBusinessDetails?> _getBusinessDetails(String businessId) async {
+    final cached = _businessDetailsCache[businessId];
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final details = await BusinessService.getBusinessDetails(
+        businessId: businessId,
+      );
+      _businessDetailsCache[businessId] = details;
+      return details;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _toggleFavoriteBusiness(
     String businessId, {
     bool removeFromListOnUnfavorite = true,
@@ -295,24 +330,75 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
   }
 
-  Future<void> _openGoogleMapsRoute(String placeId) async {
-  try {
-    // Obtener ubicación actual del usuario
-    final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
+  Future<LatLng?> _getUserLocationOrigin() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Activa la ubicacion para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'Permiso de ubicacion requerido para calcular la ruta.',
+        );
+      }
+      return null;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (_) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener la ubicacion actual.',
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> _openGoogleMapsRoute(_FavoritePlace business) async {
+    final origin = await _getUserLocationOrigin();
+    if (origin == null) {
+      return;
+    }
+
+    final destination = business.location;
+    if (destination == null) {
+      if (mounted) {
+        InputDecorations.showTopSnackBarError(
+          context,
+          'No se pudo obtener la ubicacion del local.',
+        );
+      }
+      return;
+    }
 
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
-      'origin': '${position.latitude},${position.longitude}',
-      'destination': 'place_id:$placeId',
+      'origin': '${origin.latitude},${origin.longitude}',
+      'destination': '${destination.latitude},${destination.longitude}',
       'travelmode': 'driving',
     });
 
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && mounted) {
       InputDecorations.showTopSnackBarError(
@@ -320,375 +406,442 @@ class _FavoritesPageState extends State<FavoritesPage> {
         'No se pudo abrir Google Maps.',
       );
     }
-  } catch (e) {
-    if (mounted) {
-      InputDecorations.showTopSnackBarError(
-        context,
-        'Error obteniendo ubicación: $e',
-      );
-    }
   }
-}
 
   void _showSalonInfoSheet(String placeId) {
-    final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
-    final isRegistered = registeredBusiness != null;
-
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return FutureBuilder<_FavoritePlace?>(
-          future: _fetchFavoritePlaceDetails(placeId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done &&
-                !snapshot.hasData) {
-              return const SizedBox(
-                height: 170,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final registeredBusiness = _registeredBusinessesByPlaceId[placeId];
+            final isRegistered = registeredBusiness != null;
 
-            if (!snapshot.hasData || snapshot.data == null) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 80),
-                child: const Text(
-                  'No se pudo cargar el detalle del local.',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              );
-            }
+            return FutureBuilder<_FavoritePlace?>(
+              future: _fetchFavoritePlaceDetails(placeId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done &&
+                    !snapshot.hasData) {
+                  return const SizedBox(
+                    height: 170,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-            final business = snapshot.data!;
-            final firstHoursLine =
-                (business.openingHours != null &&
-                    business.openingHours!.isNotEmpty)
-                ? business.openingHours!.first
-                : 'Horario no disponible';
-
-            final titleColor = isRegistered ? _primaryColor : Colors.white;
-            final secondaryTextColor = Colors.white70;
-            final iconColor = isRegistered ? _primaryColor : Colors.white;
-            final containerColor = _backgroundColor;
-            final infoCardColor = _cardColor;
-            final photos = business.photoReferences ?? const <String>[];
-
-            return SafeArea(
-              top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  border: isRegistered ? Border(
-                    top: BorderSide(color: _primaryColor, width: 3),
-                    left: BorderSide(color: _primaryColor, width: 3),
-                    right: BorderSide(color: _primaryColor, width: 3),
-                  ) : null,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10),
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: isRegistered
-                                ? Colors.white30
-                                : const Color.fromARGB(255, 205, 205, 205),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                        ),
+                if (!snapshot.hasData || snapshot.data == null) {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
                       ),
-                      const SizedBox(height: 14),
-                      if (photos.isNotEmpty)
-                        _buildPhotoCarousel(
-                          placeId: placeId,
-                          photoReferences: photos,
-                          isRegistered: isRegistered,
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 80),
+                    child: const Text(
+                      'No se pudo cargar el detalle del local.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }
+
+                final business = snapshot.data!;
+                final isFavorite = _favoriteBusinessIds.contains(business.id);
+                final businessId =
+                    registeredBusiness?['businessId']?.toString().trim() ?? '';
+                final shouldShowOffers = isRegistered && businessId.isNotEmpty;
+
+                final firstHoursLine =
+                    (business.openingHours != null &&
+                        business.openingHours!.isNotEmpty)
+                    ? business.openingHours!.first
+                    : 'Horario no disponible';
+
+                final titleColor = isRegistered ? _primaryColor : Colors.white;
+                final secondaryTextColor = Colors.white70;
+                final iconColor = isRegistered ? _primaryColor : Colors.white;
+                final containerColor = _registeredSheetBackgroundColor;
+                final infoCardColor = _registeredCardColor;
+                final stateColor = business.openNow == null
+                    ? const Color.fromARGB(255, 205, 205, 205)
+                    : (business.openNow! ? Colors.green : Colors.red);
+
+                final photos = business.photoReferences ?? const <String>[];
+
+                final maxSheetHeight =
+                    MediaQuery.of(context).size.height * 0.8;
+
+                return SafeArea(
+                  top: false,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: maxSheetHeight),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: containerColor,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          border: isRegistered
+                              ? const Border(
+                                  top: BorderSide(
+                                    color: _primaryColor,
+                                    width: 3,
+                                  ),
+                                  left: BorderSide(
+                                    color: _primaryColor,
+                                    width: 3,
+                                  ),
+                                  right: BorderSide(
+                                    color: _primaryColor,
+                                    width: 3,
+                                  ),
+                                )
+                              : null,
                         ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          business.name,
-                                          style: TextStyle(
-                                            fontSize: 23,
-                                            fontWeight: FontWeight.w800,
-                                            color: titleColor,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 10),
+                              Center(
+                                child: Container(
+                                  width: 44,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: isRegistered
+                                        ? _primaryColor
+                                        : const Color.fromARGB(
+                                            255,
+                                            205,
+                                            205,
+                                            205,
                                           ),
+                                    borderRadius: BorderRadius.circular(100),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              if (photos.isNotEmpty)
+                                _buildPhotoCarousel(
+                                  placeId: placeId,
+                                  photoReferences: photos,
+                                  isRegistered: isRegistered,
+                                ),
+
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  18,
+                                  20,
+                                  24,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  business.name,
+                                                  style: TextStyle(
+                                                    fontSize: 23,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: titleColor,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isRegistered)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(
+                                                    left: 8,
+                                                    top: 2,
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.verified_rounded,
+                                                    color: _primaryColor,
+                                                    size: 28,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: isFavorite
+                                              ? 'Quitar de locales guardados'
+                                              : 'Añadir en locales guardados',
+                                          onPressed: () async {
+                                            await _toggleFavoriteBusiness(
+                                              business.id,
+                                            );
+
+                                            if (!mounted) {
+                                              return;
+                                            }
+
+                                            if (!_favoriteBusinessIds.contains(
+                                              business.id,
+                                            )) {
+                                              Navigator.of(context).pop();
+                                              return;
+                                            }
+
+                                            setModalState(() {});
+                                          },
+                                          icon: Icon(
+                                            isFavorite
+                                                ? Icons.bookmark_rounded
+                                                : Icons
+                                                      .bookmark_outline_rounded,
+                                            size: 35,
+                                            color: isFavorite
+                                                ? _primaryColor
+                                                : secondaryTextColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (isRegistered) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Local registrado en BarbApp',
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
                                         ),
                                       ),
-                                      if (isRegistered)
-                                        const Padding(
-                                          padding: EdgeInsets.only(
-                                            left: 8,
-                                            top: 2,
-                                          ),
-                                          child: Icon(
-                                            Icons.verified_rounded,
-                                            color: _primaryColor,
-                                            size: 28,
+                                    ],
+
+                                    const SizedBox(height: 14),
+
+                                    if (business.rating != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: infoCardColor,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
                                         ),
+                                        child: Row(
+                                          children: [
+                                            Row(
+                                              children: _buildRatingStars(
+                                                business.rating!,
+                                                size: 23,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 27),
+                                            Text(
+                                              business.rating!.toStringAsFixed(
+                                                1,
+                                              ),
+                                              style: TextStyle(
+                                                color: titleColor,
+                                                fontSize: 30,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                business.reviewCount == null
+                                                    ? 'Valoracion basada en usuarios'
+                                                    : '${_formatReviewCount(business.reviewCount!)} reseñas',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: secondaryTextColor,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                    const SizedBox(height: 14),
+
+                                    Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: infoCardColor,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          _buildDetailRow(
+                                            icon: Icons.location_on_outlined,
+                                            iconColor: iconColor,
+                                            textColor: secondaryTextColor,
+                                            text: business.address,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _buildDetailRow(
+                                            icon: Icons.access_time,
+                                            iconColor: iconColor,
+                                            textColor: secondaryTextColor,
+                                            text: firstHoursLine,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _buildDetailRow(
+                                            icon: Icons.storefront_outlined,
+                                            iconColor: stateColor,
+                                            textColor: stateColor,
+                                            text: business.openNow == null
+                                                ? 'Estado: no disponible'
+                                                : (business.openNow!
+                                                      ? 'Abierto ahora'
+                                                      : 'Cerrado ahora'),
+                                          ),
+                                          if (business.phone != null) ...[
+                                            const SizedBox(height: 10),
+                                            _buildDetailRow(
+                                              icon: Icons.phone_outlined,
+                                              iconColor: iconColor,
+                                              textColor: secondaryTextColor,
+                                              text: business.phone!,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    if (shouldShowOffers) ...[
+                                      _buildOffersSection(
+                                        businessId: businessId,
+                                        cardColor: infoCardColor,
+                                        titleColor: titleColor,
+                                        subtitleColor: secondaryTextColor,
+                                        iconColor: iconColor,
+                                      ),
+                                      const SizedBox(height: 16),
                                     ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip:
-                                      _favoriteBusinessIds.contains(business.id)
-                                      ? 'Quitar de locales guardados'
-                                      : 'Guardar en locales guardados',
-                                  onPressed: () async {
-                                    await _toggleFavoriteBusiness(business.id);
-                                    if (mounted &&
-                                        !_favoriteBusinessIds.contains(
-                                          business.id,
-                                        )) {
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                  icon: Icon(
-                                    _favoriteBusinessIds.contains(business.id)
-                                        ? Icons.bookmark_rounded
-                                        : Icons.bookmark_outline_rounded,
-                                    size: 35,
-                                    color:
-                                        _favoriteBusinessIds.contains(
-                                          business.id,
-                                        )
-                                        ? _primaryColor
-                                        : secondaryTextColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (isRegistered) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                'Local registrado en BarbApp',
-                                style: TextStyle(
-                                  color: secondaryTextColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: SizedBox(
+                                            height: 48,
+                                            child: OutlinedButton.icon(
+                                              onPressed: () async {
+                                                await _openGoogleMapsRoute(
+                                                  business,
+                                                );
+                                              },
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: Colors.white,
+                                                side: const BorderSide(
+                                                  color: Colors.white54,
+                                                ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                ),
+                                              ),
+                                              icon: const Icon(
+                                                Icons.directions_rounded,
+                                                size: 20,
+                                              ),
+                                              label: const Text(
+                                                'Calcular ruta',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        if (isRegistered) ...[
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 48,
+                                              child: ElevatedButton.icon(
+                                                onPressed: () {
+                                                  if (businessId.isEmpty) {
+                                                    InputDecorations.showTopSnackBarError(
+                                                      context,
+                                                      'No se pudo abrir la reserva.',
+                                                    );
+                                                    return;
+                                                  }
+
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          ReservationFlowPage(
+                                                            initialBusinessId:
+                                                                businessId,
+                                                            initialBusinessName:
+                                                                registeredBusiness?['name']
+                                                                    ?.toString(),
+                                                          ),
+                                                    ),
+                                                  );
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      _primaryColor,
+                                                  foregroundColor: Colors.white,
+                                                  disabledBackgroundColor:
+                                                      _primaryColor,
+                                                  disabledForegroundColor:
+                                                      Colors.white,
+                                                  elevation: 0,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                    side: const BorderSide(
+                                                      color: Colors.white,
+                                                      width: 1.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.calendar_month_rounded,
+                                                  size: 20,
+                                                ),
+                                                label: const Text(
+                                                  'Reservar',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 14),
-                            if (business.rating != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: infoCardColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Row(
-                                      children: _buildRatingStars(
-                                        business.rating!,
-                                        size: 23,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      business.rating!.toStringAsFixed(1),
-                                      style: TextStyle(
-                                        color: titleColor,
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        business.reviewCount == null
-                                            ? 'Valoracion basada en usuarios'
-                                            : '${_formatReviewCount(business.reviewCount!)} reseñas',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: secondaryTextColor,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: infoCardColor,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildDetailRow(
-                                    icon: Icons.location_on_outlined,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: business.address,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    icon: Icons.access_time,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: firstHoursLine,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    icon: Icons.storefront_outlined,
-                                    iconColor: iconColor,
-                                    textColor: secondaryTextColor,
-                                    text: business.openNow == null
-                                        ? 'Estado: no disponible'
-                                        : (business.openNow!
-                                              ? 'Abierto ahora'
-                                              : 'Cerrado ahora'),
-                                  ),
-                                  if (business.phone != null) ...[
-                                    const SizedBox(height: 10),
-                                    _buildDetailRow(
-                                      icon: Icons.phone_outlined,
-                                      iconColor: iconColor,
-                                      textColor: secondaryTextColor,
-                                      text: business.phone!,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-
-                          const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 48,
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        await _openGoogleMapsRoute(business.id);
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.white,
-                                        side: const BorderSide(
-                                          color: Colors.white54,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.directions_rounded,
-                                        size: 20,
-                                      ),
-                                      label: const Text(
-                                        'Calcular ruta',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (isRegistered) ...[
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 48,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          final businessId = registeredBusiness
-                                                  ?['businessId']
-                                              ?.toString()
-                                              .trim() ??
-                                              '';
-
-                                          if (businessId.isEmpty) {
-                                            InputDecorations
-                                                .showTopSnackBarError(
-                                              context,
-                                              'No se pudo abrir la reserva.',
-                                            );
-                                            return;
-                                          }
-
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ReservationFlowPage(
-                                                initialBusinessId: businessId,
-                                                initialBusinessName:
-                                                    registeredBusiness?['name']
-                                                        ?.toString(),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _primaryColor,
-                                          foregroundColor: Colors.white,
-                                          disabledBackgroundColor:
-                                              _primaryColor,
-                                          disabledForegroundColor: Colors.white,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.calendar_month_rounded,
-                                          size: 20,
-                                        ),
-                                        label: const Text(
-                                          'Reservar',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
@@ -795,6 +948,193 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
+  IconData _iconForServiceType(String serviceType) {
+    for (final option in kServiceTypeOptions) {
+      if (option.label == serviceType) {
+        return option.icon;
+      }
+    }
+    return Icons.content_cut;
+  }
+
+  String _formatOfferTitle(BookingBusinessOffer offer) {
+    final serviceType = offer.serviceType.trim();
+    final name = offer.name.trim();
+
+    if (serviceType.isEmpty) {
+      return name.isEmpty ? 'Oferta' : name;
+    }
+
+    if (name.isEmpty) {
+      return serviceType;
+    }
+
+    return '($serviceType) $name';
+  }
+
+  Widget _buildOfferRow({
+    required BookingBusinessOffer offer,
+    required Color titleColor,
+    required Color subtitleColor,
+    required Color iconColor,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          _iconForServiceType(offer.serviceType),
+          color: iconColor,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatOfferTitle(offer),
+                style: TextStyle(
+                  color: subtitleColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    '${offer.price.toStringAsFixed(2)} €',
+                    style: TextStyle(
+                      color: titleColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (offer.durationMinutes > 0) ...[
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.access_time,
+                      color: Colors.white54,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${offer.durationMinutes} min',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOffersSection({
+    required String businessId,
+    required Color cardColor,
+    required Color titleColor,
+    required Color subtitleColor,
+    required Color iconColor,
+  }) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.34;
+    Widget buildOffersContent(List<BookingBusinessOffer> offers) {
+      if (offers.isEmpty) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text(
+            'Sin ofertas disponibles.',
+            style: TextStyle(color: Colors.white70),
+          ),
+        );
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ofertas',
+              style: TextStyle(
+                color: titleColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemCount: offers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  return _buildOfferRow(
+                    offer: offers[index],
+                    titleColor: titleColor,
+                    subtitleColor: subtitleColor,
+                    iconColor: iconColor,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final cached = _businessDetailsCache[businessId];
+    if (cached != null) {
+      return buildOffersContent(cached.offers);
+    }
+
+    return FutureBuilder<BookingBusinessDetails?>(
+      future: _getBusinessDetails(businessId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: const [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _primaryColor,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Cargando ofertas...',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final offers = snapshot.data?.offers ?? const <BookingBusinessOffer>[];
+        return buildOffersContent(offers);
+      },
+    );
+  }
+
   List<Widget> _buildRatingStars(double rating, {double size = 22}) {
     final clamped = rating.clamp(0, 5);
     final fullStars = clamped.floor();
@@ -853,7 +1193,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
                       if (isRegistered) ...[
                         const SizedBox(width: 4),
                         const Padding(
-                          padding: EdgeInsets.only(left: 5), // Espacio entre el símbolo de verificado y el nombre del local
+                          padding: EdgeInsets.only(
+                            left: 5,
+                          ), // Espacio entre el símbolo de verificado y el nombre del local
                           child: Icon(
                             Icons.verified_rounded,
                             color: _primaryColor,
@@ -1040,6 +1382,7 @@ class _FavoritePlace {
     required this.id,
     required this.name,
     required this.address,
+    this.location,
     this.openNow,
     this.rating,
     this.reviewCount,
@@ -1051,6 +1394,7 @@ class _FavoritePlace {
   final String id;
   final String name;
   final String address;
+  final LatLng? location;
   final bool? openNow;
   final double? rating;
   final int? reviewCount;
