@@ -1,4 +1,4 @@
-# 💈 BarbApp
+# 💈 BarbApp 💈
 
 **Plataforma integral de reservas para peluquerías y barberías**
 
@@ -6,8 +6,6 @@
 [![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=node.js)](https://nodejs.org)
 [![Firebase](https://img.shields.io/badge/Firebase-Enabled-yellow?logo=firebase)](https://firebase.google.com)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Enabled-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com)
-[![License](https://img.shields.io/badge/License-ISC-blue)](LICENSE)
-
 ---
 
 ## Índice
