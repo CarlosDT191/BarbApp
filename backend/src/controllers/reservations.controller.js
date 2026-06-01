@@ -303,7 +303,7 @@ exports.createReservation = async (req, res) => {
     if (String(business.owner) !== String(userId)) {
       try {
         await sendPushToUser(business.owner, {
-          title: "Nueva reserva",
+          title: "Nueva cita",
           body: ownerMessage,
           data: {
             type: "reservation",

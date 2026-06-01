@@ -6,6 +6,7 @@ import 'package:flutter_application_1/features/calendar/widgets/day_timeline_vie
 import 'package:flutter_application_1/features/reservations/reservation_flow_page.dart';
 import 'package:flutter_application_1/features/reservations/appointment_flow_page.dart';
 import 'package:flutter_application_1/models/decorations.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:intl/intl.dart';
 
 enum _CreateAction { reservation, appointment }
@@ -113,22 +114,6 @@ class _DayDetailPageState extends State<DayDetailPage> {
     }
   }
 
-  /// Navega al día anterior
-  void _previousDay() {
-    _pageController.previousPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  /// Navega al día siguiente
-  void _nextDay() {
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
   Future<void> _openReservationFlow({DateTime? date, String? time}) async {
     final initialDate = date ?? _displayedDate;
     final createdReservation = await Navigator.push<Reservation>(
@@ -166,6 +151,8 @@ class _DayDetailPageState extends State<DayDetailPage> {
           (b.reservation.startHour * 60) + b.reservation.startMinute;
       return aMinutes.compareTo(bMinutes);
     });
+
+    await UserService.updateUnreadNotifications();
 
     setState(() {});
   }
@@ -207,6 +194,8 @@ class _DayDetailPageState extends State<DayDetailPage> {
           (b.reservation.startHour * 60) + b.reservation.startMinute;
       return aMinutes.compareTo(bMinutes);
     });
+
+    await UserService.updateUnreadNotifications();
 
     setState(() {});
   }
@@ -342,6 +331,8 @@ class _DayDetailPageState extends State<DayDetailPage> {
       );
 
       setState(() {});
+
+      await UserService.updateUnreadNotifications();
 
       if (mounted) {
         final successMessage = isAppointment

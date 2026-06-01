@@ -60,6 +60,23 @@ const serializeVacationDays = (vacationDays) => {
     .map((day) => day.toISOString().slice(0, 10));
 };
 
+const buildOfferKey = (offer) => {
+  if (!offer || typeof offer !== "object") {
+    return null;
+  }
+
+  const name = toTrimmedString(offer.name);
+  const serviceType = toTrimmedString(offer.serviceType);
+  const price = Number(offer.price);
+  const durationMinutes = Number(offer.durationMinutes);
+
+  if (!name || !serviceType || !Number.isFinite(price) || !Number.isFinite(durationMinutes)) {
+    return null;
+  }
+
+  return `${name}::${serviceType}::${price}::${durationMinutes}`;
+};
+
 /**
  * Obtiene todos los negocios del usuario autenticado
  * @param string req.user.userId ID del usuario autenticado (del token)
@@ -168,6 +185,17 @@ exports.updateMyBusiness = async (req, res) => {
       return res.status(404).json({ error: "Negocio no encontrado" });
     }
 
+    const existingOffers = Array.isArray(business.offers) ? business.offers : [];
+    const existingOfferKeys = new Set(
+      existingOffers.map(buildOfferKey).filter(Boolean),
+    );
+    const nextOfferKeys = new Set(
+      normalizedOffers.map(buildOfferKey).filter(Boolean),
+    );
+    const removedOfferKeys = Array.from(existingOfferKeys).filter(
+      (key) => !nextOfferKeys.has(key),
+    );
+
     if (normalizedName) {
       business.name = normalizedName;
     }
@@ -178,6 +206,91 @@ exports.updateMyBusiness = async (req, res) => {
     business.employeeCount = normalizedEmployeeCount;
 
     await business.save();
+
+    if (removedOfferKeys.length > 0) {
+      const now = new Date();
+      const todayUtc = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+      ));
+
+      const futureReservations = await Reservation.find({
+        business: business._id,
+        date: { $gte: todayUtc },
+      }).lean();
+
+      const reservationsToCancel = futureReservations.filter((reservation) => {
+        const reservationKey = buildOfferKey(reservation?.service);
+        return reservationKey && removedOfferKeys.includes(reservationKey);
+      });
+
+      if (reservationsToCancel.length > 0) {
+        const cancelNotifications = [];
+        const pushTasks = [];
+        const reservationIds = [];
+
+        reservationsToCancel.forEach((reservation) => {
+          const formattedDate = reservation.date.toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
+          const businessName = toTrimmedString(reservation.local_name) || "el negocio";
+          const serviceName = toTrimmedString(reservation?.service?.name);
+          const serviceLabel = serviceName
+            ? `${businessName} (${serviceName})`
+            : businessName;
+          const timeLabel = toTrimmedString(reservation.time);
+          const clientLabel = toTrimmedString(reservation.clientName) || "Cliente";
+          const detailsLabel = `${serviceLabel} del ${formattedDate} a las ${timeLabel}`;
+
+          const clientMessage =
+            `Tu reserva en ${detailsLabel} fue cancelada porque el propietario eliminó la oferta.`;
+          const ownerMessage =
+            `Has cancelado la reserva de ${clientLabel} en ${detailsLabel} porque eliminaste la oferta.`;
+
+          cancelNotifications.push({
+            user: reservation.user,
+            type: "cancel",
+            message: clientMessage,
+            relatedId: reservation._id,
+          });
+
+          if (String(reservation.owner) !== String(reservation.user)) {
+            cancelNotifications.push({
+              user: reservation.owner,
+              type: "cancel",
+              message: ownerMessage,
+              relatedId: reservation._id,
+            });
+          }
+
+          pushTasks.push(
+            sendPushToUser(reservation.user, {
+              title: "Reserva cancelada",
+              body: clientMessage,
+              data: {
+                type: "cancel",
+                reservationId: reservation._id.toString(),
+              },
+            }).catch(() => {})
+          );
+
+          reservationIds.push(reservation._id);
+        });
+
+        if (cancelNotifications.length > 0) {
+          await Notification.insertMany(cancelNotifications);
+        }
+
+        if (pushTasks.length > 0) {
+          await Promise.all(pushTasks);
+        }
+
+        await Reservation.deleteMany({ _id: { $in: reservationIds } });
+      }
+    }
 
     console.log(`${ip} - - [ ${date} ] "PUT /businesses/:businessId" 200`);
 
@@ -953,15 +1066,28 @@ exports.updateBusinessVacationDays = async (req, res) => {
         const reservationIds = reservations.map((item) => item._id);
         await Reservation.deleteMany({ _id: { $in: reservationIds } });
 
-        const message =
-          "El propietario ha seleccionado el día de su reserva como periodo vacacional. Realice de nuevo otra reserva dentro de un horario disponible";
+        const notifications = reservations.map((reservation) => {
+          const formattedDate = reservation.date.toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
+          const businessName = toTrimmedString(reservation.local_name) || "el negocio";
+          const serviceName = toTrimmedString(reservation?.service?.name);
+          const serviceLabel = serviceName
+            ? `${businessName} (${serviceName})`
+            : businessName;
+          const timeLabel = toTrimmedString(reservation.time);
+          const detailsLabel = `${serviceLabel} del ${formattedDate} a las ${timeLabel}`;
+          const message = `Tu reserva en ${detailsLabel} fue cancelada porque el propietario ha seleccionado el día como periodo vacacional. Realice de nuevo otra reserva dentro de un horario disponible.`;
 
-        const notifications = reservations.map((reservation) => ({
-          user: reservation.user,
-          type: "cancel",
-          message,
-          relatedId: reservation._id,
-        }));
+          return {
+            user: reservation.user,
+            type: "cancel",
+            message,
+            relatedId: reservation._id,
+          };
+        });
 
         if (notifications.length > 0) {
           await Notification.insertMany(notifications);
@@ -969,6 +1095,20 @@ exports.updateBusinessVacationDays = async (req, res) => {
 
         await Promise.all(
           reservations.map(async (reservation) => {
+            const formattedDate = reservation.date.toLocaleDateString('es-ES', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            });
+            const businessName = toTrimmedString(reservation.local_name) || "el negocio";
+            const serviceName = toTrimmedString(reservation?.service?.name);
+            const serviceLabel = serviceName
+              ? `${businessName} (${serviceName})`
+              : businessName;
+            const timeLabel = toTrimmedString(reservation.time);
+            const detailsLabel = `${serviceLabel} del ${formattedDate} a las ${timeLabel}`;
+            const message = `Tu reserva en ${detailsLabel} fue cancelada porque el propietario ha seleccionado el día como periodo vacacional. Realice de nuevo otra reserva dentro de un horario disponible.`;
+
             try {
               await sendPushToUser(reservation.user, {
                 title: "Reserva cancelada",

@@ -6,6 +6,7 @@ import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -363,6 +364,8 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
         businessId: selectedBusiness.id,
         offerIndex: selectedOfferIndex,
       );
+
+      await UserService.updateUnreadNotifications();
 
       if (!mounted) {
         return;

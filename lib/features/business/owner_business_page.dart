@@ -1316,7 +1316,11 @@ class _OwnerBusinessSetupFlowPageState
                 value: option.label,
                 child: Row(
                   children: [
-                    Icon(option.icon, color: Colors.white70, size: 20),
+                    option.buildIcon(
+                      context,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(option.label),
                   ],
@@ -1787,13 +1791,16 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
   bool _isDeleting = false;
   bool _hasChanges = false;
 
-  IconData _iconForServiceType(String serviceType) {
-    for (final option in kServiceTypeOptions) {
-      if (option.label == serviceType) {
-        return option.icon;
-      }
-    }
-    return Icons.content_cut;
+  Widget _iconForServiceType(
+    String serviceType, {
+    required Color color,
+    double size = 18,
+  }) {
+    return findServiceTypeOption(serviceType).buildIcon(
+      context,
+      color: color,
+      size: size,
+    );
   }
 
   @override
@@ -2049,8 +2056,8 @@ class _OwnerBusinessDetailPageState extends State<OwnerBusinessDetailPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Icon(
-                            _iconForServiceType(offer.serviceType),
+                          _iconForServiceType(
+                            offer.serviceType,
                             color: Colors.white70,
                             size: 18,
                           ),
@@ -2398,6 +2405,7 @@ class _OwnerBusinessRevenuePageState extends State<OwnerBusinessRevenuePage> {
         selectedBorderColor: _primaryColor,
         borderColor: Colors.white24,
         selectedColor: Colors.white,
+        splashColor: Colors.white.withOpacity(0.1),
         fillColor: _primaryColor,
         color: Colors.white70,
         constraints: const BoxConstraints(minHeight: 38, minWidth: 52),
@@ -2593,6 +2601,13 @@ class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
     return _selectedDays.contains(_dateKey(date));
   }
 
+  bool _isPastDay(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final normalized = DateTime(date.year, date.month, date.day);
+    return normalized.isBefore(today);
+  }
+
   void _toggleDay(DateTime date) {
     final key = _dateKey(date);
     if (_selectedDays.contains(key)) {
@@ -2694,6 +2709,13 @@ class _OwnerBusinessVacationPageState extends State<OwnerBusinessVacationPage> {
                     focusedDay: _focusedDay,
                     selectedDayPredicate: _isSelected,
                     onDaySelected: (selectedDay, focusedDay) {
+                      if (_isPastDay(selectedDay)) {
+                        InputDecorations.showTopSnackBarWarning(
+                          context,
+                          'No se pueden seleccionar dias pasados como vacacionales.',
+                        );
+                        return;
+                      }
                       setState(() {
                         _focusedDay = focusedDay;
                         _toggleDay(selectedDay);
@@ -3845,7 +3867,11 @@ class _OwnerBusinessEditFlowPageState extends State<OwnerBusinessEditFlowPage> {
                 value: option.label,
                 child: Row(
                   children: [
-                    Icon(option.icon, color: Colors.white70, size: 20),
+                    option.buildIcon(
+                      context,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(option.label),
                   ],

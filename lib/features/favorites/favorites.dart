@@ -772,7 +772,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                             child: SizedBox(
                                               height: 48,
                                               child: ElevatedButton.icon(
-                                                onPressed: () {
+                                                onPressed: () async {
                                                   if (businessId.isEmpty) {
                                                     InputDecorations.showTopSnackBarError(
                                                       context,
@@ -781,7 +781,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                                     return;
                                                   }
 
-                                                  Navigator.push(
+                                                  await Navigator.push(
                                                     context,
                                                     MaterialPageRoute(
                                                       builder: (_) =>
@@ -789,11 +789,17 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                                             initialBusinessId:
                                                                 businessId,
                                                             initialBusinessName:
-                                                                registeredBusiness?['name']
+                                                                registeredBusiness['name']
                                                                     ?.toString(),
                                                           ),
                                                     ),
                                                   );
+
+                                                  if (!mounted) {
+                                                    return;
+                                                  }
+
+                                                  initNotifications();
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
@@ -948,13 +954,16 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
-  IconData _iconForServiceType(String serviceType) {
-    for (final option in kServiceTypeOptions) {
-      if (option.label == serviceType) {
-        return option.icon;
-      }
-    }
-    return Icons.content_cut;
+  Widget _iconForServiceType(
+    String serviceType, {
+    required Color color,
+    double size = 18,
+  }) {
+    return findServiceTypeOption(serviceType).buildIcon(
+      context,
+      color: color,
+      size: size,
+    );
   }
 
   String _formatOfferTitle(BookingBusinessOffer offer) {
@@ -981,8 +990,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          _iconForServiceType(offer.serviceType),
+        _iconForServiceType(
+          offer.serviceType,
           color: iconColor,
           size: 18,
         ),
