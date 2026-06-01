@@ -1091,8 +1091,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                   value: option.label,
                                   child: Row(
                                     children: [
-                                      Icon(
-                                        option.icon,
+                                      option.buildIcon(
+                                        context,
                                         color: Colors.white70,
                                         size: 18,
                                       ),
@@ -2710,7 +2710,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                         child: SizedBox(
                                           height: 48,
                                           child: ElevatedButton.icon(
-                                            onPressed: () {
+                                            onPressed: () async {
                                               if (isOwnedBusiness) {
                                                 _openOwnedBusinessDetails(
                                                   businessId,
@@ -2726,7 +2726,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                                 return;
                                               }
 
-                                              Navigator.push(
+                                              await Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
                                                   builder: (_) =>
@@ -2734,11 +2734,17 @@ class _HomePageOwnerState extends State<HomePageOwner> {
                                                         initialBusinessId:
                                                             businessId,
                                                         initialBusinessName:
-                                                            registeredBusiness?['name']
+                                                            registeredBusiness['name']
                                                                 ?.toString(),
                                                       ),
                                                 ),
                                               );
+
+                                              if (!mounted) {
+                                                return;
+                                              }
+
+                                              initNotifications();
                                             },
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: _primaryColor,
@@ -2885,13 +2891,16 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     );
   }
 
-  IconData _iconForServiceType(String serviceType) {
-    for (final option in kServiceTypeOptions) {
-      if (option.label == serviceType) {
-        return option.icon;
-      }
-    }
-    return Icons.content_cut;
+  Widget _iconForServiceType(
+    String serviceType, {
+    required Color color,
+    double size = 18,
+  }) {
+    return findServiceTypeOption(serviceType).buildIcon(
+      context,
+      color: color,
+      size: size,
+    );
   }
 
   String _formatOfferTitle(BookingBusinessOffer offer) {
@@ -2918,8 +2927,8 @@ class _HomePageOwnerState extends State<HomePageOwner> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          _iconForServiceType(offer.serviceType),
+        _iconForServiceType(
+          offer.serviceType,
           color: iconColor,
           size: 18,
         ),

@@ -979,8 +979,8 @@ class _HomePageState extends State<HomePage> {
                                   value: option.label,
                                   child: Row(
                                     children: [
-                                      Icon(
-                                        option.icon,
+                                      option.buildIcon(
+                                        context,
                                         color: Colors.white70,
                                         size: 18,
                                       ),
@@ -2723,9 +2723,9 @@ class _HomePageState extends State<HomePage> {
                                             child: SizedBox(
                                               height: 48,
                                               child: ElevatedButton.icon(
-                                                onPressed: () {
+                                                onPressed: () async {
                                                   final businessId =
-                                                      registeredBusiness?['businessId']
+                                                      registeredBusiness['businessId']
                                                           ?.toString()
                                                           .trim() ??
                                                       '';
@@ -2738,7 +2738,7 @@ class _HomePageState extends State<HomePage> {
                                                     return;
                                                   }
 
-                                                  Navigator.push(
+                                                  await Navigator.push(
                                                     context,
                                                     MaterialPageRoute(
                                                       builder: (_) =>
@@ -2746,11 +2746,17 @@ class _HomePageState extends State<HomePage> {
                                                             initialBusinessId:
                                                                 businessId,
                                                             initialBusinessName:
-                                                                registeredBusiness?['name']
+                                                                registeredBusiness['name']
                                                                     ?.toString(),
                                                           ),
                                                     ),
                                                   );
+
+                                                  if (!mounted) {
+                                                    return;
+                                                  }
+
+                                                  initNotifications();
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
@@ -2905,13 +2911,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  IconData _iconForServiceType(String serviceType) {
-    for (final option in kServiceTypeOptions) {
-      if (option.label == serviceType) {
-        return option.icon;
-      }
-    }
-    return Icons.content_cut;
+  Widget _iconForServiceType(
+    String serviceType, {
+    required Color color,
+    double size = 18,
+  }) {
+    return findServiceTypeOption(serviceType).buildIcon(
+      context,
+      color: color,
+      size: size,
+    );
   }
 
   String _formatOfferTitle(BookingBusinessOffer offer) {
@@ -2938,8 +2947,8 @@ class _HomePageState extends State<HomePage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          _iconForServiceType(offer.serviceType),
+        _iconForServiceType(
+          offer.serviceType,
           color: iconColor,
           size: 18,
         ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/features/calendar/models/calendar_entry.dart';
 import 'package:flutter_application_1/features/calendar/widgets/timeline_hour.dart';
 import 'package:flutter_application_1/features/calendar/widgets/event_block.dart';

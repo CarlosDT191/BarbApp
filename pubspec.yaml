@@ -60,6 +60,8 @@ dependencies:
 
   flutter_dotenv: ^6.0.0
 
+  flutter_svg: ^2.0.10
+
   another_flushbar: ^1.10.24
 
 dev_dependencies:
@@ -87,9 +89,13 @@ flutter:
   uses-material-design: true
 
   assets:
-     - assets/google.png
-     - assets/.env
-     - assets/barbapp_logo.png
+    - assets/google.png
+    - assets/.env
+    - assets/barbapp_logo.png
+    - assets/logo_sin_fondo.png
+    - assets/beard.svg
+    - assets/maquinilla.svg
+    - assets/navaja.svg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

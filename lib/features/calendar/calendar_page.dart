@@ -291,6 +291,7 @@ class _CalendarPageState extends State<CalendarPage> {
       borderRadius: BorderRadius.circular(18),
       color: textColor.withOpacity(0.7),
       selectedColor: textColor,
+      splashColor: Colors.white.withOpacity(0.1),
       fillColor: primaryColor.withOpacity(0.2),
       borderColor: primaryColor.withOpacity(0.3),
       selectedBorderColor: primaryColor,

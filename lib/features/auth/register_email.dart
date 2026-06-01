@@ -87,7 +87,6 @@ class _RegisterEmailState extends State<RegisterEmail> {
       final GoogleSignInAuthentication auth = await account.authentication;
 
       final String? idToken = auth.idToken;
-      final String? accessToken = auth.accessToken;
 
       final String email = account.email;
       final String? fullName = account.displayName;

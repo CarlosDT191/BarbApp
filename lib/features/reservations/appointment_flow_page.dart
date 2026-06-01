@@ -4,6 +4,7 @@ import 'package:flutter_application_1/models/decorations.dart';
 import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/business_service.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:intl/intl.dart';
 
 class AppointmentFlowPage extends StatefulWidget {
@@ -302,6 +303,8 @@ class _AppointmentFlowPageState extends State<AppointmentFlowPage> {
         offerIndex: selectedOfferIndex,
         clientName: clientName,
       );
+
+      await UserService.updateUnreadNotifications();
 
       if (!mounted) {
         return;

@@ -8,15 +8,12 @@ import 'package:flutter_application_1/features/profile/profile_page.dart';
 import 'package:flutter_application_1/features/business/owner_business_page.dart';
 import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/services/reservation_service.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/models/decorations.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/intl_standalone.dart';
-import 'package:intl/date_symbol_data_local.dart';
 
 class _ReservationNotificationDetails {
   const _ReservationNotificationDetails({
@@ -177,26 +174,6 @@ class _NotificationPageState extends State<NotificationPage> {
     fetchNotifications();
   }
 
-  /// Devuelve el icono correspondiente según el tipo de notificación.
-  ///
-  /// [type] es el tipo de notificación (`String`): "reservation", "cancel", "reminder", "welcome", etc.
-  ///
-  /// Retorna un `IconData` con el icono representativo del tipo de notificación.
-  IconData _getIcon(String type) {
-    switch (type) {
-      case "reservation":
-        return Icons.calendar_today;
-      case "cancel":
-        return Icons.cancel;
-      case "reminder":
-        return Icons.notifications;
-      case "welcome":
-        return Icons.waving_hand_outlined;
-      default:
-        return Icons.info;
-    }
-  }
-
   _ReservationNotificationDetails? _parseNotificationForItem(dynamic notif) {
     final message = notif["message"]?.toString() ?? '';
     final type = notif["type"]?.toString() ?? '';
@@ -323,7 +300,7 @@ class _NotificationPageState extends State<NotificationPage> {
     }
 
     final clientCancelMatch = RegExp(
-      r'^Tu reserva en (.*?)\s+del\s+(.*?)\s+a las\s+(.*?)(?:[\.!]*\s*)(.*)$',
+      r'^Tu reserva en (.*?)\s+del\s+(.*?)\s+a las\s+(\d{1,2}:\d{2})(?:\s*[hH])?(?:[\.!]*\s*(.*))?$',
     ).firstMatch(trimmed);
     if (clientCancelMatch != null) {
       final labels = _extractBusinessAndService(
@@ -345,7 +322,7 @@ class _NotificationPageState extends State<NotificationPage> {
     }
 
     final clientSelfCancelMatch = RegExp(
-      r'^Has cancelado tu reserva en (.*?)\s+del\s+(.*?)\s+a las\s+(.*?)[\.!]*$',
+      r'^Has cancelado tu reserva en (.*?)\s+del\s+(.*?)\s+a las\s+(\d{1,2}:\d{2})(?:\s*[hH])?[\.!]*$',
     ).firstMatch(trimmed);
     if (clientSelfCancelMatch != null) {
       final labels = _extractBusinessAndService(
@@ -365,7 +342,7 @@ class _NotificationPageState extends State<NotificationPage> {
     }
 
     final ownerCancelMatch = RegExp(
-      r'^La reserva de (.*?)\s+en\s+(.*?)\s+del\s+(.*?)\s+a las\s+(.*?)(?:[\.!]*\s*)(.*)$',
+      r'^La reserva de (.*?)\s+en\s+(.*?)\s+del\s+(.*?)\s+a las\s+(\d{1,2}:\d{2})(?:\s*[hH])?(?:[\.!]*\s*(.*))?$',
     ).firstMatch(trimmed);
     if (ownerCancelMatch != null) {
       final labels = _extractBusinessAndService(
@@ -389,7 +366,7 @@ class _NotificationPageState extends State<NotificationPage> {
     }
 
     final ownerSelfCancelMatch = RegExp(
-      r'^Has cancelado la reserva de (.*?)\s+en\s+(.*?)\s+del\s+(.*?)\s+a las\s+(.*?)[\.!]*$',
+      r'^Has cancelado la reserva de (.*?)\s+en\s+(.*?)\s+del\s+(.*?)\s+a las\s+(\d{1,2}:\d{2})(?:\s*[hH])?[\.!]*$',
     ).firstMatch(trimmed);
     if (ownerSelfCancelMatch != null) {
       final labels = _extractBusinessAndService(
@@ -411,7 +388,7 @@ class _NotificationPageState extends State<NotificationPage> {
     }
 
     final fallbackMatch = RegExp(
-      r'\ben\s+(.*?)\s+del\s+(.*?)\s+a las\s+(.*?)[\.!]*$',
+      r'\ben\s+(.*?)\s+del\s+(.*?)\s+a las\s+(\d{1,2}:\d{2})(?:\s*[hH])?[\.!]*$',
     ).firstMatch(trimmed);
     if (fallbackMatch != null) {
       final titleIndex = trimmed.toLowerCase().indexOf(' en ');
@@ -494,6 +471,17 @@ class _NotificationPageState extends State<NotificationPage> {
       normalized = normalized.substring(4);
     } else if (lower.startsWith('se ')) {
       normalized = normalized.substring(3);
+    }
+
+    final lowerNormalized = normalized.toLowerCase();
+    if (lowerNormalized.startsWith('canceló') ||
+        lowerNormalized.startsWith('cancelo')) {
+      final prefixLength =
+          lowerNormalized.startsWith('canceló') ? 7 : 6;
+      final remainder = normalized.substring(prefixLength).trim();
+      return remainder.isEmpty
+          ? 'Reserva cancelada'
+          : 'Reserva cancelada $remainder';
     }
 
     final cancelMatch = RegExp(
