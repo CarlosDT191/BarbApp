@@ -52,4 +52,4 @@ app.*.map.json
 backend/src/config/barbapp-ff512-firebase-adminsdk-fbsvc-1ae375740a.json
 
 #Firebase Options
-lib/firebase_options.dart
+lib/config/firebase_options.dart

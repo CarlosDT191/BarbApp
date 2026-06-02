@@ -245,9 +245,9 @@ flutter doctor
 BarbApp/
 ├── lib/                          # Código fuente Frontend (Flutter)
 │   ├── main.dart                 # Punto de entrada
-│   ├── firebase_options.dart     # Configuración Firebase
 │   ├── config/                   # Configuraciones globales
 │   │   ├── api_config.dart
+│   │   ├── firebase_options.dart
 │   │   └── google_auth_config.dart
 │   ├── features/                 # Módulos de características
 │   │   ├── auth/                 # Autenticación
