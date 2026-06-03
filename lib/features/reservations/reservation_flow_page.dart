@@ -259,7 +259,7 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
     final query = rawQuery.trim();
     _searchDebounce?.cancel();
 
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+    _searchDebounce = Timer(const Duration(milliseconds: 900), () {
       _loadBusinesses(query);
     });
   }
