@@ -862,107 +862,114 @@ class _ReservationFlowPageState extends State<ReservationFlowPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 23, 23, 23),
-      appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 23, 23, 23),
-        foregroundColor: Colors.white,
-        title: const Text('Reservar'),
+    return TextSelectionTheme(
+      data: const TextSelectionThemeData(
+        cursorColor: Color.fromARGB(255, 200, 156, 125),
+        selectionHandleColor: Color.fromARGB(255, 200, 156, 125),
+        selectionColor: Color.fromARGB(80, 200, 156, 125),
       ),
-      // PÁGINA DE RESERVAR EN NEGOCIOS
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildStepHeader(),
-              const SizedBox(height: 18),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: IndexedStack(
-                    index: _currentStep,
-                    children: [
-                      _buildBusinessStep(),
-                      _buildOfferStep(),
-                      _buildDateStep(),
-                    ],
+      child: Scaffold(
+        backgroundColor: const Color.fromARGB(255, 23, 23, 23),
+        appBar: AppBar(
+          backgroundColor: const Color.fromARGB(255, 23, 23, 23),
+          foregroundColor: Colors.white,
+          title: const Text('Reservar'),
+        ),
+        // PÁGINA DE RESERVAR EN NEGOCIOS
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildStepHeader(),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: IndexedStack(
+                      index: _currentStep,
+                      children: [
+                        _buildBusinessStep(),
+                        _buildOfferStep(),
+                        _buildDateStep(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: _isSaving ? null : _handleBack,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: const BorderSide(color: Colors.white54),
-                        ),
-                        child: const Text(
-                          'Atrás',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: _isSaving ? null : _handleBack,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Colors.white54),
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : (_canContinue ? _handleNext : null),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            200,
-                            156,
-                            125,
-                          ),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              30,
-                            ), // opcional (para bordes redondeados)
-                            side: const BorderSide(
-                              color: Colors
-                                  .white, // ← aquí defines el borde blanco
-                              width: 1.5, // grosor del borde
+                          child: const Text(
+                            'Atrás',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : (_canContinue ? _handleNext : null),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(
+                              255,
+                              200,
+                              156,
+                              125,
+                            ),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                30,
+                              ), // opcional (para bordes redondeados)
+                              side: const BorderSide(
+                                color: Colors
+                                    .white, // ← aquí defines el borde blanco
+                                width: 1.5, // grosor del borde
+                              ),
+                            ),
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  _currentStep == 2 ? 'Reservar' : 'Continuar',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              )
-                            : Text(
-                                _currentStep == 2 ? 'Reservar' : 'Continuar',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ),      
       ),
     );
   }
