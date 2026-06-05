@@ -107,8 +107,8 @@ class _RegisterRoleState extends State<RegisterRole> {
                               const SizedBox(height: 10),
                               Text(
                                 role["value"] == 1
-                                    ? "Podrás automatizar varios procesos, aparecer en búsquedas de otros usuarios y tener registro sobre tus empleados."
-                                    : "Podrás buscar nuevos negocios, compararlos según una serie de filtros y poder realizar reservas.",
+                                    ? "Podrás automatizar el proceso de gestión de citas del local, aparecer en búsquedas de otros usuarios y analizar las estimaciones de tus ingresos."
+                                    : "Podrás buscar nuevos negocios pudiendo aplicar una serie de filtros y poder realizar reservas en los locales registrados.",
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: isSelected ? Colors.white70 : Colors.grey,

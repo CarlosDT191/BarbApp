@@ -3166,7 +3166,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showWelcomeTab() {
     const subtitle =
-        'Esta app sobre negocios de peluquería y barbería contiene múltiples herramientas para ayudar a descubrir infinidad de locales, observar sus ofertas desde cualquier lugar y poder reservar en locales registrados.';
+        'Esta app sobre negocios de peluquería y barbería contiene múltiples herramientas para ayudarte a descubrir infinidad de locales, observar sus ofertas desde cualquier lugar y poder reservar en locales registrados.';
 
     final items = <Map<String, dynamic>>[
       {
@@ -3176,17 +3176,17 @@ class _HomePageState extends State<HomePage> {
       },
       {
         'title': 'Favoritos',
-        'description': 'Guarda locales para acceder rápido a ellos.',
+        'description': 'Guarda locales para tenerlos más accesibles.',
         'icon': Icons.bookmark_rounded,
       },
       {
         'title': 'Mapa',
-        'description': 'Descubre negocios cercanos y sus ofertas.',
+        'description': 'Descubre negocios según su ubicación y nombre y sus ofertas.',
         'icon': Icons.map,
       },
       {
         'title': 'Notificaciones',
-        'description': 'Recibe avisos de reservas y novedades.',
+        'description': 'Recibe avisos de reservas y posibles cancelaciones.',
         'icon': Icons.notifications,
       },
       {

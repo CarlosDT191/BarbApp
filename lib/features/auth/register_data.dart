@@ -159,7 +159,8 @@ class _RegisterPageState extends State<RegisterPage> {
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 30),
                                 child: Text(
-                                  'Especifica todos tus datos correctamente para comenzar en BarbApp',
+                                  'Especifique todos sus datos correctamente para comenzar en BarbApp',
+                                  textAlign: TextAlign.justify,
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Color.fromARGB(255, 200, 156, 125)

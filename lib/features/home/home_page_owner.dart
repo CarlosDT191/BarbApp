@@ -3152,7 +3152,7 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       {
         'title': 'Calendario',
         'description':
-            'Consulta reservas y citas de tus negocios, además de tus reservas.',
+            'Consulta reservas y citas de tus negocios.',
         'icon': Icons.calendar_month,
       },
       {
@@ -3162,12 +3162,12 @@ class _HomePageOwnerState extends State<HomePageOwner> {
       },
       {
         'title': 'Mapa',
-        'description': 'Explora negocios cercanos y tu ubicación.',
+        'description': 'Explora negocios cercanos según tu ubicación.',
         'icon': Icons.map,
       },
       {
         'title': 'Notificaciones',
-        'description': 'Recibe avisos de reservas, citas y novedades.',
+        'description': 'Recibe avisos de reservas, citas y posibles cancelaciones.',
         'icon': Icons.notifications,
       },
       {
