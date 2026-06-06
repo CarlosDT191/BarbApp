@@ -178,6 +178,25 @@ class _DayTimelineViewState extends State<DayTimelineView> {
       details.insert(2, {'Cliente:': reservation.clientDisplayName});
     }
 
+    // Calcular si la reserva ya terminó
+    final timeParts = reservation.time.split(':');
+
+    final reservationDateTime = DateTime(
+      reservation.date.year,
+      reservation.date.month,
+      reservation.date.day,
+      int.parse(timeParts[0]),
+      int.parse(timeParts[1]),
+    );
+
+    final reservationEnd = reservationDateTime.add(
+      Duration(minutes: reservation.durationMinutes),
+    );
+
+    final isPastReservation =
+        !isAppointment &&
+        !reservationEnd.isAfter(DateTime.now());
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color.fromARGB(255, 35, 35, 35),
@@ -204,17 +223,22 @@ class _DayTimelineViewState extends State<DayTimelineView> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                      _confirmDeleteReservation(entry);
-                },
+                onPressed: isPastReservation
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        _confirmDeleteReservation(entry);
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red[700],
+                  disabledBackgroundColor: Colors.red[700]?.withOpacity(0.5),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: Text(
-                  deleteLabel,
-                  style: const TextStyle(color: Colors.white),
+                      deleteLabel,
+                  style: TextStyle(color: isPastReservation
+                    ? Colors.white.withOpacity(0.5)
+                    : Colors.white),
                 ),
               ),
             ),
