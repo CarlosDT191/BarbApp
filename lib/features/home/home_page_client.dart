@@ -89,7 +89,7 @@ class _HomePageState extends State<HomePage> {
   };
 
   // Hues personalizables para pines: registrado y no registrado.
-  static const double _pinHueRegistered = 50; // AMARILLO ES 60, apagado es 50
+  static const double _pinHueRegistered = 60; // AMARILLO ES 60, apagado es 50
   static const double _pinHueUnregistered = 160; // CIAN ES 180, apagado es 170
 
   LatLng _searchCenter = const LatLng(37.8882, -4.7794);
